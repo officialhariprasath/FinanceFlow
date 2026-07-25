@@ -1,41 +1,42 @@
-function Sidebar() {
-  return (
-    <aside className="w-64 bg-blue-700 text-white min-h-screen">
+import { NavLink } from "react-router-dom";
 
-      <div className="h-16 flex items-center justify-center border-b border-blue-600">
-        <h1 className="text-xl font-bold">
-          FINNECT
-        </h1>
+function Sidebar() {
+  const linkClass = ({ isActive }: { isActive: boolean }) =>
+    `block w-full rounded px-4 py-3 ${
+      isActive ? "bg-blue-800" : "hover:bg-blue-600"
+    }`;
+
+  return (
+    <aside className="min-h-screen w-64 bg-blue-700 text-white">
+      <div className="flex h-16 items-center justify-center border-b border-blue-600">
+        <h1 className="text-xl font-bold">FINNECT</h1>
       </div>
 
-      <nav className="p-4 space-y-2">
-
-        <button className="w-full text-left px-4 py-3 rounded hover:bg-blue-600">
+      <nav className="space-y-2 p-4">
+        <NavLink to="/dashboard" className={linkClass}>
           Dashboard
-        </button>
+        </NavLink>
 
-        <button className="w-full text-left px-4 py-3 rounded hover:bg-blue-600">
+        <NavLink to="/customers" className={linkClass}>
           Customers
-        </button>
+        </NavLink>
 
-        <button className="w-full text-left px-4 py-3 rounded hover:bg-blue-600">
+        <NavLink to="/loans" className={linkClass}>
           Loans
-        </button>
+        </NavLink>
 
-        <button className="w-full text-left px-4 py-3 rounded hover:bg-blue-600">
+        <NavLink to="/payments" className={linkClass}>
           Payments
-        </button>
+        </NavLink>
 
-        <button className="w-full text-left px-4 py-3 rounded hover:bg-blue-600">
+        <NavLink to="/renewals" className={linkClass}>
           Renewals
-        </button>
+        </NavLink>
 
-        <button className="w-full text-left px-4 py-3 rounded hover:bg-blue-600">
+        <NavLink to="/settings" className={linkClass}>
           Settings
-        </button>
-
+        </NavLink>
       </nav>
-
     </aside>
   );
 }

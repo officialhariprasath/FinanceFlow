@@ -19,6 +19,8 @@ from backend.app.schemas.dashboard import (
     ClosedLoanResponse,
     ClosedLoansReportResponse,
 )
+from backend.app.models.enums import PaymentMode
+
 
 def get_dashboard(
     db: Session,
@@ -155,6 +157,24 @@ def get_dashboard(
         .limit(5)
         .all()
     )
+
+    # Normalize legacy payment modes from the database.
+    payment_mode_map = {
+        "cash": PaymentMode.CASH,
+        "upi": PaymentMode.UPI,
+        "bank transfer": PaymentMode.BANK_TRANSFER,
+        "bank_transfer": PaymentMode.BANK_TRANSFER,
+        "banktransfer": PaymentMode.BANK_TRANSFER,
+        "cheque": PaymentMode.CHEQUE,
+        "check": PaymentMode.CHEQUE,
+        # Legacy value used by older versions
+        "settlement": PaymentMode.CASH,
+    }
+
+    for payment in recent_payments:
+        value = str(payment.payment_mode).strip().lower()
+        if value in payment_mode_map:
+            payment.payment_mode = payment_mode_map[value]
 
     # ---------------------------------
     # Return Dashboard
