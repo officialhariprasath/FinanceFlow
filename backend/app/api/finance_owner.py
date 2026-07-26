@@ -5,8 +5,7 @@ Contains endpoints for finance owner registration,
 authentication, and profile management.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, Form, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.app.core.auth import get_current_finance_owner
@@ -53,25 +52,24 @@ def register_finance_owner(
     response_model=Token,
 )
 def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    username: str = Form(...),
+    password: str = Form(...),
     db: Session = Depends(get_db),
 ):
     """
     Authenticate a finance owner and return a JWT access token.
     """
-
     try:
         return authenticate_finance_owner(
             db,
-            form_data.username,
-            form_data.password,
+            username,
+            password,
         )
     except ValueError as e:
         raise HTTPException(
             status_code=401,
             detail=str(e),
         )
-
 
 @router.get(
     "/me",
