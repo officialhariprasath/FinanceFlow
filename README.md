@@ -1,5 +1,3 @@
-# FINNECT Finance OS
-
 <h1 align="center">
 FINNECT Finance OS
 </h1>
@@ -188,11 +186,6 @@ Business overview including:
 
 ## Dashboard
 
-```
-
-docs/screenshots/dashboard.png
-
-```
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
