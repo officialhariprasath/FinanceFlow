@@ -92,10 +92,6 @@ function CustomerLedgerPage() {
             <button className="rounded-lg bg-amber-500 px-5 py-2 font-medium text-white hover:bg-amber-600">
                 Renew Loan
             </button>
-
-            <button className="rounded-lg bg-slate-700 px-5 py-2 font-medium text-white hover:bg-slate-800">
-                Print Statement
-            </button>
             </div>
             </div>
         </div>
