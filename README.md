@@ -284,7 +284,7 @@ The application follows a modern three-tier architecture.
                     +----------+-----------+
                                |
                                |
-                     REST APIs (JWT)
+                         REST APIs (JWT)
                                |
                                |
                     +----------v-----------+
@@ -296,7 +296,7 @@ The application follows a modern three-tier architecture.
                     +----------+-----------+
                                |
                                |
-                      SQLAlchemy ORM
+                         SQLAlchemy ORM
                                |
                                |
                     +----------v-----------+
@@ -405,17 +405,17 @@ The backend is powered by PostgreSQL using SQLAlchemy ORM.
 ## Primary Entities
 
 ```text
-Finance Owner
+ Finance Owner
       │
       │ 1
       │
       │ N
-Customer
+   Customer
       │
       │ 1
       │
       │ N
-Loan
+     Loan
       │
  ┌────┴───────────┐
  │                │
@@ -508,7 +508,7 @@ Finance Owner
 
         ▼
 
-Secure Login
+  Secure Login
 
         │
 
@@ -520,7 +520,7 @@ Customer Registration
 
         ▼
 
-Loan Creation
+  Loan Creation
 
         │
 
@@ -546,7 +546,7 @@ Renew Loan   Settle Loan
 
         ▼
 
-Dashboard Reports
+ Dashboard Reports
 
         │
 
@@ -564,7 +564,7 @@ Finance Owner
 
       │
 
-Login Request
+ Login Request
 
       │
 
