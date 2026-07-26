@@ -1,9 +1,5 @@
 # FINNECT Finance OS
 
-<p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="FINNECT Dashboard" width="100%">
-</p>
-
 <h1 align="center">
 FINNECT Finance OS
 </h1>
