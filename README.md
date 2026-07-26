@@ -184,11 +184,15 @@ Business overview including:
 
 # Project Screenshots
 
-## Dashboard
+
+## Login Page
+
 
 ![Login page](docs/screenshots/login.png)
 
 ---
+
+## Dashboard
 
 
 ![Dashboard](docs/screenshots/dashboard.png)
