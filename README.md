@@ -186,6 +186,10 @@ Business overview including:
 
 ## Dashboard
 
+![Login page](docs/screenshots/login.png)
+
+---
+
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
