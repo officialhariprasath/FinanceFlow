@@ -5,7 +5,7 @@ import { getSettings, updateSettings } from "../../services/settingsService";
 import type { FinanceSettings } from "../../types/settings";
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<FinanceSettings | null>(null);
+  const [, setSettings] = useState<FinanceSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
