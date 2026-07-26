@@ -11,16 +11,16 @@ class FinanceSettingsBase(BaseModel):
     email: Optional[EmailStr] = None
     address: Optional[str] = Field(None, max_length=300)
 
-    default_interest_method: str
-    default_interest_rate: Decimal
-    default_loan_duration: int
-    default_grace_period: int
+    default_interest_method: Optional[str] = None
+    default_interest_rate: Optional[Decimal] = None
+    default_loan_duration: Optional[int] = None
+    default_grace_period: Optional[int] = None
 
-    currency: str
-    date_format: str
-    timezone: str
+    currency: Optional[str] = None
+    date_format: Optional[str] = None
+    timezone: Optional[str] = None
 
-    maturity_alert_days: int
+    maturity_alert_days: Optional[int] = None
 
 
 class FinanceSettingsUpdate(FinanceSettingsBase):

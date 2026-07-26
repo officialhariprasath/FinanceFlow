@@ -11,6 +11,8 @@ from backend.app.models.payment import Payment
 from backend.app.utils.interest_calculator import calculate_interest
 from backend.app.schemas.dashboard import (
     DashboardResponse,
+    RecentLoanItem,
+    RecentPaymentItem,
     ProfitSummaryResponse,
     MaturityLoanResponse,
     MaturityReportResponse,
@@ -19,6 +21,8 @@ from backend.app.schemas.dashboard import (
     ClosedLoanResponse,
     ClosedLoansReportResponse,
 )
+from backend.app.models.enums import PaymentMode
+
 
 def get_dashboard(
     db: Session,
@@ -66,6 +70,7 @@ def get_dashboard(
     # Financial Statistics
     # ---------------------------------
 
+    # SUM(principal_amount) across all loans — matches the raw SQL.
     total_principal_disbursed = (
         db.query(
             func.coalesce(
@@ -79,6 +84,7 @@ def get_dashboard(
         .scalar()
     )
 
+    # SUM(remaining_principal) across all loans — matches the raw SQL.
     remaining_principal = (
         db.query(
             func.coalesce(
@@ -92,15 +98,16 @@ def get_dashboard(
         .scalar()
     )
 
+    # Sum payments directly from the Payment table — single source of truth.
     total_principal_paid = (
         db.query(
             func.coalesce(
-                func.sum(Loan.total_principal_paid),
+                func.sum(Payment.principal_paid),
                 Decimal("0.00"),
             )
         )
         .filter(
-            Loan.finance_owner_id == finance_owner_id,
+            Payment.finance_owner_id == finance_owner_id,
         )
         .scalar()
     )
@@ -108,12 +115,12 @@ def get_dashboard(
     total_interest_paid = (
         db.query(
             func.coalesce(
-                func.sum(Loan.total_interest_paid),
+                func.sum(Payment.interest_paid),
                 Decimal("0.00"),
             )
         )
         .filter(
-            Loan.finance_owner_id == finance_owner_id,
+            Payment.finance_owner_id == finance_owner_id,
         )
         .scalar()
     )
@@ -156,6 +163,67 @@ def get_dashboard(
         .all()
     )
 
+    # Normalize legacy payment modes from the database.
+    payment_mode_map = {
+        "cash": PaymentMode.CASH,
+        "upi": PaymentMode.UPI,
+        "bank transfer": PaymentMode.BANK_TRANSFER,
+        "bank_transfer": PaymentMode.BANK_TRANSFER,
+        "banktransfer": PaymentMode.BANK_TRANSFER,
+        "cheque": PaymentMode.CHEQUE,
+        "check": PaymentMode.CHEQUE,
+        # Legacy value used by older versions
+        "settlement": PaymentMode.CASH,
+    }
+
+    for payment in recent_payments:
+        value = str(payment.payment_mode).strip().lower()
+        if value in payment_mode_map:
+            payment.payment_mode = payment_mode_map[value]
+
+    # Build customer id -> name map for recent loans and payments.
+    loan_customer_ids = {loan.customer_id for loan in recent_loans}
+    payment_loan_ids = {p.loan_id for p in recent_payments}
+
+    # Fetch customer names for recent loans.
+    loan_customers = (
+        db.query(Customer)
+        .filter(Customer.id.in_(loan_customer_ids))
+        .all()
+    ) if loan_customer_ids else []
+    customer_name_map = {c.id: c.full_name for c in loan_customers}
+
+    # Fetch loan->customer mapping for recent payments.
+    payment_loans = (
+        db.query(Loan)
+        .filter(Loan.id.in_(payment_loan_ids))
+        .all()
+    ) if payment_loan_ids else []
+    loan_customer_id_map = {l.id: l.customer_id for l in payment_loans}
+    # Merge any new customer ids from payment loans.
+    extra_ids = set(loan_customer_id_map.values()) - set(customer_name_map.keys())
+    if extra_ids:
+        extra_customers = (
+            db.query(Customer)
+            .filter(Customer.id.in_(extra_ids))
+            .all()
+        )
+        for c in extra_customers:
+            customer_name_map[c.id] = c.full_name
+
+    enriched_loans = []
+    for loan in recent_loans:
+        item = RecentLoanItem.model_validate(loan)
+        item.customer_name = customer_name_map.get(loan.customer_id, "")
+        enriched_loans.append(item)
+
+    enriched_payments = []
+    for payment in recent_payments:
+        item = RecentPaymentItem.model_validate(payment)
+        cid = loan_customer_id_map.get(payment.loan_id)
+        item.customer_name = customer_name_map.get(cid, "") if cid else ""
+        enriched_payments.append(item)
+
     # ---------------------------------
     # Return Dashboard
     # ---------------------------------
@@ -169,8 +237,8 @@ def get_dashboard(
         total_principal_paid=total_principal_paid,
         total_interest_paid=total_interest_paid,
         today_collection=today_collection,
-        recent_loans=recent_loans,
-        recent_payments=recent_payments,
+        recent_loans=enriched_loans,
+        recent_payments=enriched_payments,
     )
 
 

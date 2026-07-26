@@ -226,7 +226,7 @@ def delete_payment(
     if previous_payment:
         loan.last_interest_calculated_on = previous_payment.payment_date
     else:
-        loan.last_interest_calculated_on = loan.start_date
+        loan.last_interest_calculated_on = loan.issue_date
 
     # Reopen loan if necessary
     # Reopen the loan if the latest payment is deleted.
