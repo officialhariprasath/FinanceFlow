@@ -2,20 +2,11 @@ import api from "../api/axios";
 
 export async function login(email: string, password: string) {
   const formData = new URLSearchParams();
-
   formData.append("username", email);
   formData.append("password", password);
-
-  const response = await api.post(
-    "/finance-owners/login",
-    formData,
-    {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-    }
-  );
-
+  const response = await api.post("/finance-owners/login", formData, {
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
   return response.data;
 }
 
@@ -29,10 +20,11 @@ export interface RegisterRequest {
 }
 
 export async function register(data: RegisterRequest) {
-  const response = await api.post(
-    "/finance-owners/register",
-    data
-  );
+  const response = await api.post("/finance-owners/register", data);
+  return response.data;
+}
 
+export async function getProfile() {
+  const response = await api.get("/finance-owners/me");
   return response.data;
 }

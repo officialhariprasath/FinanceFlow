@@ -1,3 +1,4 @@
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from backend.app.models.finance_settings import FinanceSettings
@@ -31,7 +32,10 @@ def update_finance_settings(
     )
 
     if settings is None:
-        raise ValueError("Finance settings not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Finance settings not found.",
+        )
 
     update_data = settings_data.model_dump(exclude_unset=True)
 

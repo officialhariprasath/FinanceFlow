@@ -8,20 +8,14 @@ type MainLayoutProps = {
 
 function MainLayout({ children }: MainLayoutProps) {
   return (
-    <div className="flex">
-
+    <div className="flex min-h-screen">
       <Sidebar />
-
-      <div className="flex-1">
-
+      <div className="flex flex-1 flex-col overflow-hidden">
         <Navbar />
-
-        <main className="p-6 bg-slate-100 min-h-[calc(100vh-64px)]">
+        <main className="flex-1 overflow-y-auto bg-slate-100 p-6">
           {children}
         </main>
-
       </div>
-
     </div>
   );
 }

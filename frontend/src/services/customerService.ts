@@ -1,51 +1,34 @@
 import api from "../api/axios";
-
-import type {
-  Customer,
-  CustomerCreate,
-} from "../types/customer";
-
+import type { Customer, CustomerCreate } from "../types/customer";
 import type { CustomerLedger } from "../types/ledger";
 
-function authHeader() {
-  const token = localStorage.getItem("access_token");
-
-  return {
-    Authorization: `Bearer ${token}`,
-  };
-}
-
 export async function getCustomers(): Promise<Customer[]> {
-  const response = await api.get<Customer[]>("/customers/", {
-    headers: authHeader(),
-  });
-
+  const response = await api.get<Customer[]>("/customers/");
   return response.data;
 }
 
-export async function createCustomer(
+export async function createCustomer(data: CustomerCreate): Promise<Customer> {
+  const response = await api.post<Customer>("/customers/", data);
+  return response.data;
+}
+
+export async function updateCustomer(
+  customerId: number,
   data: CustomerCreate
 ): Promise<Customer> {
-  const response = await api.post<Customer>(
-    "/customers/",
-    data,
-    {
-      headers: authHeader(),
-    }
-  );
-
+  const response = await api.put<Customer>(`/customers/${customerId}`, data);
   return response.data;
+}
+
+export async function deleteCustomer(customerId: number): Promise<void> {
+  await api.delete(`/customers/${customerId}`);
 }
 
 export async function getCustomerLedger(
   customerId: number
 ): Promise<CustomerLedger> {
   const response = await api.get<CustomerLedger>(
-    `/customers/${customerId}/ledger`,
-    {
-      headers: authHeader(),
-    }
+    `/customers/${customerId}/ledger`
   );
-
   return response.data;
 }

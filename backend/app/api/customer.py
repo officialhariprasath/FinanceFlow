@@ -16,6 +16,8 @@ from backend.app.services.customer_service import (
     get_customer_names,
     search_customers,
     get_customer_ledger,
+    update_customer,
+    delete_customer,
 )
 from backend.app.core.auth import get_current_finance_owner
 from backend.app.models.finance_owner import FinanceOwner
@@ -92,6 +94,41 @@ def get_customer_names_endpoint(
         db=db,
         finance_owner_id=current_owner.id,
     )
+
+@router.put(
+    "/{customer_id}",
+    response_model=CustomerResponse,
+)
+def update_customer_endpoint(
+    customer_id: int,
+    customer: CustomerCreate,
+    db: Session = Depends(get_db),
+    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+):
+    return update_customer(
+        db=db,
+        customer_id=customer_id,
+        finance_owner_id=current_owner.id,
+        data=customer,
+    )
+
+
+@router.delete(
+    "/{customer_id}",
+    status_code=status.HTTP_200_OK,
+)
+def delete_customer_endpoint(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+):
+    delete_customer(
+        db=db,
+        customer_id=customer_id,
+        finance_owner_id=current_owner.id,
+    )
+    return {"message": "Customer deleted successfully."}
+
 
 @router.get(
     "/{customer_id}/ledger",

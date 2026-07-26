@@ -1,20 +1,16 @@
-import type { RecentPayment } from "../../types/dashboard";
+import { useNavigate } from "react-router-dom";
+import type { PaymentResponse } from "../../types/payment";
+import { fmt } from "../../utils/fmt";
 
-type RecentPaymentsTableProps = {
-  payments: RecentPayment[];
-};
-
-export default function RecentPaymentsTable({
-  payments,
-}: RecentPaymentsTableProps) {
+export default function RecentPaymentsTable({ payments }: { payments: PaymentResponse[] }) {
+  const navigate = useNavigate();
   return (
     <div className="rounded-lg bg-white shadow">
       <div className="border-b px-6 py-4">
         <h2 className="text-lg font-semibold">Recent Payments</h2>
       </div>
-
       <div className="overflow-x-auto">
-        <table className="min-w-full">
+        <table className="min-w-full text-sm">
           <thead className="bg-slate-100">
             <tr>
               <th className="px-4 py-3 text-left">Payment ID</th>
@@ -26,63 +22,27 @@ export default function RecentPaymentsTable({
               <th className="px-4 py-3 text-center">Date</th>
             </tr>
           </thead>
-
           <tbody>
             {payments.length === 0 ? (
               <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-6 text-center text-slate-500"
-                >
-                  No recent payments found.
+                <td colSpan={7} className="px-4 py-6 text-center text-slate-500">
+                  No recent payments.
                 </td>
               </tr>
             ) : (
-              payments.map((payment) => (
+              payments.map((p) => (
                 <tr
-                  key={payment.id}
-                  className="border-t hover:bg-slate-50"
+                  key={p.id}
+                  onClick={() => navigate(`/loans/${p.loan_id}`)}
+                  className="cursor-pointer border-t hover:bg-slate-50"
                 >
-                  <td className="px-4 py-3">{payment.id}</td>
-
-                  <td className="px-4 py-3">
-                    {payment.loan_id}
-                  </td>
-
-                  <td className="px-4 py-3 text-right">
-                    ₹
-                    {Number(
-                      payment.amount_paid
-                    ).toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </td>
-
-                  <td className="px-4 py-3 text-right">
-                    ₹
-                    {Number(
-                      payment.interest_paid
-                    ).toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </td>
-
-                  <td className="px-4 py-3 text-right">
-                    ₹
-                    {Number(
-                      payment.principal_paid
-                    ).toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </td>
-
-                  <td className="px-4 py-3 text-center">
-                    {payment.payment_mode}
-                  </td>
-
-                  <td className="px-4 py-3 text-center">
-                    {payment.payment_date}
-                  </td>
+                  <td className="px-4 py-3">#{p.id}</td>
+                  <td className="px-4 py-3">#{p.loan_id}</td>
+                  <td className="px-4 py-3 text-right font-medium">{fmt(p.amount_paid)}</td>
+                  <td className="px-4 py-3 text-right">{fmt(p.interest_paid)}</td>
+                  <td className="px-4 py-3 text-right">{fmt(p.principal_paid)}</td>
+                  <td className="px-4 py-3 text-center">{p.payment_mode}</td>
+                  <td className="px-4 py-3 text-center">{p.payment_date}</td>
                 </tr>
               ))
             )}

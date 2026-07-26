@@ -94,6 +94,78 @@ def search_customers(
         .all()
     )
 
+def get_customer_by_id(
+    db: Session,
+    customer_id: int,
+    finance_owner_id: int,
+) -> Customer:
+    """
+    Return a single customer by ID.
+    """
+
+    customer = (
+        db.query(Customer)
+        .filter(
+            Customer.id == customer_id,
+            Customer.finance_owner_id == finance_owner_id,
+        )
+        .first()
+    )
+
+    if customer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer not found.",
+        )
+
+    return customer
+
+
+def update_customer(
+    db: Session,
+    customer_id: int,
+    finance_owner_id: int,
+    data: CustomerCreate,
+) -> Customer:
+    """
+    Update an existing customer's details.
+    """
+
+    customer = get_customer_by_id(
+        db=db,
+        customer_id=customer_id,
+        finance_owner_id=finance_owner_id,
+    )
+
+    customer.full_name = data.full_name
+    customer.phone = data.phone
+    customer.address = data.address
+
+    db.commit()
+    db.refresh(customer)
+
+    return customer
+
+
+def delete_customer(
+    db: Session,
+    customer_id: int,
+    finance_owner_id: int,
+) -> None:
+    """
+    Delete a customer and all associated records.
+    """
+
+    customer = get_customer_by_id(
+        db=db,
+        customer_id=customer_id,
+        finance_owner_id=finance_owner_id,
+    )
+
+    db.delete(customer)
+    db.commit()
+
+
 def get_customer_ledger(
     db: Session,
     customer_id: int,

@@ -1,17 +1,22 @@
 import { useNavigate } from "react-router-dom";
-
 import type { Customer } from "../../types/customer";
 
 type CustomerTableProps = {
   customers: Customer[];
+  onEdit: (customer: Customer) => void;
+  onDelete: (customer: Customer) => void;
 };
 
-function CustomerTable({ customers }: CustomerTableProps) {
+function CustomerTable({
+  customers,
+  onEdit,
+  onDelete,
+}: CustomerTableProps) {
   const navigate = useNavigate();
 
   if (customers.length === 0) {
     return (
-      <div className="rounded-lg bg-white p-6 text-center shadow">
+      <div className="rounded-lg bg-white p-10 text-center text-slate-500 shadow">
         No customers found.
       </div>
     );
@@ -34,6 +39,9 @@ function CustomerTable({ customers }: CustomerTableProps) {
             <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">
               Address
             </th>
+            <th className="px-6 py-3 text-center text-sm font-semibold text-slate-700">
+              Actions
+            </th>
           </tr>
         </thead>
 
@@ -41,17 +49,46 @@ function CustomerTable({ customers }: CustomerTableProps) {
           {customers.map((customer) => (
             <tr
               key={customer.id}
-              onClick={() =>
-                navigate(`/customers/${customer.id}/ledger`)
-              }
-              className="cursor-pointer border-t transition-colors hover:bg-slate-50"
+              className="border-t transition-colors hover:bg-slate-50"
             >
-              <td className="px-6 py-4">{customer.id}</td>
-              <td className="px-6 py-4 font-medium">
+              <td className="px-6 py-4 text-slate-600">{customer.id}</td>
+
+              <td className="px-6 py-4 font-medium text-slate-800">
                 {customer.full_name}
               </td>
-              <td className="px-6 py-4">{customer.phone}</td>
-              <td className="px-6 py-4">{customer.address}</td>
+
+              <td className="px-6 py-4 text-slate-600">{customer.phone}</td>
+
+              <td className="px-6 py-4 text-slate-600">
+                {customer.address || "—"}
+              </td>
+
+              <td className="px-6 py-4">
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    onClick={() =>
+                      navigate(`/customers/${customer.id}/ledger`)
+                    }
+                    className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    View
+                  </button>
+
+                  <button
+                    onClick={() => onEdit(customer)}
+                    className="rounded bg-amber-500 px-3 py-1 text-sm font-medium text-white hover:bg-amber-600"
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    onClick={() => onDelete(customer)}
+                    className="rounded bg-red-600 px-3 py-1 text-sm font-medium text-white hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
