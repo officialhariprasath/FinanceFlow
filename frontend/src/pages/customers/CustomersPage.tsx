@@ -255,6 +255,7 @@ function CustomersPage() {
 
       <DeleteCustomerModal
         customer={customerToDelete}
+        hasActiveLoans={customerToDelete ? activeCustomerIds.has(customerToDelete.id) : false}
         loading={deleting}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setCustomerToDelete(null)}

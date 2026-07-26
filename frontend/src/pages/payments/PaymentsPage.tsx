@@ -4,11 +4,13 @@ import MainLayout from "../../components/layout/MainLayout";
 import { PageLoading, PageError, EmptyState } from "../../components/common/PageStates";
 import { getLoans } from "../../services/loanService";
 import { getLoanPayments } from "../../services/paymentService";
+import api from "../../api/axios";
 import { fmt } from "../../utils/fmt";
 import type { PaymentResponse } from "../../types/payment";
 
 interface PaymentRow extends PaymentResponse {
   customer_id: number;
+  customer_name: string;
 }
 
 export default function PaymentsPage() {
@@ -24,6 +26,15 @@ export default function PaymentsPage() {
         setError("");
         const loans = await getLoans();
 
+        // Build customer name map
+        let customerMap: Record<number, string> = {};
+        try {
+          const res = await api.get<{ id: number; full_name: string }[]>("/customers/names");
+          res.data.forEach((c) => { customerMap[c.id] = c.full_name; });
+        } catch {
+          // non-critical — fall back to customer_id
+        }
+
         // Fetch payments for all loans in parallel
         const results = await Promise.all(
           loans.map(async (loan) => {
@@ -32,6 +43,7 @@ export default function PaymentsPage() {
               return pmts.map((p) => ({
                 ...p,
                 customer_id: loan.customer_id,
+                customer_name: customerMap[loan.customer_id] ?? "",
               }));
             } catch {
               return [];
@@ -82,36 +94,24 @@ export default function PaymentsPage() {
             <table className="min-w-full text-sm">
               <thead className="bg-slate-100">
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">
-                    Date
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">
-                    Loan ID
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-700">
-                    Amount Paid
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-700">
-                    Interest
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-700">
-                    Principal
-                  </th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-700">
-                    Mode
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">
-                    Remarks
-                  </th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-700">
-                    Action
-                  </th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Date</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Customer</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Loan ID</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Amount Paid</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Interest</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Principal</th>
+                  <th className="px-4 py-3 text-center font-semibold text-slate-700">Mode</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Remarks</th>
+                  <th className="px-4 py-3 text-center font-semibold text-slate-700">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {payments.map((p) => (
                   <tr key={p.id} className="border-t hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium">{p.payment_date}</td>
+                    <td className="px-4 py-3 font-medium text-slate-800">
+                      {p.customer_name || `#${p.customer_id}`}
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => navigate(`/loans/${p.loan_id}`)}
@@ -134,9 +134,7 @@ export default function PaymentsPage() {
                         {p.payment_mode}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {p.remarks || "—"}
-                    </td>
+                    <td className="px-4 py-3 text-slate-500">{p.remarks || "—"}</td>
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => navigate(`/loans/${p.loan_id}`)}

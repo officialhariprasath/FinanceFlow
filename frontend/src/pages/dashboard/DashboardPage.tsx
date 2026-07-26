@@ -12,6 +12,7 @@ import {
   getClosedLoans,
   getMaturityReport,
 } from "../../services/dashboardService";
+import { getProfile } from "../../services/authService";
 import { fmt } from "../../utils/fmt";
 import type { DashboardResponse } from "../../types/dashboard";
 
@@ -20,6 +21,7 @@ export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [ownerName, setOwnerName] = useState("");
 
   // Profit summary
   const [profitFrom, setProfitFrom] = useState("");
@@ -41,10 +43,14 @@ export default function DashboardPage() {
   // Closed loans
   const [closed, setClosed] = useState<any>(null);
   const [closedLoading, setClosedLoading] = useState(false);
+  const [closedError, setClosedError] = useState("");
 
   useEffect(() => {
     loadDashboard();
     loadOverdue();
+    getProfile()
+      .then((p) => setOwnerName(p.owner_name ?? ""))
+      .catch(() => {});
   }, []);
 
   async function loadDashboard() {
@@ -100,9 +106,12 @@ export default function DashboardPage() {
   async function loadClosed() {
     try {
       setClosedLoading(true);
+      setClosedError("");
       const data = await getClosedLoans();
       setClosed(data);
-    } catch {
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      setClosedError(typeof detail === "string" ? detail : "Failed to load closed loans.");
       setClosed(null);
     } finally {
       setClosedLoading(false);
@@ -113,8 +122,10 @@ export default function DashboardPage() {
     <MainLayout>
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Dashboard</h1>
-          <p className="mt-1 text-slate-500">Live business overview</p>
+          <h1 className="text-3xl font-bold text-slate-800">
+            {ownerName ? `Hi, ${ownerName} 👋` : "Dashboard"}
+          </h1>
+          <p className="mt-1 text-slate-500">Welcome back to your finance.</p>
         </div>
 
         {loading ? (
@@ -134,19 +145,6 @@ export default function DashboardPage() {
               <DashboardCard title="Principal Paid" value={fmt(dashboard.total_principal_paid)} />
               <DashboardCard title="Interest Collected" value={fmt(dashboard.total_interest_paid)} />
             </div>
-
-            {/* Overdue summary */}
-            {overdue && overdue.overdue_count > 0 && (
-              <div
-                className="cursor-pointer rounded-lg border border-red-200 bg-red-50 p-4"
-                onClick={() => navigate("/loans?status=overdue")}
-              >
-                <p className="font-semibold text-red-700">
-                  ⚠ {overdue.overdue_count} overdue loan{overdue.overdue_count !== 1 ? "s" : ""} — Total outstanding: {fmt(overdue.total_overdue_principal)}
-                </p>
-                <p className="mt-1 text-sm text-red-600">Click to view overdue loans</p>
-              </div>
-            )}
 
             <RecentLoansTable loans={dashboard.recent_loans} />
             <RecentPaymentsTable payments={dashboard.recent_payments} />
@@ -352,42 +350,61 @@ export default function DashboardPage() {
                 {closedLoading ? "Loading..." : "Load"}
               </button>
             </div>
-            {closed ? (
-              closed.loans.length === 0 ? (
-                <p className="text-slate-500">No closed loans.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-slate-600">Customer</th>
-                        <th className="px-3 py-2 text-right text-slate-600">Principal</th>
-                        <th className="px-3 py-2 text-right text-slate-600">Interest Collected</th>
-                        <th className="px-3 py-2 text-right text-slate-600">Settlement</th>
-                        <th className="px-3 py-2 text-center text-slate-600">Type</th>
-                        <th className="px-3 py-2 text-center text-slate-600">Closed Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {closed.loans.map((l: any) => (
+            {closedLoading ? (
+              <p className="text-slate-500">Loading...</p>
+            ) : closedError ? (
+              <p className="text-red-600 text-sm">{closedError}</p>
+            ) : closed === null ? null : closed.loans.length === 0 ? (
+              <p className="text-slate-500">No closed loans found.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-slate-600">Customer</th>
+                      <th className="px-3 py-2 text-left text-slate-600">Loan #</th>
+                      <th className="px-3 py-2 text-right text-slate-600">Principal</th>
+                      <th className="px-3 py-2 text-right text-slate-600">Interest Paid</th>
+                      <th className="px-3 py-2 text-right text-slate-600">Total Collected</th>
+                      <th className="px-3 py-2 text-center text-slate-600">Closed Date</th>
+                      <th className="px-3 py-2 text-center text-slate-600">Closure Type</th>
+                      <th className="px-3 py-2 text-center text-slate-600">Settlement</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {closed.loans.map((l: any) => {
+                      const totalCollected =
+                        (parseFloat(l.total_principal_paid) || 0) +
+                        (parseFloat(l.total_interest_paid) || 0);
+                      return (
                         <tr key={l.loan_id} className="border-t hover:bg-slate-50">
                           <td className="px-3 py-2 font-medium">{l.customer_name}</td>
+                          <td className="px-3 py-2 text-slate-600">#{l.loan_id}</td>
                           <td className="px-3 py-2 text-right">{fmt(l.principal_amount)}</td>
                           <td className="px-3 py-2 text-right text-green-600">{fmt(l.total_interest_paid)}</td>
-                          <td className="px-3 py-2 text-right">{l.settlement_amount ? fmt(l.settlement_amount) : "—"}</td>
+                          <td className="px-3 py-2 text-right font-semibold">{fmt(totalCollected)}</td>
+                          <td className="px-3 py-2 text-center">{l.closed_date || "—"}</td>
                           <td className="px-3 py-2 text-center">
                             <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">
                               {l.closure_type || "NORMAL"}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-center">{l.closed_date || "—"}</td>
+                          <td className="px-3 py-2 text-center">
+                            {l.closure_type === "SETTLEMENT" ? (
+                              <span className="rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700">
+                                {l.settlement_amount ? fmt(l.settlement_amount) : "Settled"}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )
-            ) : null}
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>

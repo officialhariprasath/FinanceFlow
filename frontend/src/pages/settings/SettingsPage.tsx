@@ -42,7 +42,7 @@ export default function SettingsPage() {
           email: data.email ?? "",
           address: data.address ?? "",
           default_interest_method: data.default_interest_method ?? "PERCENTAGE",
-          default_interest_rate: data.default_interest_rate ?? "",
+          default_interest_rate: data.default_interest_rate != null ? String(data.default_interest_rate) : "",
           default_loan_duration: String(data.default_loan_duration ?? ""),
           default_grace_period: String(data.default_grace_period ?? ""),
           currency: data.currency ?? "INR",

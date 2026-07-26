@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import type { LoanResponse } from "../../types/loan";
+import type { RecentLoanItem } from "../../types/dashboard";
 import { fmt, statusBadge } from "../../utils/fmt";
 
-export default function RecentLoansTable({ loans }: { loans: LoanResponse[] }) {
+export default function RecentLoansTable({ loans }: { loans: RecentLoanItem[] }) {
   const navigate = useNavigate();
   return (
     <div className="rounded-lg bg-white shadow">
@@ -14,7 +14,7 @@ export default function RecentLoansTable({ loans }: { loans: LoanResponse[] }) {
           <thead className="bg-slate-100">
             <tr>
               <th className="px-4 py-3 text-left">Loan ID</th>
-              <th className="px-4 py-3 text-left">Customer ID</th>
+              <th className="px-4 py-3 text-left">Customer</th>
               <th className="px-4 py-3 text-right">Principal</th>
               <th className="px-4 py-3 text-right">Remaining</th>
               <th className="px-4 py-3 text-center">Status</th>
@@ -37,7 +37,7 @@ export default function RecentLoansTable({ loans }: { loans: LoanResponse[] }) {
                   className="cursor-pointer border-t hover:bg-slate-50"
                 >
                   <td className="px-4 py-3">#{loan.id}</td>
-                  <td className="px-4 py-3">{loan.customer_id}</td>
+                  <td className="px-4 py-3 font-medium">{loan.customer_name || `#${loan.customer_id}`}</td>
                   <td className="px-4 py-3 text-right">{fmt(loan.principal_amount)}</td>
                   <td className="px-4 py-3 text-right">{fmt(loan.remaining_principal)}</td>
                   <td className="px-4 py-3 text-center">

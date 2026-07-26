@@ -114,31 +114,44 @@ export default function LoansPage() {
               <option value="ACTIVE">Active</option>
               <option value="CLOSED">Closed</option>
             </select>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-            <button
-              onClick={handleSearch}
-              disabled={searching}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {searching ? "Searching..." : "Search"}
-            </button>
-            <button
-              onClick={handleReset}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-            >
-              Reset
-            </button>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-slate-500">Issue Date</span>
+              <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-slate-500">From</label>
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-slate-500">To</label>
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-end gap-2">
+              <button
+                onClick={handleSearch}
+                disabled={searching}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {searching ? "Searching..." : "Search"}
+              </button>
+              <button
+                onClick={handleReset}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Reset
+              </button>
+            </div>
           </div>
         </div>
 

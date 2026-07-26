@@ -1,6 +1,14 @@
 import type { LoanResponse } from "./loan";
 import type { PaymentResponse } from "./payment";
 
+export interface RecentLoanItem extends LoanResponse {
+  customer_name: string;
+}
+
+export interface RecentPaymentItem extends PaymentResponse {
+  customer_name: string;
+}
+
 export interface DashboardResponse {
   total_customers: number;
   active_loans: number;
@@ -10,8 +18,8 @@ export interface DashboardResponse {
   total_principal_paid: string;
   total_interest_paid: string;
   today_collection: string;
-  recent_loans: LoanResponse[];
-  recent_payments: PaymentResponse[];
+  recent_loans: RecentLoanItem[];
+  recent_payments: RecentPaymentItem[];
 }
 
 export interface ProfitSummaryResponse {

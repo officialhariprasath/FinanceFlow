@@ -15,6 +15,16 @@ from backend.app.schemas.loan import LoanResponse
 from backend.app.schemas.payment import PaymentResponse
 
 
+class RecentLoanItem(LoanResponse):
+    """LoanResponse enriched with customer name for the dashboard."""
+    customer_name: str = ""
+
+
+class RecentPaymentItem(PaymentResponse):
+    """PaymentResponse enriched with customer name for the dashboard."""
+    customer_name: str = ""
+
+
 class DashboardResponse(BaseModel):
     """
     Response model for the Finance Owner dashboard.
@@ -43,8 +53,8 @@ class DashboardResponse(BaseModel):
     # -----------------------------
     # Recent Activity
     # -----------------------------
-    recent_loans: List[LoanResponse]
-    recent_payments: List[PaymentResponse]
+    recent_loans: List[RecentLoanItem]
+    recent_payments: List[RecentPaymentItem]
 
     # Enable SQLAlchemy ORM object support
     model_config = ConfigDict(from_attributes=True)
@@ -127,7 +137,7 @@ class ClosedLoanResponse(BaseModel):
     settlement_amount: Decimal | None = None
     waived_amount: Decimal | None = None
 
-    closure_type: str
+    closure_type: str | None = None
     closed_date: date | None = None
 
     model_config = ConfigDict(from_attributes=True)
