@@ -1,134 +1,165 @@
 <h1 align="center">
-FINNECT Finance OS
+  FINNECT Finance OS
 </h1>
 
 <p align="center">
-A modern Full Stack Loan Management System built for finance businesses using <b>FastAPI</b>, <b>React</b>, <b>TypeScript</b>, <b>PostgreSQL</b>, and <b>SQLAlchemy</b>.
+  <strong>A Modern Full-Stack Loan Management System for Finance Businesses</strong>
+</p>
+
+<p align="center">
+  Built with <strong>FastAPI</strong>, <strong>React</strong>, <strong>TypeScript</strong>, <strong>PostgreSQL</strong>, and <strong>SQLAlchemy</strong>
 </p>
 
 <p align="center">
 
-![Python](https://img.shields.io/badge/Python-3.12-blue?style=for-the-badge&logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.116-green?style=for-the-badge&logo=fastapi)
-![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql)
-![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-ORM-red?style=for-the-badge)
-![JWT](https://img.shields.io/badge/JWT-Authentication-black?style=for-the-badge)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.116-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-ORM-D71F00?style=for-the-badge)
+![JWT](https://img.shields.io/badge/JWT-Authentication-000000?style=for-the-badge)
+![Render](https://img.shields.io/badge/Backend-Render-46E3B7?style=for-the-badge)
+![Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?style=for-the-badge&logo=vercel)
+![License](https://img.shields.io/badge/License-MIT-success?style=for-the-badge)
 
 </p>
 
 ---
 
-# Table of Contents
+# 🌐 Live Demo
 
-- Project Overview
-- Business Problem
-- Solution
-- Key Features
-- Screenshots
-- Tech Stack
-- System Architecture
-- Project Structure
-- Database Design
-- Business Workflow
-- Authentication Flow
-- API Modules
-- Installation
-- Environment Variables
-- Running the Backend
-- Running the Frontend
-- API Documentation
-- CI/CD Pipeline
-- Deployment
-- Security
-- Future Enhancements
-- Contributing
-- License
-- Author
+| Application | URL                                            |
+| :---------- | :--------------------------------------------- |
+| Frontend    | https://finnect-finance-os.vercel.app          |
+| Backend API | https://finnect-backend-hrq8.onrender.com      |
+| API Docs    | https://finnect-backend-hrq8.onrender.com/docs |
 
 ---
 
-# Project Overview
+# 📑 Table of Contents
 
-FINNECT Finance OS is a modern full-stack Loan Management System developed to digitize the day-to-day operations of finance businesses.
-
-The application manages the complete loan lifecycle—from customer registration to loan issuance, payment collection, renewals, settlements, and business reporting.
-
-Unlike a basic CRUD application, FINNECT implements real-world finance business logic such as:
-
-- Multiple interest calculation methods
-- Automatic interest-first payment allocation
-- Loan renewals
-- Loan settlements
-- Dashboard analytics
-- Business reports
-- JWT authentication
-- Secure REST APIs
-
-The system is designed for finance companies, lending agencies, and businesses that require efficient loan tracking and customer management.
+- [Project Overview](#-project-overview)
+- [Business Problem](#-business-problem)
+- [Solution](#-solution)
+- [Key Features](#-key-features)
+- [Application Screenshots](#-application-screenshots)
+- [Technology Stack](#-technology-stack)
+- [System Architecture](#-system-architecture)
+- [Project Structure](#-project-structure)
+- [Database Design](#-database-design)
+- [Business Workflow](#-business-workflow)
+- [Authentication Flow](#-authentication-flow)
+- [API Modules](#-api-modules)
+- [Interest Calculation](#-interest-calculation)
+- [Business Rules](#-business-rules)
+- [Getting Started](#-getting-started)
+- [Environment Variables](#-environment-variables)
+- [API Documentation](#-api-documentation)
+- [CI/CD Pipeline](#-cicd-pipeline)
+- [Deployment](#-deployment)
+- [Security Features](#-security-features)
+- [Performance Highlights](#-performance-highlights)
+- [Future Enhancements](#-future-enhancements)
+- [License](#-license)
+- [Author](#-author)
 
 ---
 
-# Business Problem
+# 📖 Project Overview
 
-Many small and medium finance businesses still rely on spreadsheets, notebooks, and manual calculations to manage their lending operations.
+**FINNECT Finance OS** is a modern full-stack Loan Management System designed to digitize the day-to-day operations of finance businesses.
 
-This leads to:
+The system manages the complete loan lifecycle—from finance owner authentication and customer registration to loan creation, payment tracking, renewals, settlements, and business reporting—through a secure, responsive web application.
 
-- Human calculation errors
-- Missing payment records
-- Poor customer tracking
+Unlike a traditional CRUD application, FINNECT implements real-world finance business logic such as:
+
+- Secure Finance Owner Authentication using JWT
+- Customer Lifecycle Management
+- Loan Creation and Tracking
+- Multiple Interest Calculation Methods
+- Automatic Interest-First Payment Allocation
+- Loan Renewals
+- Loan Settlement
+- Dashboard Analytics
+- Profit Reporting
+- Maturity Reports
+- Overdue Loan Monitoring
+- Finance Settings Management
+- RESTful API Architecture
+
+The application follows a layered architecture with a React frontend, FastAPI backend, SQLAlchemy ORM, and PostgreSQL database, making it scalable, maintainable, and production-ready.
+
+---
+
+# 💼 Business Problem
+
+Many small and medium-sized finance businesses continue to manage their lending operations using notebooks, spreadsheets, or disconnected software tools.
+
+These manual processes introduce several operational challenges, including:
+
 - Manual interest calculations
-- No centralized reporting
+- Human calculation errors
+- Duplicate customer records
+- Missing payment history
+- Poor loan tracking
 - Difficult loan renewals
-- Lack of business insights
+- Limited business visibility
+- No centralized reporting
+- Time-consuming record maintenance
+
+As the number of customers and active loans grows, these issues significantly reduce operational efficiency and increase the risk of financial inaccuracies.
 
 ---
 
-# Solution
+# 💡 Solution
 
-FINNECT Finance OS provides a centralized digital platform that enables finance businesses to:
+FINNECT Finance OS provides a centralized digital platform that streamlines the complete finance management process.
 
-- Manage customers
-- Create loans
-- Record payments
-- Renew loans
-- Settle loans
-- Track outstanding balances
-- View financial reports
-- Monitor business performance in real time
+The application enables finance businesses to:
+
+- Register and manage customers
+- Create and monitor loans
+- Record customer payments
+- Automatically calculate interest
+- Process loan renewals
+- Settle completed loans
+- Monitor overdue accounts
+- Track business profitability
+- Generate operational reports
+- Manage finance settings from a single platform
+
+The result is a faster, more accurate, and scalable workflow that reduces manual effort while improving financial transparency.
 
 ---
 
-# Key Features
+# ✨ Key Features
 
-## Authentication
+## 🔐 Authentication
 
 - Finance Owner Registration
 - Secure Login
-- JWT Authentication
+- JWT Token Authentication
 - Password Hashing using BCrypt
 - Protected REST APIs
+- Persistent Login Sessions
 
 ---
 
-## Customer Management
+## 👥 Customer Management
 
 - Register Customers
-- Edit Customer Information
+- Update Customer Information
 - Search Customers
-- View Customer Details
+- View Customer Profiles
 - Customer Loan History
 
 ---
 
-## Loan Management
+## 💰 Loan Management
 
-- Create Loan
-- Edit Loan
+- Create Loans
+- Update Loan Details
 - Loan Statements
 - Loan Search
 - Interest Summary
@@ -138,638 +169,1030 @@ FINNECT Finance OS provides a centralized digital platform that enables finance 
 
 ---
 
-## Payment Management
+## 💳 Payment Management
 
-- Record Payments
+- Record Loan Payments
 - Automatic Interest Allocation
-- Principal Tracking
+- Principal Balance Tracking
 - Payment History
 - Latest Payment Deletion Validation
 
 ---
 
-## Dashboard
+## 📊 Dashboard & Reports
 
-Business overview including:
+Business insights available through a centralized dashboard:
 
 - Total Customers
 - Active Loans
 - Closed Loans
 - Today's Collection
 - Principal Disbursed
-- Remaining Principal
 - Principal Paid
+- Remaining Principal
 - Interest Collected
 - Recent Loans
 - Recent Payments
-
----
-
-## Reports
-
 - Profit Summary
 - Maturity Report
 - Overdue Loans
-- Closed Loans
+- Closed Loan Reports
 
 ---
 
-## Finance Settings
+## ⚙️ Finance Settings
 
-- Interest Configuration
 - Finance Owner Profile
+- Interest Configuration
 - Business Settings
+- Finance Preferences
 
 ---
 
-# Project Screenshots
+## 🚀 Production Features
 
-
-## Login Page
-
-
-![Login page](docs/screenshots/login.png)
-
----
-
-## Dashboard
-
-
-![Dashboard](docs/screenshots/dashboard.png)
+- Responsive User Interface
+- RESTful API Architecture
+- PostgreSQL Database
+- SQLAlchemy ORM
+- Environment-Based Configuration
+- Production Deployment on Render
+- Frontend Deployment on Vercel
+- Cross-Origin (CORS) Configuration
+- Automatic Deployment from GitHub
 
 ---
 
-## Customers
+# 📸 Application Screenshots
 
-![Customers](docs/screenshots/customers.png)
+The following screenshots demonstrate the primary workflows and modules of FINNECT Finance OS.
 
----
-
-## Loans
-
-![Loans](docs/screenshots/loans.png)
+> **Note**
+>
+> Replace the placeholder images with the latest screenshots from the `docs/screenshots/` directory.
 
 ---
 
-## Payments
+## 🔐 Login
 
-![Payments](docs/screenshots/payments.png)
+<p align="center">
+  <img src="docs/screenshots/login.png" alt="Login Page" width="95%">
+</p>
 
----
-
-## Renewals
-
-![Renewals](docs/screenshots/renewals.png)
+Secure authentication for Finance Owners using JWT-based login.
 
 ---
 
-## Reports
+## 📊 Dashboard
 
-![Reports](docs/screenshots/reports.png)
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="95%">
+</p>
+
+Provides an overview of business performance, active loans, collections, reports, and financial statistics.
 
 ---
 
-# Tech Stack
+## 👥 Customer Management
+
+<p align="center">
+  <img src="docs/screenshots/customers.png" alt="Customers" width="95%">
+</p>
+
+Manage customer records, view customer details, and maintain complete borrower information.
+
+---
+
+## 💰 Loan Management
+
+<p align="center">
+  <img src="docs/screenshots/loans.png" alt="Loans" width="95%">
+</p>
+
+Create, manage, search, renew, and settle customer loans with automated interest calculations.
+
+---
+
+## 💳 Payment Management
+
+<p align="center">
+  <img src="docs/screenshots/payments.png" alt="Payments" width="95%">
+</p>
+
+Record payments with automatic interest allocation and maintain complete payment history.
+
+---
+
+## 🔄 Loan Renewals
+
+<p align="center">
+  <img src="docs/screenshots/renewals.png" alt="Loan Renewals" width="95%">
+</p>
+
+Extend existing loans while preserving complete renewal history.
+
+---
+
+## 📈 Reports
+
+<p align="center">
+  <img src="docs/screenshots/reports.png" alt="Reports" width="95%">
+</p>
+
+Generate business insights through profit reports, maturity reports, overdue loans, and closed loan summaries.
+
+---
+
+# 🛠️ Technology Stack
 
 ## Frontend
 
-| Technology   | Purpose            |
-|--------------|--------------------|
-| React 19     | Frontend Framework |
-| TypeScript   | Type Safety        |
-| Vite         | Build Tool         |
-| React Router | Routing            |
-| Axios        | API Communication  |
-| CSS          | User Interface     |
+| Technology | Purpose |
+| :--------- | :------ |
+| React 19 | User Interface Framework |
+| TypeScript | Type Safety |
+| Vite | Build Tool |
+| React Router | Client-side Routing |
+| Axios | API Communication |
+| CSS | User Interface Styling |
 
 ---
 
 ## Backend
 
-| Technology       | Purpose              |
-|------------------|----------------------|
-| Python           | Programming Language |
-| FastAPI          | REST API Framework   |
-| SQLAlchemy       | ORM                  |
-| PostgreSQL       | Database             |
-| Alembic          | Database Migration   |
-| JWT              | Authentication       |
-| Passlib + BCrypt | Password Hashing     |
-| Pydantic         | Data Validation      |
+| Technology | Purpose |
+| :--------- | :------ |
+| Python 3.12 | Programming Language |
+| FastAPI | REST API Framework |
+| SQLAlchemy | ORM |
+| PostgreSQL | Relational Database |
+| Alembic | Database Migrations |
+| Pydantic | Request & Response Validation |
+| JWT | Authentication |
+| Passlib + BCrypt | Password Hashing |
 
 ---
 
-## Development Tools
+## Database
 
-| Tool           | Purpose            |
-|----------------|--------------------|
-| Git            | Version Control    |
-| GitHub         | Repository Hosting |
-| GitHub Actions | CI/CD              |
-| Docker         | Containerization   |
-| Swagger UI     | API Documentation  |
-| Postman        | API Testing        |
-| VS Code        | Development IDE    |
+| Technology | Purpose |
+| :--------- | :------ |
+| PostgreSQL | Primary Database |
+| SQLAlchemy ORM | Object Relational Mapping |
+| Alembic | Schema Versioning |
 
 ---
 
-# System Architecture
+## DevOps & Deployment
 
-The application follows a modern three-tier architecture.
+| Technology | Purpose |
+| :--------- | :------ |
+| Git | Version Control |
+| GitHub | Source Code Hosting |
+| GitHub Actions | CI/CD |
+| Render | Backend Deployment |
+| Vercel | Frontend Deployment |
+| Swagger UI | Interactive API Documentation |
+
+---
+
+# 🏗️ System Architecture
+
+The application follows a modern three-tier architecture where the React frontend communicates securely with the FastAPI backend through REST APIs, while SQLAlchemy manages database interactions with PostgreSQL.
 
 ```text
-                    +----------------------+
-                    |     React Frontend   |
-                    |   (TypeScript + Vite)|
-                    +----------+-----------+
-                               |
-                               |
-                         REST APIs (JWT)
-                               |
-                               |
-                    +----------v-----------+
-                    |    FastAPI Backend   |
-                    | Authentication       |
-                    | Loan Services        |
-                    | Payment Services     |
-                    | Dashboard Services   |
-                    +----------+-----------+
-                               |
-                               |
-                         SQLAlchemy ORM
-                               |
-                               |
-                    +----------v-----------+
-                    |    PostgreSQL DB     |
-                    +----------------------+
+                               Client Browser
+                                      │
+                                      │
+                                      ▼
+                  ┌───────────────────────────────────────┐
+                  │           React Frontend              │
+                  │───────────────────────────────────────│
+                  │ • React 19                            │
+                  │ • TypeScript                          │
+                  │ • Vite                                │
+                  │ • React Router                        │
+                  │ • Axios                               │
+                  └───────────────────┬───────────────────┘
+                                      │
+                             HTTPS / REST APIs
+                             JWT Authentication
+                                      │
+                                      ▼
+                  ┌───────────────────────────────────────┐
+                  │           FastAPI Backend             │
+                  │───────────────────────────────────────│
+                  │ • Authentication                      │
+                  │ • Customer Management                 │
+                  │ • Loan Management                     │
+                  │ • Payment Management                  │
+                  │ • Loan Renewals                       │
+                  │ • Finance Settings                    │
+                  │ • Dashboard & Reports                 │
+                  └───────────────────┬───────────────────┘
+                                      │
+                               SQLAlchemy ORM
+                                      │
+                                      ▼
+                  ┌───────────────────────────────────────┐
+                  │          PostgreSQL Database          │
+                  │───────────────────────────────────────│
+                  │ • Customers                           │
+                  │ • Loans                               │
+                  │ • Payments                            │
+                  │ • Loan Renewals                       │
+                  │ • Finance Owners                      │
+                  └───────────────────────────────────────┘
 ```
 
 ---
 
-# Project Structure
+# 📂 Project Structure
 
 ```text
-FINNECT-Finance-OS/
+FINNECT-Finance-OS
 │
-├── backend/
+├── backend
+│   ├── alembic
+│   │   └── versions
 │   │
-│   ├── app/
-│   │   │
-│   │   ├── api/
-│   │   │   ├── auth.py
-│   │   │   ├── customers.py
-│   │   │   ├── loans.py
-│   │   │   ├── payments.py
-│   │   │   ├── renewals.py
-│   │   │   ├── dashboard.py
-│   │   │   └── settings.py
-│   │   │
-│   │   ├── core/
-│   │   ├── database/
-│   │   ├── middleware/
-│   │   ├── models/
-│   │   ├── schemas/
-│   │   ├── services/
-│   │   ├── utils/
-│   │   ├── dependencies/
+│   ├── app
+│   │   ├── api
+│   │   ├── core
+│   │   ├── database
+│   │   ├── models
+│   │   ├── schemas
+│   │   ├── services
+│   │   ├── utils
 │   │   └── main.py
 │   │
-│   ├── alembic/
 │   ├── requirements.txt
 │   └── .env.example
 │
-├── frontend/
-│   │
-│   ├── public/
-│   ├── src/
-│   │   │
-│   │   ├── api/
-│   │   ├── assets/
-│   │   ├── components/
-│   │   ├── context/
-│   │   ├── hooks/
-│   │   ├── layouts/
-│   │   ├── pages/
-│   │   │
-│   │   │   ├── Dashboard/
-│   │   │   ├── Customers/
-│   │   │   ├── Loans/
-│   │   │   ├── Payments/
-│   │   │   ├── Renewals/
-│   │   │   └── Settings/
-│   │   │
-│   │   ├── router/
-│   │   ├── services/
-│   │   ├── styles/
-│   │   ├── types/
+├── frontend
+│   ├── public
+│   ├── src
+│   │   ├── api
+│   │   ├── components
+│   │   ├── pages
+│   │   ├── services
+│   │   ├── router
+│   │   ├── types
+│   │   ├── assets
 │   │   └── App.tsx
 │   │
 │   ├── package.json
-│   └── vite.config.ts
+│   ├── vite.config.ts
+│   └── vercel.json
 │
-├── docs/
-│   └── screenshots/
+├── docs
+│   └── screenshots
 │
-├── .github/
-│   └── workflows/
+├── .github
+│   └── workflows
 │
-├── LICENSE
 ├── README.md
+├── LICENSE
 └── .gitignore
 ```
 
 ---
 
-# Core Modules
+# 🧩 Core Modules
 
-The project consists of the following modules:
+FINNECT Finance OS is organized into modular business components that separate responsibilities while sharing a common authentication and database layer.
 
-- Authentication
-- Customer Management
-- Loan Management
-- Payment Management
-- Loan Renewal
-- Loan Settlement
-- Dashboard
-- Reports
-- Finance Settings
-
-Each module is independently structured while sharing a common authentication layer.
+| Module | Description |
+| :------ | :---------- |
+| Authentication | Finance Owner Registration, Login, JWT Authentication |
+| Customer Management | Customer Registration, Search, Update, History |
+| Loan Management | Loan Creation, Search, Statements, Settlement |
+| Payment Management | Payment Recording and Interest Allocation |
+| Loan Renewals | Loan Extension and Renewal Tracking |
+| Dashboard | Business Overview and Analytics |
+| Reports | Profit Summary, Maturity Reports, Overdue Loans |
+| Finance Settings | Business Configuration and Interest Settings |
 
 ---
 
-# Database Design
+# 🗄️ Database Design
 
-The backend is powered by PostgreSQL using SQLAlchemy ORM.
+FINNECT Finance OS uses PostgreSQL as the primary relational database with SQLAlchemy ORM for data access and relationship management.
 
-## Primary Entities
+## Entity Relationship Overview
 
 ```text
- Finance Owner
-      │
-      │ 1
-      │
-      │ N
-   Customer
-      │
-      │ 1
-      │
-      │ N
-     Loan
-      │
- ┌────┴───────────┐
- │                │
- │                │
- N                N
-Payment      Loan Renewal
+                    ┌──────────────────────┐
+                    │    Finance Owner     │
+                    └──────────┬───────────┘
+                               │
+                         One-to-Many
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │      Customer        │
+                    └──────────┬───────────┘
+                               │
+                         One-to-Many
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │        Loan          │
+                    └───────┬───────┬──────┘
+                            │       │
+                   One-to-Many   One-to-Many
+                            │       │
+                            ▼       ▼
+                  ┌────────────┐ ┌───────────────┐
+                  │  Payment   │ │ Loan Renewal  │
+                  └────────────┘ └───────────────┘
 ```
 
 ---
 
-## Finance Owner
+## Primary Entities
 
-Stores authentication and ownership information.
+### 👤 Finance Owner
 
-Responsibilities:
+Responsible for:
 
-- Login
-- Registration
-- Business ownership
-- Dashboard access
+- Secure Authentication
+- Business Ownership
+- Finance Settings
+- Dashboard Access
 
 ---
 
-## Customer
+### 👥 Customer
 
-Stores borrower information.
-
-Includes:
+Stores borrower information including:
 
 - Name
-- Phone Number
+- Mobile Number
 - Address
-- Notes
+- Identification Details
+- Customer Notes
 
-Each customer can own multiple loans.
+A single customer can own multiple loans.
 
 ---
 
-## Loan
+### 💰 Loan
 
-Stores:
+Maintains complete loan lifecycle information including:
 
 - Principal Amount
 - Interest Rate
 - Interest Method
 - Issue Date
 - Due Date
+- Loan Status
 - Remaining Principal
 - Total Interest Paid
 - Total Principal Paid
-- Loan Status
 
 ---
 
-## Payment
+### 💳 Payment
 
 Tracks every payment made against a loan.
 
-Includes:
+Each payment records:
 
-- Payment Amount
-- Interest Component
-- Principal Component
-- Payment Mode
+- Total Amount
+- Interest Paid
+- Principal Paid
 - Payment Date
-- Notes
+- Payment Mode
+- Remarks
 
 ---
 
-## Loan Renewal
+### 🔄 Loan Renewal
 
-Maintains renewal history.
-
-Includes:
+Maintains historical renewal records including:
 
 - Previous Due Date
 - New Due Date
 - Updated Interest Rate
 - Updated Interest Method
+- Renewal Remarks
+
+---
+
+# 📸 Application Screenshots
+
+The following screenshots demonstrate the primary workflows and modules of FINNECT Finance OS.
+
+
+---
+
+## 🔐 Login
+
+<p align="center">
+  <img src="docs/screenshots/login.png" alt="Login Page" width="95%">
+</p>
+
+Secure authentication for Finance Owners using JWT-based login.
+
+---
+
+## 📊 Dashboard
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="95%">
+</p>
+
+Provides an overview of business performance, active loans, collections, reports, and financial statistics.
+
+---
+
+## 👥 Customer Management
+
+<p align="center">
+  <img src="docs/screenshots/customers.png" alt="Customers" width="95%">
+</p>
+
+Manage customer records, view customer details, and maintain complete borrower information.
+
+---
+
+## 💰 Loan Management
+
+<p align="center">
+  <img src="docs/screenshots/loans.png" alt="Loans" width="95%">
+</p>
+
+Create, manage, search, renew, and settle customer loans with automated interest calculations.
+
+---
+
+## 💳 Payment Management
+
+<p align="center">
+  <img src="docs/screenshots/payments.png" alt="Payments" width="95%">
+</p>
+
+Record payments with automatic interest allocation and maintain complete payment history.
+
+---
+
+## 🔄 Loan Renewals
+
+<p align="center">
+  <img src="docs/screenshots/renewals.png" alt="Loan Renewals" width="95%">
+</p>
+
+Extend existing loans while preserving complete renewal history.
+
+---
+
+## 📈 Reports
+
+<p align="center">
+  <img src="docs/screenshots/reports.png" alt="Reports" width="95%">
+</p>
+
+Generate business insights through profit reports, maturity reports, overdue loans, and closed loan summaries.
+
+---
+
+# 🛠️ Technology Stack
+
+## Frontend
+
+| Technology | Purpose |
+| :--------- | :------ |
+| React 19 | User Interface Framework |
+| TypeScript | Type Safety |
+| Vite | Build Tool |
+| React Router | Client-side Routing |
+| Axios | API Communication |
+| CSS | User Interface Styling |
+
+---
+
+## Backend
+
+| Technology | Purpose |
+| :--------- | :------ |
+| Python 3.12 | Programming Language |
+| FastAPI | REST API Framework |
+| SQLAlchemy | ORM |
+| PostgreSQL | Relational Database |
+| Alembic | Database Migrations |
+| Pydantic | Request & Response Validation |
+| JWT | Authentication |
+| Passlib + BCrypt | Password Hashing |
+
+---
+
+## Database
+
+| Technology | Purpose |
+| :--------- | :------ |
+| PostgreSQL | Primary Database |
+| SQLAlchemy ORM | Object Relational Mapping |
+| Alembic | Schema Versioning |
+
+---
+
+## DevOps & Deployment
+
+| Technology | Purpose |
+| :--------- | :------ |
+| Git | Version Control |
+| GitHub | Source Code Hosting |
+| GitHub Actions | CI/CD |
+| Render | Backend Deployment |
+| Vercel | Frontend Deployment |
+| Swagger UI | Interactive API Documentation |
+
+---
+
+# 🏗️ System Architecture
+
+The application follows a modern three-tier architecture where the React frontend communicates securely with the FastAPI backend through REST APIs, while SQLAlchemy manages database interactions with PostgreSQL.
+
+```text
+                               Client Browser
+                                      │
+                                      │
+                                      ▼
+                  ┌───────────────────────────────────────┐
+                  │           React Frontend              │
+                  │───────────────────────────────────────│
+                  │ • React 19                            │
+                  │ • TypeScript                          │
+                  │ • Vite                                │
+                  │ • React Router                        │
+                  │ • Axios                               │
+                  └───────────────────┬───────────────────┘
+                                      │
+                             HTTPS / REST APIs
+                             JWT Authentication
+                                      │
+                                      ▼
+                  ┌───────────────────────────────────────┐
+                  │           FastAPI Backend             │
+                  │───────────────────────────────────────│
+                  │ • Authentication                      │
+                  │ • Customer Management                 │
+                  │ • Loan Management                     │
+                  │ • Payment Management                  │
+                  │ • Loan Renewals                       │
+                  │ • Finance Settings                    │
+                  │ • Dashboard & Reports                 │
+                  └───────────────────┬───────────────────┘
+                                      │
+                               SQLAlchemy ORM
+                                      │
+                                      ▼
+                  ┌───────────────────────────────────────┐
+                  │          PostgreSQL Database          │
+                  │───────────────────────────────────────│
+                  │ • Customers                           │
+                  │ • Loans                               │
+                  │ • Payments                            │
+                  │ • Loan Renewals                       │
+                  │ • Finance Owners                      │
+                  └───────────────────────────────────────┘
+```
+
+---
+
+# 📂 Project Structure
+
+```text
+FINNECT-Finance-OS
+│
+├── backend
+│   ├── alembic
+│   │   └── versions
+│   │
+│   ├── app
+│   │   ├── api
+│   │   ├── core
+│   │   ├── database
+│   │   ├── models
+│   │   ├── schemas
+│   │   ├── services
+│   │   ├── utils
+│   │   └── main.py
+│   │
+│   ├── requirements.txt
+│   └── .env.example
+│
+├── frontend
+│   ├── public
+│   ├── src
+│   │   ├── api
+│   │   ├── components
+│   │   ├── pages
+│   │   ├── services
+│   │   ├── router
+│   │   ├── types
+│   │   ├── assets
+│   │   └── App.tsx
+│   │
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── vercel.json
+│
+├── docs
+│   └── screenshots
+│
+├── .github
+│   └── workflows
+│
+├── README.md
+├── LICENSE
+└── .gitignore
+```
+
+---
+
+# 🧩 Core Modules
+
+FINNECT Finance OS is organized into modular business components that separate responsibilities while sharing a common authentication and database layer.
+
+| Module | Description |
+| :------ | :---------- |
+| Authentication | Finance Owner Registration, Login, JWT Authentication |
+| Customer Management | Customer Registration, Search, Update, History |
+| Loan Management | Loan Creation, Search, Statements, Settlement |
+| Payment Management | Payment Recording and Interest Allocation |
+| Loan Renewals | Loan Extension and Renewal Tracking |
+| Dashboard | Business Overview and Analytics |
+| Reports | Profit Summary, Maturity Reports, Overdue Loans |
+| Finance Settings | Business Configuration and Interest Settings |
+
+---
+
+# 🗄️ Database Design
+
+FINNECT Finance OS uses PostgreSQL as the primary relational database with SQLAlchemy ORM for data access and relationship management.
+
+## Entity Relationship Overview
+
+```text
+                    ┌──────────────────────┐
+                    │    Finance Owner     │
+                    └──────────┬───────────┘
+                               │
+                         One-to-Many
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │      Customer        │
+                    └──────────┬───────────┘
+                               │
+                         One-to-Many
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │        Loan          │
+                    └───────┬───────┬──────┘
+                            │       │
+                   One-to-Many   One-to-Many
+                            │       │
+                            ▼       ▼
+                  ┌────────────┐ ┌───────────────┐
+                  │  Payment   │ │ Loan Renewal  │
+                  └────────────┘ └───────────────┘
+```
+
+---
+
+## Primary Entities
+
+### 👤 Finance Owner
+
+Responsible for:
+
+- Secure Authentication
+- Business Ownership
+- Finance Settings
+- Dashboard Access
+
+---
+
+### 👥 Customer
+
+Stores borrower information including:
+
+- Name
+- Mobile Number
+- Address
+- Identification Details
+- Customer Notes
+
+A single customer can own multiple loans.
+
+---
+
+### 💰 Loan
+
+Maintains complete loan lifecycle information including:
+
+- Principal Amount
+- Interest Rate
+- Interest Method
+- Issue Date
+- Due Date
+- Loan Status
+- Remaining Principal
+- Total Interest Paid
+- Total Principal Paid
+
+---
+
+### 💳 Payment
+
+Tracks every payment made against a loan.
+
+Each payment records:
+
+- Total Amount
+- Interest Paid
+- Principal Paid
+- Payment Date
+- Payment Mode
 - Remarks
 
 ---
 
-# Business Workflow
+### 🔄 Loan Renewal
+
+Maintains historical renewal records including:
+
+- Previous Due Date
+- New Due Date
+- Updated Interest Rate
+- Updated Interest Method
+- Renewal Remarks
+
+---
+
+# 🔄 Business Workflow
+
+FINNECT Finance OS follows a structured business workflow that mirrors the day-to-day operations of a finance business. Each module is designed to ensure accurate loan management, maintain financial integrity, and provide complete visibility into business operations.
 
 ```text
-Finance Owner
-
-        │
-
-        ▼
-
-  Secure Login
-
-        │
-
-        ▼
-
-Customer Registration
-
-        │
-
-        ▼
-
-  Loan Creation
-
-        │
-
-        ▼
-
-Interest Calculation
-
-        │
-
-        ▼
-
-Payment Collection
-
-        │
-
- ┌──────┴─────────┐
-
- ▼                ▼
-
-Renew Loan   Settle Loan
-
-        │
-
-        ▼
-
- Dashboard Reports
-
-        │
-
-        ▼
-
-Business Analytics
+                                  FINANCE OWNER
+                                        │
+                                        ▼
+                         ┌─────────────────────────────┐
+                         │   Secure Authentication     │
+                         │       (JWT Login)           │
+                         └─────────────┬───────────────┘
+                                       │
+                                       ▼
+                         ┌─────────────────────────────┐
+                         │      Dashboard Overview     │
+                         └─────────────┬───────────────┘
+                                       │
+                                       ▼
+                         ┌─────────────────────────────┐
+                         │      Register Customer      │
+                         └─────────────┬───────────────┘
+                                       │
+                                       ▼
+                         ┌─────────────────────────────┐
+                         │        Create Loan          │
+                         └─────────────┬───────────────┘
+                                       │
+                         ┌─────────────┴─────────────┐
+                         ▼                           ▼
+              ┌────────────────────┐      ┌────────────────────┐
+              │ Record Payments    │      │ Loan Renewals      │
+              └──────────┬─────────┘      └──────────┬─────────┘
+                         │                           │
+                         └─────────────┬─────────────┘
+                                       ▼
+                         ┌─────────────────────────────┐
+                         │      Loan Settlement        │
+                         └─────────────┬───────────────┘
+                                       │
+                                       ▼
+                         ┌─────────────────────────────┐
+                         │   Dashboard & Reports       │
+                         └─────────────────────────────┘
 ```
 
 ---
 
-# Authentication Flow
+# 🔐 Authentication Flow
+
+Authentication is implemented using JSON Web Tokens (JWT). Every protected endpoint requires a valid access token issued after successful login.
 
 ```text
-Finance Owner
+             Finance Owner
+                    │
+                    ▼
+        Enter Email & Password
+                    │
+                    ▼
+         POST /finance-owners/login
+                    │
+                    ▼
+       Validate Credentials (BCrypt)
+                    │
+          ┌─────────┴─────────┐
+          │                   │
+          ▼                   ▼
+    Authentication      Authentication
+        Failed             Successful
+          │                   │
+          ▼                   ▼
+   Return HTTP Error      Generate JWT
+                              │
+                              ▼
+                       Return Access Token
+                              │
+                              ▼
+                Store Token in Frontend Session
+                              │
+                              ▼
+              Include Authorization Header in APIs
 
-      │
-
- Login Request
-
-      │
-
-      ▼
-
-Verify Credentials
-
-      │
-
-      ▼
-
-Generate JWT Token
-
-      │
-
-      ▼
-
-Frontend Stores Token
-
-      │
-
-      ▼
-
-Protected API Requests
-
-      │
-
-      ▼
-
-JWT Validation Middleware
-
-      │
-
-      ▼
-
-Authorized Access
+Authorization: Bearer <JWT_TOKEN>
 ```
 
 ---
 
-# API Modules
+# 🧩 API Modules
 
-## Authentication
+The backend is organized into independent modules, each responsible for a specific business capability.
 
-Responsible for finance owner authentication.
-
-| Method  |      Endpoint              |       Description       |
-|---------|----------------------------|-------------------------|
-| POST    | `/finance-owners/register` | Register Finance Owner  |
-| POST    | `/finance-owners/login`    | Login                   |
-| GET     | `/finance-owners/me`       | Current Logged-in Owner |
-
----
-
-## Customers
-
-Customer lifecycle management.
-
-| Method  | Endpoint            |
-|---------|---------------------|
-| POST    | `/customers`        |
-| GET     | `/customers`        |
-| GET     | `/customers/{id}`   |
-| PUT     | `/customers/{id}`   |
-| DELETE  | `/customers/{id}`   |
-| GET     | `/customers/search` |
+| Module | Responsibility |
+| :----- | :------------- |
+| Authentication | Finance Owner Registration and Login |
+| Customers | Customer Registration, Update, Search and Details |
+| Loans | Loan Creation, Search, Statements and Settlement |
+| Payments | Payment Recording and Payment History |
+| Loan Renewals | Extend Existing Loans |
+| Dashboard | Business Statistics and Collections |
+| Reports | Profit, Overdue Loans and Maturity Reports |
+| Finance Settings | Business Configuration |
 
 ---
 
-## Loans
+# 🌐 REST API Overview
 
-Loan lifecycle APIs.
-
-| Method  | Endpoint                       |
-|---------|--------------------------------|
-| POST    | `/loans`                       |
-| GET     | `/loans`                       |
-| GET     | `/loans/{id}`                  |
-| PUT     | `/loans/{id}`                  |
-| DELETE  | `/loans/{id}`                  |
-| GET     | `/loans/search`                |
-| GET     | `/loans/{id}/statement`        |
-| GET     | `/loans/{id}/interest-summary` |
-
----
-
-## Payments
-
-Payment management.
-
-| Method  | Endpoint         |
-|---------|------------------|
-| POST    | `/payments`      |
-| GET     | `/payments`      |
-| PUT     | `/payments/{id}` |
-| DELETE  | `/payments/{id}` |
+| HTTP Method | Endpoint | Description |
+| :---------- | :------- | :---------- |
+| POST | `/finance-owners/register` | Register a Finance Owner |
+| POST | `/finance-owners/login` | Authenticate Finance Owner |
+| GET | `/dashboard` | Dashboard Summary |
+| POST | `/customers` | Register Customer |
+| GET | `/customers` | Retrieve Customers |
+| GET | `/customers/{customer_id}` | Customer Details |
+| PUT | `/customers/{customer_id}` | Update Customer |
+| POST | `/loans` | Create Loan |
+| GET | `/loans` | Retrieve Loans |
+| GET | `/loans/{loan_id}` | Loan Details |
+| GET | `/loans/search` | Search Loans |
+| GET | `/loans/{loan_id}/statement` | Loan Statement |
+| POST | `/payments` | Record Payment |
+| GET | `/payments` | Payment History |
+| POST | `/loan-renewals` | Renew Loan |
+| GET | `/finance-settings` | Retrieve Finance Settings |
+| PUT | `/finance-settings` | Update Finance Settings |
 
 ---
 
-## Renewals
+# 💹 Interest Calculation
 
-Loan renewal APIs.
+FINNECT Finance OS supports two configurable interest calculation methods, allowing finance businesses to operate according to their preferred lending model.
 
-| Method  | Endpoint                 |
-|---------|--------------------------|
-| POST    | `/loans/{loan_id}/renew` |
-| GET     | `/renewals`              |
-| GET     | `/renewals/{id}`         |
+| Method | Description |
+| :----- | :---------- |
+| Percentage | Monthly interest calculated using a percentage rate. |
+| Rupees per ₹100 | Monthly interest calculated as a fixed amount per ₹100 of principal. |
 
----
+### Percentage Method
 
-## Settlement
+```text
+Monthly Interest
 
-Loan settlement operations.
-
-| Method  | Endpoint                         |
-|---------|----------------------------------|
-| GET     | `/loans/{id}/settlement-preview` |
-| POST    | `/loans/{id}/settlement`         |
-
----
-
-## Dashboard
-
-Business analytics endpoints.
-
-| Method  | Endpoint                     |
-|---------|------------------------------|
-| GET     | `/dashboard`                 |
-| GET     | `/dashboard/profit-summary`  |
-| GET     | `/dashboard/maturity-report` |
-| GET     | `/dashboard/overdue-loans`   |
-| GET     | `/dashboard/closed-loans`    |
-
----
-
-# Interest Calculation
-
-FINNECT supports two interest calculation methods.
-
-## Percentage Method
-
-Interest is calculated monthly based on the outstanding principal.
-
-Example:
-
-```
-Principal : ₹100,000
-
-Interest Rate : 2%
-
-Monthly Interest : ₹2,000
+=
+Principal × Interest Rate (%)
+──────────────────────────────
+            100
 ```
 
 ---
 
-## Rupees per ₹100 Method
+### Rupees per ₹100 Method
 
-Traditional finance calculation.
+```text
+Monthly Interest
 
-Example:
-
-```
-₹3 per ₹100 per month
-
-Principal : ₹100,000
-
-Monthly Interest : ₹3,000
+=
+Principal
+────────── × Interest per ₹100
+   100
 ```
 
 ---
 
-# Business Rules
+# 💳 Payment Allocation Logic
 
-FINNECT implements several real-world finance rules.
+Payments are allocated automatically according to finance business rules.
 
-- Interest is always collected before principal.
-- Principal cannot be reduced while interest is pending.
-- Only the latest payment can be deleted.
-- Renewals preserve loan history.
-- Settlement supports waived amounts.
-- Dashboard metrics are calculated directly from the database.
-- All APIs are protected using JWT authentication.
+```text
+      Customer Payment
+            │
+            ▼
+  Outstanding Interest Exists?
+            │
+      ┌────┴────┐
+      │         │
+      YES        NO
+      │         │
+      ▼         ▼
+Pay Interest Pay Principal
+      │         │
+      └────┬────┘
+           ▼
+    Update Loan Balance
+           │
+           ▼
+    Store Payment Record
+```
 
-# Getting Started
-
-Follow the steps below to run FINNECT Finance OS locally.
-
----
-
-# Prerequisites
-
-Before running the project, ensure the following software is installed.
-
-| Software   | Version |
-|------------|---------|
-| Python     | 3.11+   |
-| Node.js    | 20+     |
-| PostgreSQL | 15+     |
-| Git        | Latest  |
-| npm        | Latest  |
+This approach ensures that outstanding interest is always cleared before reducing the principal balance.
 
 ---
 
-# Clone Repository
+# 📜 Business Rules
+
+The system enforces several business rules to maintain financial accuracy and data consistency.
+
+| Rule | Description |
+| :--- | :---------- |
+| Authentication Required | All protected APIs require a valid JWT access token. |
+| Customer Before Loan | A loan cannot be created without an existing customer. |
+| Interest First | Interest is always collected before principal. |
+| Principal Protection | Principal cannot be reduced while unpaid interest exists. |
+| Latest Payment Deletion | Only the most recent payment can be deleted. |
+| Loan Renewal | Only active loans are eligible for renewal. |
+| Loan Settlement | A loan can be settled only after all dues are cleared. |
+| Data Validation | All requests are validated using Pydantic schemas. |
+| Password Security | Passwords are securely hashed using BCrypt. |
+| Database Integrity | SQLAlchemy relationships maintain referential integrity. |
+
+---
+
+# 🛡️ Data Validation & Error Handling
+
+Every API request passes through multiple validation layers before any database operation is performed.
+
+```text
+Incoming Request
+        │
+        ▼
+Pydantic Schema Validation
+        │
+        ▼
+Business Rule Validation
+        │
+        ▼
+Authentication & Authorization
+        │
+        ▼
+Database Transaction
+        │
+        ▼
+Successful Response
+```
+
+If validation fails at any stage, the API returns an appropriate HTTP status code along with a descriptive error message.
+
+---
+
+# 🚀 Getting Started
+
+Follow the steps below to set up FINNECT Finance OS on your local machine for development and testing.
+
+---
+
+# 📋 Prerequisites
+
+Ensure the following software is installed before running the project.
+
+| Software | Recommended Version |
+| :-------- | :-----------------: |
+| Python | 3.12+ |
+| Node.js | 20+ |
+| npm | Latest |
+| PostgreSQL | 16+ |
+| Git | Latest |
+
+---
+
+# 📦 Clone the Repository
 
 ```bash
 git clone https://github.com/sakethreddymamidigari/FINNECT-Finance-OS.git
@@ -779,24 +1202,38 @@ cd FINNECT-Finance-OS
 
 ---
 
-# Backend Setup
+# ⚙️ Backend Setup
+
+Navigate to the backend directory.
+
+```bash
+cd backend
+```
+
+---
 
 ## Create Virtual Environment
 
 ### Windows
 
 ```bash
-python -m venv venv
-
-venv\Scripts\activate
+python -m venv .venv
 ```
 
-### Linux/macOS
+Activate the virtual environment.
 
 ```bash
-python3 -m venv venv
+.venv\Scripts\activate
+```
 
-source venv/bin/activate
+---
+
+### macOS / Linux
+
+```bash
+python3 -m venv .venv
+
+source .venv/bin/activate
 ```
 
 ---
@@ -811,9 +1248,17 @@ pip install -r requirements.txt
 
 ## Configure Environment Variables
 
-Create a `.env` file inside the backend directory.
+Create a `.env` file inside the **backend** directory.
 
-Example:
+```text
+backend
+│
+├── .env
+├── requirements.txt
+└── app
+```
+
+Example configuration:
 
 ```env
 DATABASE_URL=postgresql://username:password@localhost:5432/finnect
@@ -822,12 +1267,12 @@ SECRET_KEY=your_secret_key
 
 ALGORITHM=HS256
 
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+ACCESS_TOKEN_EXPIRE_MINUTES=60
 ```
 
 ---
 
-## Run Database Migrations
+## Apply Database Migrations
 
 ```bash
 alembic upgrade head
@@ -835,21 +1280,29 @@ alembic upgrade head
 
 ---
 
-## Start Backend Server
+## Run Backend Server
 
 ```bash
 python -m uvicorn backend.app.main:app --reload
 ```
 
-Backend will run on:
+Backend will be available at
 
-```
+```text
 http://127.0.0.1:8000
+```
+
+Swagger API Documentation
+
+```text
+http://127.0.0.1:8000/docs
 ```
 
 ---
 
-# Frontend Setup
+# 💻 Frontend Setup
+
+Open a new terminal.
 
 Navigate to the frontend directory.
 
@@ -859,7 +1312,7 @@ cd frontend
 
 ---
 
-## Install Packages
+## Install Dependencies
 
 ```bash
 npm install
@@ -867,15 +1320,9 @@ npm install
 
 ---
 
-## Configure Frontend Environment
+## Configure Environment Variables
 
-Create:
-
-```
-frontend/.env
-```
-
-Example:
+Create a `.env` file inside the frontend directory.
 
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:8000
@@ -883,290 +1330,388 @@ VITE_API_BASE_URL=http://127.0.0.1:8000
 
 ---
 
-## Start Frontend
+## Start Development Server
 
 ```bash
 npm run dev
 ```
 
-Frontend will run on:
+Frontend will be available at
 
-```
+```text
 http://localhost:5173
 ```
 
 ---
 
-# Running the Complete Application
+# ▶️ Running the Complete Application
 
-Open two terminals.
-
-Terminal 1
-
-```bash
-python -m uvicorn backend.app.main:app --reload
-```
-
-Terminal 2
-
-```bash
-cd frontend
-
-npm run dev
-```
-
----
-
-# API Documentation
-
-FastAPI automatically generates interactive API documentation.
-
-Swagger UI
-
-```
-http://127.0.0.1:8000/docs
-```
-
-ReDoc
-
-```
-http://127.0.0.1:8000/redoc
-```
-
----
-
-# Environment Variables
-
-Backend
-
-| Variable                    | Description                  |
-|-----------------------------|------------------------------|
-| DATABASE_URL                | PostgreSQL connection string |
-| SECRET_KEY                  | JWT secret                   |
-| ALGORITHM                   | JWT algorithm                |
-| ACCESS_TOKEN_EXPIRE_MINUTES | Token expiration             |
-
-
-
-Frontend
-
-| Variable          | Description     |
-|-------------------|-----------------|
-| VITE_API_BASE_URL | Backend API URL |
-
----
-
-# CI/CD Pipeline
-
-The project uses GitHub Actions to automate build and deployment.
-
-Pipeline Overview
+Start the backend server.
 
 ```text
-Developer
-
-    │
-
-Push to GitHub
-
-    │
-
-GitHub Actions
-
-    │
-
-Install Dependencies
-
-    │
-
-Backend Checks
-
-    │
-
-Frontend Build
-
-    │
-
-Build Successful
-
-    │
-
-Deploy Application
-
-    │
-
-Production
+http://127.0.0.1:8000
 ```
 
-Typical CI steps include:
+Start the frontend server.
 
-- Checkout repository
-- Install backend dependencies
-- Install frontend dependencies
-- Build frontend
-- Validate backend
-- Run tests (if configured)
-- Deploy after successful build
+```text
+http://localhost:5173
+```
+
+Open the frontend in your browser.
+
+Register a Finance Owner.
+
+Login using your credentials.
+
+Begin managing customers, loans, payments, and reports.
 
 ---
 
-# Deployment
+# 🌍 Production Deployment
 
 ## Frontend
 
-The frontend can be deployed to:
-
-- Vercel
-- Netlify
-
-Recommended:
-
-```
-Vercel
-```
+| Platform | URL |
+| :------- | :-- |
+| Vercel | https://finnect-finance-os.vercel.app |
 
 ---
 
 ## Backend
 
-The backend can be deployed to:
-
-- Render
-- Railway
-- Azure App Service
-- AWS EC2
+| Platform | URL |
+| :------- | :-- |
+| Render | https://finnect-backend-hrq8.onrender.com |
 
 ---
 
-## Database
+## API Documentation
 
-Recommended production database:
+| Documentation | URL |
+| :------------ | :-- |
+| Swagger UI | https://finnect-backend-hrq8.onrender.com/docs |
 
+---
+
+# 🔄 CI/CD Pipeline
+
+FINNECT Finance OS follows an automated deployment workflow using GitHub, Render, and Vercel.
+
+```text
+                   Developer
+                       │
+                       ▼
+               Local Development
+                       │
+                Git Commit & Push
+                       │
+                       ▼
+        ┌─────────────────────────────┐
+        │        GitHub Repository     │
+        └──────────────┬──────────────┘
+                       │
+             ┌─────────┴─────────┐
+             │                   │
+             ▼                   ▼
+     Render Deployment     Vercel Deployment
+     (FastAPI Backend)     (React Frontend)
+             │                   │
+             └─────────┬─────────┘
+                       ▼
+              Production Environment
 ```
-PostgreSQL
+
+Every push to the configured branch automatically triggers deployment, ensuring that the latest application version is published with minimal manual intervention.
+
+---
+
+# 📚 API Documentation
+
+Interactive API documentation is automatically generated by FastAPI using the OpenAPI specification.
+
+| Feature | Availability |
+| :------ | :----------- |
+| Interactive Swagger UI | ✅ |
+| OpenAPI Specification | ✅ |
+| Request Validation | ✅ |
+| Response Schemas | ✅ |
+| Authentication Testing | ✅ |
+
+Swagger URL
+
+```text
+https://finnect-backend-hrq8.onrender.com/docs
 ```
 
 ---
 
-# Security Features
+# 🔐 Security Features
 
-FINNECT follows secure backend development practices.
+FINNECT Finance OS incorporates industry-standard security practices to protect user accounts and financial data.
 
-Implemented features include:
-
-- JWT Authentication
-- BCrypt Password Hashing
-- Protected API Routes
-- Request Validation using Pydantic
-- SQLAlchemy ORM
-- Environment Variable Configuration
-- Secure Password Storage
-- RESTful API Design
-- Input Validation
-- Structured Error Handling
+| Feature | Description |
+| :------ | :---------- |
+| JWT Authentication | Secure stateless authentication |
+| BCrypt Password Hashing | Passwords are never stored in plain text |
+| Protected API Routes | Authentication required for secured endpoints |
+| Request Validation | Pydantic schema validation |
+| SQLAlchemy ORM | Prevents SQL injection through parameterized queries |
+| Environment Variables | Sensitive configuration stored outside source code |
+| CORS Configuration | Controlled cross-origin access |
+| HTTP Exception Handling | Standardized error responses |
 
 ---
 
-# Performance Highlights
+# ⚡ Performance Highlights
 
-Designed with scalability and maintainability in mind.
+The project is designed with a modular architecture that promotes scalability, maintainability, and efficient request processing.
 
-Highlights include:
+Key architectural strengths include:
 
-- Modular Service Layer
-- Layered Architecture
-- SQLAlchemy ORM
-- Efficient Database Queries
-- Reusable Schemas
-- Dependency Injection
-- Clean API Structure
-- Frontend Component Reusability
-
----
-
-# Future Enhancements
-
-Planned improvements include:
-
-- OTP Verification
-- Google Account Login
-- WhatsApp Payment Reminders
-- SMS Notifications
-- Email Notifications
-- PDF Loan Statements
-- Excel Report Export
-- Dashboard Charts
-- Advanced Business Analytics
-- Multi-Branch Finance Support
-- Role-Based Access Control
-- Audit Logs
-- Mobile Application
-- Cloud Storage Integration
+- Layered backend architecture
+- Modular service-based business logic
+- SQLAlchemy ORM relationship management
+- Reusable Pydantic schemas
+- Stateless JWT authentication
+- Efficient PostgreSQL queries
+- RESTful API design
+- Frontend and backend separation
+- Production-ready deployment
+- Maintainable project structure
 
 ---
 
-# Contributing
+# 🧪 Testing Checklist
 
-Contributions are welcome.
+The following functionality has been verified during development.
+
+| Module | Status |
+| :----- | :----: |
+| Finance Owner Registration | ✅ |
+| Login Authentication | ✅ |
+| Customer Management | ✅ |
+| Loan Creation | ✅ |
+| Loan Search | ✅ |
+| Loan Statements | ✅ |
+| Payment Recording | ✅ |
+| Loan Renewals | ✅ |
+| Dashboard | ✅ |
+| Reports | ✅ |
+| Finance Settings | ✅ |
+| JWT Authentication | ✅ |
+| Swagger Documentation | ✅ |
+| Production Deployment | ✅ |
+
+---
+
+# 🚀 Future Enhancements
+
+FINNECT Finance OS has been designed with a modular architecture, allowing additional features to be integrated without major architectural changes.
+
+The following enhancements are planned for future releases.
+
+| Feature | Description | Status |
+| :------ | :---------- | :----: |
+| WhatsApp Payment Reminders | Automatically notify customers about upcoming due dates and overdue payments. | 🔄 Planned |
+| SMS Notifications | Send payment confirmations and loan reminders. | 🔄 Planned |
+| Receipt Generation | Generate printable PDF payment receipts. | 🔄 Planned |
+| Export Reports | Export reports in Excel and PDF formats. | 🔄 Planned |
+| Advanced Analytics | Business trends, growth metrics, and revenue insights. | 🔄 Planned |
+| Multi-Branch Support | Manage multiple finance offices from a single platform. | 🔄 Planned |
+| Employee Management | Role-based access for staff members. | 🔄 Planned |
+| Audit Logs | Maintain complete activity history. | 🔄 Planned |
+| Email Notifications | Automated finance-related notifications. | 🔄 Planned |
+| Cloud File Storage | Secure document storage for customer records. | 🔄 Planned |
+
+---
+
+# 🤝 Contributing
+
+Contributions are welcome and greatly appreciated.
 
 To contribute:
 
 1. Fork the repository.
-2. Create a new feature branch.
+2. Create a feature branch.
 3. Commit your changes.
-4. Push your branch.
+4. Push the branch to GitHub.
 5. Open a Pull Request.
 
-For major changes, please open an issue before starting development.
+```bash
+git checkout -b feature/your-feature-name
+
+git add .
+
+git commit -m "Add new feature"
+
+git push origin feature/your-feature-name
+```
+
+Please ensure that all code follows the project's coding standards and is properly tested before submitting a pull request.
 
 ---
 
-# License
+# 📝 Coding Standards
 
-This project is licensed under the MIT License.
+The project follows a clean and maintainable architecture.
 
-See the `LICENSE` file for details.
+### Backend
+
+- Follow PEP 8 coding conventions.
+- Use descriptive function and variable names.
+- Keep business logic inside service modules.
+- Validate all requests using Pydantic.
+- Handle exceptions using FastAPI HTTPException.
+- Keep database access inside SQLAlchemy models and services.
 
 ---
 
-# Author
+### Frontend
+
+- Use TypeScript for type safety.
+- Create reusable React components.
+- Keep API calls inside dedicated service files.
+- Organize pages by feature.
+- Maintain responsive layouts.
+
+---
+
+# 📈 Project Highlights
+
+## Business Features
+
+- Finance Owner Authentication
+- Customer Management
+- Loan Management
+- Loan Statements
+- Payment Management
+- Loan Renewals
+- Loan Settlement
+- Dashboard Analytics
+- Reports
+- Finance Settings
+
+---
+
+## Technical Highlights
+
+- Full-Stack Web Application
+- RESTful API Architecture
+- React + TypeScript Frontend
+- FastAPI Backend
+- SQLAlchemy ORM
+- PostgreSQL Database
+- JWT Authentication
+- BCrypt Password Hashing
+- Alembic Database Migrations
+- Production Deployment
+- Modular Service Architecture
+- Responsive User Interface
+
+---
+
+# 📊 Project Statistics
+
+| Category | Details |
+| :------- | :------ |
+| Project Type | Full-Stack Web Application |
+| Domain | Financial Technology (FinTech) |
+| Frontend | React + TypeScript + Vite |
+| Backend | FastAPI |
+| Database | PostgreSQL |
+| ORM | SQLAlchemy |
+| Authentication | JWT |
+| API Style | REST |
+| Deployment | Vercel + Render |
+| Version Control | Git + GitHub |
+
+---
+
+# 🏆 Learning Outcomes
+
+The development of FINNECT Finance OS involved practical implementation of modern software engineering concepts, including:
+
+- REST API Development
+- Authentication & Authorization
+- Database Design
+- ORM Relationships
+- Backend Architecture
+- Frontend Development
+- State Management
+- Production Deployment
+- Environment Configuration
+- API Documentation
+- Database Migrations
+- Version Control
+- Full-Stack Integration
+
+---
+
+# 📄 License
+
+This project is licensed under the **MIT License**.
+
+You are free to:
+
+- Use
+- Modify
+- Distribute
+- Fork
+
+in accordance with the terms of the MIT License.
+
+---
+
+# 👨‍💻 Author
+
+<div align="center">
 
 ## Saketh Reddy Mamidigari
 
-Backend Python Developer
+**Backend Python Developer**
 
 GitHub
 
-```
 https://github.com/sakethreddymamidigari
-
-```
 
 LinkedIn
 
-```
-http://www.linkedin.com/in/mamidigari-saketh-reddy
+https://www.linkedin.com/in/mamidigari-saketh-reddy
+
+Email
+
+sakethreddymamidigari@gmail.com
+
+</div>
 
 ---
 
-# Acknowledgements
+# 🙏 Acknowledgements
 
-This project was developed as a real-world finance management solution to demonstrate full-stack software engineering skills using modern technologies including FastAPI, React, TypeScript, PostgreSQL, SQLAlchemy, JWT Authentication, and RESTful API development.
+Special thanks to the open-source community and the creators of the technologies that made this project possible.
 
-It showcases practical implementation of authentication, business workflows, loan lifecycle management, reporting, and scalable application architecture.
+- Python
+- FastAPI
+- React
+- TypeScript
+- PostgreSQL
+- SQLAlchemy
+- Pydantic
+- Alembic
+- JWT
+- Vite
+- Git
+- GitHub
+- Render
+- Vercel
 
 ---
 
-<p align="center">
+<div align="center">
 
-⭐ If you found this project useful, consider giving it a star on GitHub.
+## ⭐ If you found this project helpful, please consider giving it a Star on GitHub!
 
-</p>
+**FINNECT Finance OS** was developed to demonstrate real-world full-stack software engineering practices, scalable backend architecture, and modern web application development using React, FastAPI, and PostgreSQL.
 
----
-
-<p align="center">
-
-Made with ❤️ using FastAPI, React, TypeScript and PostgreSQL.
-
-</p>
+</div>
