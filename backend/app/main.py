@@ -29,6 +29,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
+        "https://finnect-finance-os.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
