@@ -390,12 +390,12 @@ FINNECT Finance OS follows a modern three-layer architecture where the frontend 
                     ┌────────────────────────────┐
                     │     React Frontend         │
                     │────────────────────────────│
-                    │ React                     │
-                    │ TypeScript                │
-                    │ Vite                      │
-                    │ React Router              │
-                    │ Axios                     │
-                    └─────────────┬─────────────┘
+                    │ React                      │
+                    │ TypeScript                 │
+                    │ Vite                       │
+                    │ React Router               │
+                    │ Axios                      │
+                    └─────────────┬──────────────┘
                                   │
                           HTTPS + JWT
                                   │
@@ -410,7 +410,7 @@ FINNECT Finance OS follows a modern three-layer architecture where the frontend 
                     │ Renewals                   │
                     │ Reports                    │
                     │ Finance Settings           │
-                    └─────────────┬─────────────┘
+                    └─────────────┬──────────────┘
                                   │
                            SQLAlchemy ORM
                                   │
@@ -725,10 +725,10 @@ Only authenticated finance owners can access customer, loan, payment, and report
                        Return Access Token
                                   │
                                   ▼
-                  Store Token in Frontend
+                       Store Token in Frontend
                                   │
                                   ▼
-              Authorization: Bearer <JWT>
+                     Authorization: Bearer <JWT>
                                   │
                                   ▼
                      Access Protected APIs
