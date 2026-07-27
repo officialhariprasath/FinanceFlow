@@ -384,7 +384,7 @@ By automating repetitive financial operations, FINNECT reduces manual work, impr
 FINNECT Finance OS follows a modern three-layer architecture where the frontend communicates with the backend through secure REST APIs, while SQLAlchemy manages communication with PostgreSQL.
 
 ```text
-                           Client Browser
+                            Client Browser
                                   │
                                   ▼
                     ┌────────────────────────────┐
@@ -397,7 +397,7 @@ FINNECT Finance OS follows a modern three-layer architecture where the frontend 
                     │ Axios                      │
                     └─────────────┬──────────────┘
                                   │
-                          HTTPS + JWT
+                             HTTPS + JWT
                                   │
                                   ▼
                     ┌────────────────────────────┐
@@ -412,7 +412,7 @@ FINNECT Finance OS follows a modern three-layer architecture where the frontend 
                     │ Finance Settings           │
                     └─────────────┬──────────────┘
                                   │
-                           SQLAlchemy ORM
+                            SQLAlchemy ORM
                                   │
                                   ▼
                     ┌────────────────────────────┐
@@ -674,21 +674,21 @@ Every loan passes through a structured lifecycle from creation to settlement.
                         Dashboard
                               │
                               ▼
-                    Register Customer
+                       Register Customer
                               │
                               ▼
                         Create Loan
                               │
               ┌───────────────┴───────────────┐
               ▼                               ▼
-      Record Payments                 Loan Renewal
+        Record Payments                 Loan Renewal
               │                               │
               └───────────────┬───────────────┘
                               ▼
                        Loan Settlement
                               │
                               ▼
-                   Dashboard & Reports
+                      Dashboard & Reports
 ```
 
 This workflow ensures that every customer interaction follows a consistent business process while maintaining complete financial records.
@@ -708,10 +708,10 @@ Only authenticated finance owners can access customer, loan, payment, and report
             Enter Email & Password
                       │
                       ▼
-       POST /finance-owners/login
+           POST /finance-owners/login
                       │
                       ▼
-          Validate Credentials
+              Validate Credentials
                       │
            ┌──────────┴──────────┐
            ▼                     ▼
@@ -722,16 +722,16 @@ Only authenticated finance owners can access customer, loan, payment, and report
       Return Error          Generate JWT
                                   │
                                   ▼
-                       Return Access Token
+                         Return Access Token
                                   │
                                   ▼
-                       Store Token in Frontend
+                        Store Token in Frontend
                                   │
                                   ▼
-                     Authorization: Bearer <JWT>
+                       Authorization: Bearer <JWT>
                                   │
                                   ▼
-                     Access Protected APIs
+                         Access Protected APIs
 ```
 
 ---
@@ -780,8 +780,6 @@ Finance owners can choose the preferred calculation method while creating or ren
 ```text
 Monthly Interest
 
-=
-
 Principal × Interest Rate (%)
 ──────────────────────────────
             100
@@ -793,8 +791,6 @@ Principal × Interest Rate (%)
 
 ```text
 Monthly Interest
-
-=
 
 Principal
 ────────── × Interest per ₹100
@@ -815,7 +811,7 @@ Outstanding interest is always cleared before reducing the principal balance.
              Customer Payment
                     │
                     ▼
-        Outstanding Interest?
+          Outstanding Interest?
                     │
           ┌─────────┴─────────┐
           ▼                   ▼
@@ -826,7 +822,7 @@ Outstanding interest is always cleared before reducing the principal balance.
           │                   │
           └─────────┬─────────┘
                     ▼
-          Update Loan Balance
+            Update Loan Balance
                     │
                     ▼
            Store Payment Record
@@ -863,16 +859,16 @@ Every request passes through multiple validation layers before any database tran
              Incoming Request
                     │
                     ▼
-        Pydantic Schema Validation
+         Pydantic Schema Validation
                     │
                     ▼
-        Business Rule Validation
+          Business Rule Validation
                     │
                     ▼
-     Authentication & Authorization
+        Authentication & Authorization
                     │
                     ▼
-        Database Transaction Layer
+         Database Transaction Layer
                     │
                     ▼
           Successful API Response
