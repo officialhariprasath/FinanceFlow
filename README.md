@@ -253,8 +253,6 @@ Provides an overview of business performance, active loans, collections, reports
 
 ---
 
-## 👥 Customer Management
-
 <p align="center">
   <img src="docs/screenshots/customers.png" alt="Customers" width="95%">
 </p>
@@ -263,8 +261,6 @@ Manage customer records, view customer details, and maintain complete borrower i
 
 ---
 
-## 💰 Loan Management
-
 <p align="center">
   <img src="docs/screenshots/loans.png" alt="Loans" width="95%">
 </p>
@@ -272,8 +268,6 @@ Manage customer records, view customer details, and maintain complete borrower i
 Create, manage, search, renew, and settle customer loans with automated interest calculations.
 
 ---
-
-## 💳 Payment Management
 
 <p align="center">
   <img src="docs/screenshots/payments.png" alt="Payments" width="95%">
@@ -580,12 +574,8 @@ Maintains historical renewal records including:
 
 ---
 
-# 📸 Application Screenshots
-
 The following screenshots demonstrate the primary workflows and modules of FINNECT Finance OS.
 ---
-
-## 🔐 Login
 
 <p align="center">
   <img src="docs/screenshots/login.png" alt="Login Page" width="95%">
@@ -595,8 +585,6 @@ Secure authentication for Finance Owners using JWT-based login.
 
 ---
 
-## 📊 Dashboard
-
 <p align="center">
   <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="95%">
 </p>
@@ -604,8 +592,6 @@ Secure authentication for Finance Owners using JWT-based login.
 Provides an overview of business performance, active loans, collections, reports, and financial statistics.
 
 ---
-
-## 👥 Customer Management
 
 <p align="center">
   <img src="docs/screenshots/customers.png" alt="Customers" width="95%">
@@ -615,8 +601,6 @@ Manage customer records, view customer details, and maintain complete borrower i
 
 ---
 
-## 💰 Loan Management
-
 <p align="center">
   <img src="docs/screenshots/loans.png" alt="Loans" width="95%">
 </p>
@@ -624,8 +608,6 @@ Manage customer records, view customer details, and maintain complete borrower i
 Create, manage, search, renew, and settle customer loans with automated interest calculations.
 
 ---
-
-## 💳 Payment Management
 
 <p align="center">
   <img src="docs/screenshots/payments.png" alt="Payments" width="95%">
@@ -635,8 +617,6 @@ Record payments with automatic interest allocation and maintain complete payment
 
 ---
 
-## 🔄 Loan Renewals
-
 <p align="center">
   <img src="docs/screenshots/renewals.png" alt="Loan Renewals" width="95%">
 </p>
@@ -645,8 +625,6 @@ Extend existing loans while preserving complete renewal history.
 
 ---
 
-## 📈 Reports
-
 <p align="center">
   <img src="docs/screenshots/reports.png" alt="Reports" width="95%">
 </p>
@@ -654,10 +632,6 @@ Extend existing loans while preserving complete renewal history.
 Generate business insights through profit reports, maturity reports, overdue loans, and closed loan summaries.
 
 ---
-
-# 🛠️ Technology Stack
-
-## Frontend
 
 | Technology | Purpose |
 | :--------- | :------ |
@@ -669,8 +643,6 @@ Generate business insights through profit reports, maturity reports, overdue loa
 | CSS | User Interface Styling |
 
 ---
-
-## Backend
 
 | Technology | Purpose |
 | :--------- | :------ |
@@ -685,8 +657,6 @@ Generate business insights through profit reports, maturity reports, overdue loa
 
 ---
 
-## Database
-
 | Technology | Purpose |
 | :--------- | :------ |
 | PostgreSQL | Primary Database |
@@ -694,8 +664,6 @@ Generate business insights through profit reports, maturity reports, overdue loa
 | Alembic | Schema Versioning |
 
 ---
-
-## DevOps & Deployment
 
 | Technology | Purpose |
 | :--------- | :------ |
@@ -707,8 +675,6 @@ Generate business insights through profit reports, maturity reports, overdue loa
 | Swagger UI | Interactive API Documentation |
 
 ---
-
-# 🏗️ System Architecture
 
 The application follows a modern three-tier architecture where the React frontend communicates securely with the FastAPI backend through REST APIs, while SQLAlchemy manages database interactions with PostgreSQL.
 
@@ -759,8 +725,6 @@ The application follows a modern three-tier architecture where the React fronten
 
 ---
 
-# 📂 Project Structure
-
 ```text
 FINNECT-Finance-OS
 │
@@ -810,8 +774,6 @@ FINNECT-Finance-OS
 
 ---
 
-# 🧩 Core Modules
-
 FINNECT Finance OS is organized into modular business components that separate responsibilities while sharing a common authentication and database layer.
 
 | Module | Description |
@@ -827,11 +789,7 @@ FINNECT Finance OS is organized into modular business components that separate r
 
 ---
 
-# 🗄️ Database Design
-
 FINNECT Finance OS uses PostgreSQL as the primary relational database with SQLAlchemy ORM for data access and relationship management.
-
-## Entity Relationship Overview
 
 ```text
                     ┌──────────────────────┐
@@ -862,10 +820,6 @@ FINNECT Finance OS uses PostgreSQL as the primary relational database with SQLAl
 
 ---
 
-## Primary Entities
-
-### 👤 Finance Owner
-
 Responsible for:
 
 - Secure Authentication
@@ -874,8 +828,6 @@ Responsible for:
 - Dashboard Access
 
 ---
-
-### 👥 Customer
 
 Stores borrower information including:
 
@@ -888,8 +840,6 @@ Stores borrower information including:
 A single customer can own multiple loans.
 
 ---
-
-### 💰 Loan
 
 Maintains complete loan lifecycle information including:
 
@@ -905,8 +855,6 @@ Maintains complete loan lifecycle information including:
 
 ---
 
-### 💳 Payment
-
 Tracks every payment made against a loan.
 
 Each payment records:
@@ -919,8 +867,6 @@ Each payment records:
 - Remarks
 
 ---
-
-### 🔄 Loan Renewal
 
 Maintains historical renewal records including:
 
@@ -1310,15 +1256,11 @@ cd frontend
 
 ---
 
-## Install Dependencies
-
 ```bash
 npm install
 ```
 
 ---
-
-## Configure Environment Variables
 
 Create a `.env` file inside the frontend directory.
 
@@ -1368,15 +1310,11 @@ Begin managing customers, loans, payments, and reports.
 
 # 🌍 Production Deployment
 
-## Frontend
-
 | Platform | URL |
 | :------- | :-- |
 | Vercel | https://finnect-finance-os.vercel.app |
 
 ---
-
-## Backend
 
 | Platform | URL |
 | :------- | :-- |
