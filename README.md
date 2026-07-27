@@ -583,8 +583,6 @@ Maintains historical renewal records including:
 # 📸 Application Screenshots
 
 The following screenshots demonstrate the primary workflows and modules of FINNECT Finance OS.
-
-
 ---
 
 ## 🔐 Login
