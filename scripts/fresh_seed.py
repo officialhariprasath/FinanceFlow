@@ -7,6 +7,10 @@ import urllib.request
 from datetime import date, timedelta
 from pathlib import Path
 
+_ROOT = Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 from scripts.api_config import api_base
 
 BASE = api_base()
