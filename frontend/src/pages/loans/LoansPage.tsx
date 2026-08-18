@@ -5,7 +5,8 @@ import { PageLoading, PageError, EmptyState } from "../../components/common/Page
 import NewLoanModal from "../../components/loans/NewLoanModal";
 import { getLoans, searchLoans } from "../../services/loanService";
 import api from "../../api/axios";
-import { fmt, statusBadge } from "../../utils/fmt";
+import { fmt } from "../../utils/fmt";
+import StatusChip from "../../components/common/StatusChip";
 import type { LoanResponse } from "../../types/loan";
 
 export default function LoansPage() {
@@ -82,8 +83,8 @@ export default function LoansPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Loans</h1>
-            <p className="mt-1 text-slate-500">
+            <h1 className="page-title">Loans</h1>
+            <p className="page-subtitle">
               {loans.length} loan{loans.length !== 1 ? "s" : ""}
             </p>
           </div>
@@ -96,7 +97,7 @@ export default function LoansPage() {
         </div>
 
         {/* Filters */}
-        <div className="rounded-lg bg-white p-4 shadow">
+        <div className="surface-card p-4">
           <div className="flex flex-wrap gap-3">
             <input
               type="text"
@@ -147,7 +148,7 @@ export default function LoansPage() {
               </button>
               <button
                 onClick={handleReset}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50"
               >
                 Reset
               </button>
@@ -162,18 +163,18 @@ export default function LoansPage() {
         ) : loans.length === 0 ? (
           <EmptyState message="No loans found." />
         ) : (
-          <div className="overflow-hidden rounded-lg bg-white shadow">
+          <div className="surface-card overflow-hidden">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-100">
+              <thead className="table-head">
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Loan ID</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Customer</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Interest</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Principal</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Remaining</th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-700">Status</th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-700">Issue Date</th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-700">Due Date</th>
+                  <th>Loan ID</th>
+                  <th>Customer</th>
+                  <th>Interest</th>
+                  <th className="text-right">Principal</th>
+                  <th className="text-right">Remaining</th>
+                  <th className="text-center">Status</th>
+                  <th className="text-center">Issue Date</th>
+                  <th className="text-center">Due Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -181,15 +182,13 @@ export default function LoansPage() {
                   <tr
                     key={loan.id}
                     onClick={() => navigate(`/loans/${loan.id}`)}
-                    className="cursor-pointer border-t hover:bg-slate-50"
+                    className="cursor-pointer border-t hover:bg-slate-50 dark:hover:bg-slate-700/50"
                   >
                     <td className="px-4 py-3 font-medium">#{loan.id}</td>
-                    <td className="px-4 py-3">
-                      <span className="font-medium text-slate-800">
-                        {customerMap[loan.customer_id] ?? `Customer #${loan.customer_id}`}
-                      </span>
+                    <td className="px-4 py-3 table-cell-strong">
+                      {customerMap[loan.customer_id] ?? `Customer #${loan.customer_id}`}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">
+                    <td className="px-4 py-3 table-cell">
                       {loan.interest_method === "PERCENTAGE"
                         ? `${loan.interest_rate}% / mo`
                         : `₹${loan.interest_rate}/₹100`}
@@ -197,9 +196,7 @@ export default function LoansPage() {
                     <td className="px-4 py-3 text-right">{fmt(loan.principal_amount)}</td>
                     <td className="px-4 py-3 text-right">{fmt(loan.remaining_principal)}</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`rounded-full px-2 py-1 text-xs font-medium ${statusBadge(loan.status)}`}>
-                        {loan.status}
-                      </span>
+                      <StatusChip status={loan.status} />
                     </td>
                     <td className="px-4 py-3 text-center">{loan.issue_date}</td>
                     <td className="px-4 py-3 text-center">{loan.due_date}</td>

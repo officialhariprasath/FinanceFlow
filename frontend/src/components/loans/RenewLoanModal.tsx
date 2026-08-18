@@ -51,14 +51,14 @@ export default function RenewLoanModal({ loan, onClose, onSuccess }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+      <div className="w-full max-w-md surface-card p-6-xl">
         <h2 className="mb-2 text-xl font-semibold text-slate-800">Renew Loan #{loan.id}</h2>
         <p className="mb-4 text-sm text-slate-500">
           Current due date: <strong>{loan.due_date}</strong> · Rate: <strong>{loan.interest_rate}</strong>
         </p>
 
         {apiError && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <div className="mb-4 rounded-lg alert-error border p-3 text-sm text-red-700">
             {apiError}
           </div>
         )}
@@ -140,7 +140,7 @@ export default function RenewLoanModal({ loan, onClose, onSuccess }: Props) {
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="rounded-lg border border-slate-300 px-6 py-2 text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-300 px-6 py-2 text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50"
             >
               Cancel
             </button>

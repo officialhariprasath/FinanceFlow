@@ -19,7 +19,8 @@ from backend.app.services.customer_service import (
     update_customer,
     delete_customer,
 )
-from backend.app.core.auth import get_current_finance_owner
+from backend.app.core.auth import get_current_finance_owner, require_permissions
+from backend.app.core.auth_context import AuthContext
 from backend.app.models.finance_owner import FinanceOwner
 
 router = APIRouter(
@@ -51,15 +52,11 @@ def create_customer_endpoint(
 def search_customers_endpoint(
     query: str = Query(..., min_length=1),
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["customers"])),
 ):
-    """
-    Search customers by name or phone.
-    """
-
     return search_customers(
         db=db,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
         query=query,
     )
 
@@ -69,11 +66,11 @@ def search_customers_endpoint(
 )
 def get_customers_endpoint(
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["customers"])),
 ):
     return get_customers(
         db=db,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )
 
 
@@ -84,7 +81,7 @@ def get_customers_endpoint(
 
 def get_customer_names_endpoint(
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["customers"])),
 ):
     """
     Return customer IDs and names for dropdown selection.
@@ -92,7 +89,7 @@ def get_customer_names_endpoint(
 
     return get_customer_names(
         db=db,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )
 
 @router.put(
@@ -138,7 +135,7 @@ def delete_customer_endpoint(
 def get_customer_ledger_endpoint(
     customer_id: int,
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["customers"])),
 ):
     """
     Return the complete ledger for the selected customer.
@@ -147,5 +144,5 @@ def get_customer_ledger_endpoint(
     return get_customer_ledger(
         db=db,
         customer_id=customer_id,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )

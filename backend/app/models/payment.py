@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     String,
     ForeignKey,
+    Boolean,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -60,6 +61,21 @@ class Payment(Base):
         nullable=True,
     )
 
+    collected_by_agent_id = Column(
+        Integer,
+        ForeignKey("agents.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    payment_reference = Column(String(100), nullable=True)
+
+    is_locked = Column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -73,4 +89,13 @@ class Payment(Base):
     loan = relationship(
         "Loan",
         back_populates="payments",
+    )
+
+    collected_by_agent = relationship("Agent", foreign_keys=[collected_by_agent_id])
+
+    allocation = relationship(
+        "PaymentAllocation",
+        back_populates="payment",
+        uselist=False,
+        cascade="all, delete-orphan",
     )

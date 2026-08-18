@@ -4,7 +4,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from backend.app.core.auth import get_current_finance_owner
+from backend.app.core.auth import get_current_finance_owner, require_permissions
+from backend.app.core.auth_context import AuthContext
 from backend.app.database.deps import get_db
 from backend.app.models.finance_owner import FinanceOwner
 from backend.app.schemas.loan import (
@@ -12,6 +13,7 @@ from backend.app.schemas.loan import (
     LoanUpdate,
     LoanResponse,
     LoanStatementResponse,
+    UnpaidScheduleResponse,
 )
 from backend.app.services.loan_service import (
     create_loan,
@@ -34,6 +36,7 @@ from backend.app.services.loan_service import (
     get_settlement_preview,
     settle_loan,
 )
+from backend.app.services.schedule_service import list_unpaid_schedules
 
 
 router = APIRouter(
@@ -87,7 +90,7 @@ def search_loans_endpoint(
         description="Loan start date to",
     ),
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["loans"])),
 ):
     """
     Search loans using optional filters.
@@ -95,7 +98,7 @@ def search_loans_endpoint(
 
     return search_loans(
         db=db,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
         mobile_number=mobile_number,
         status_filter=status_filter,
         from_date=from_date,
@@ -110,7 +113,7 @@ def search_loans_endpoint(
 def get_customer_loans_endpoint(
     customer_id: int,
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["loans"])),
 ):
     """
     Return all loans belonging to a customer.
@@ -119,7 +122,7 @@ def get_customer_loans_endpoint(
     return get_loans_by_customer(
         db=db,
         customer_id=customer_id,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )
 
 @router.get(
@@ -129,7 +132,7 @@ def get_customer_loans_endpoint(
 )
 def get_loans_due_this_month_endpoint(
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["loans"])),
 ):
     """
     Return all active loans due in the current month.
@@ -137,7 +140,7 @@ def get_loans_due_this_month_endpoint(
 
     return get_loans_due_this_month(
         db=db,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )
 
 @router.get(
@@ -149,7 +152,7 @@ def get_loans_due_by_month_endpoint(
     month: int,
     year: int,
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["loans"])),
 ):
     """
     Return all active loans due in the specified month and year.
@@ -157,7 +160,7 @@ def get_loans_due_by_month_endpoint(
 
     return get_loans_due_by_month(
         db=db,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
         month=month,
         year=year,
     )
@@ -169,7 +172,7 @@ def get_loans_due_by_month_endpoint(
 def get_interest_summary_endpoint(
     loan_id: int,
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["loans"])),
 ):
     """
     Calculate the current interest for a loan without
@@ -183,7 +186,7 @@ def get_interest_summary_endpoint(
     return get_interest_summary(
         db=db,
         loan_id=loan_id,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )
 
 @router.get(
@@ -194,9 +197,7 @@ def get_interest_summary_endpoint(
 def get_loan_statement_endpoint(
     loan_id: int,
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(
-        get_current_finance_owner,
-    ),
+    ctx: AuthContext = Depends(require_permissions(["loans"])),
 ):
     """
     Return the complete statement for a single loan.
@@ -205,8 +206,22 @@ def get_loan_statement_endpoint(
     return get_loan_statement(
         db=db,
         loan_id=loan_id,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )
+
+
+@router.get(
+    "/{loan_id}/schedules/unpaid",
+    response_model=list[UnpaidScheduleResponse],
+    summary="Unpaid installment schedules",
+)
+def unpaid_schedules_endpoint(
+    loan_id: int,
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_permissions(["loans"])),
+):
+    return list_unpaid_schedules(db, loan_id, ctx.finance_owner_id)
+
 
 @router.get(
     "/{loan_id}",
@@ -215,12 +230,12 @@ def get_loan_statement_endpoint(
 def get_loan_by_id_endpoint(
     loan_id: int,
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["loans"])),
 ):
     return get_loan_by_id(
         db=db,
         loan_id=loan_id,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )
 
 
@@ -230,11 +245,11 @@ def get_loan_by_id_endpoint(
 )
 def get_loans_endpoint(
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["loans"])),
 ):
     return get_loans(
         db=db,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )
 
 

@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from sqlalchemy import extract
 from decimal import Decimal
 from typing import Optional
@@ -9,12 +9,22 @@ from sqlalchemy.orm import Session
 from backend.app.models.customer import Customer
 from backend.app.models.payment import Payment
 from backend.app.models.loan import Loan
+from backend.app.models.enums import CollectionModel, CollectionFrequency
 from backend.app.schemas.loan import LoanCreate, LoanUpdate
 from backend.app.utils.interest_calculator import calculate_interest
 from backend.app.schemas.loan import (
     LoanStatementPaymentResponse,
     LoanStatementResponse,
 )
+from backend.app.services.capital_service import (
+    get_available_capital,
+    record_loan_disbursement,
+)
+from backend.app.services.schedule_service import generate_installment_schedule
+from backend.app.utils.date_helpers import last_installment_date
+
+ZERO = Decimal("0.00")
+TWOPLACES = Decimal("0.01")
 
 
 def create_loan(
@@ -37,23 +47,117 @@ def create_loan(
             detail="Customer not found.",
         )
 
+    principal = loan.principal_amount.quantize(TWOPLACES)
+    available = get_available_capital(db, finance_owner_id)
+
+    if principal > available:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Insufficient available capital.",
+        )
+
+    collection_model = loan.collection_model or CollectionModel.STANDARD.value
+
+    if collection_model == CollectionModel.DAILY_COLLECTION.value:
+        frequency = (loan.collection_frequency or CollectionFrequency.DAILY.value).upper()
+        if frequency not in {f.value for f in CollectionFrequency}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid collection frequency.",
+            )
+
+        installment_count = loan.installment_count or loan.duration_days
+        if not installment_count or installment_count <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Installment count is required for collection loans.",
+            )
+        if not loan.daily_payment or loan.daily_payment <= ZERO:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Installment amount is required for collection loans.",
+            )
+
+        daily_principal = (loan.daily_principal or ZERO).quantize(TWOPLACES)
+        daily_profit = (loan.daily_profit or ZERO).quantize(TWOPLACES)
+        daily_payment = loan.daily_payment.quantize(TWOPLACES)
+
+        if daily_principal + daily_profit != daily_payment:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Installment principal plus profit must equal installment amount.",
+            )
+
+        due_start_date = loan.due_start_date or loan.issue_date
+        if due_start_date < loan.issue_date:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="First collection date cannot be before issue date.",
+            )
+
+        due_date = last_installment_date(due_start_date, frequency, installment_count)
+        total_expected_profit = daily_profit * installment_count
+        interest_method = CollectionModel.DAILY_COLLECTION.value
+        interest_rate = ZERO
+        duration_days = installment_count if frequency == CollectionFrequency.DAILY.value else None
+    else:
+        due_date = loan.due_date
+        daily_principal = None
+        daily_profit = None
+        daily_payment = None
+        total_expected_profit = None
+        interest_method = loan.interest_method
+        interest_rate = loan.interest_rate
+        frequency = None
+        installment_count = None
+        due_start_date = None
+        duration_days = None
+
+        if due_date <= loan.issue_date:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Due date must be after issue date.",
+            )
+
     db_loan = Loan(
         finance_owner_id=finance_owner_id,
         customer_id=loan.customer_id,
-        principal_amount=loan.principal_amount,
-        remaining_principal=loan.principal_amount,
-        total_principal_paid=Decimal("0.00"),
-        total_interest_paid=Decimal("0.00"),
-        interest_method=loan.interest_method,
-        interest_rate=loan.interest_rate,
+        principal_amount=principal,
+        remaining_principal=principal,
+        total_principal_paid=ZERO,
+        total_interest_paid=ZERO,
+        interest_method=interest_method,
+        interest_rate=interest_rate,
         issue_date=loan.issue_date,
-        due_date=loan.due_date,
+        due_date=due_date,
         interest_start_date=loan.issue_date,
         last_interest_calculated_on=loan.issue_date,
         status="ACTIVE",
+        collection_model=collection_model,
+        duration_days=duration_days if collection_model == CollectionModel.DAILY_COLLECTION.value else None,
+        collection_frequency=frequency or CollectionFrequency.DAILY.value,
+        installment_count=installment_count,
+        due_start_date=due_start_date,
+        daily_payment=daily_payment,
+        daily_principal=daily_principal,
+        daily_profit=daily_profit,
+        total_expected_profit=total_expected_profit,
+        total_profit_paid=ZERO,
     )
 
     db.add(db_loan)
+    db.flush()
+
+    if collection_model == CollectionModel.DAILY_COLLECTION.value:
+        generate_installment_schedule(db, db_loan)
+
+    record_loan_disbursement(
+        db=db,
+        finance_owner_id=finance_owner_id,
+        loan_id=db_loan.id,
+        amount=principal,
+    )
+
     db.commit()
     db.refresh(db_loan)
 

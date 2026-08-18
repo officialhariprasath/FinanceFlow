@@ -19,9 +19,9 @@ export default function ConfirmModal({
 }: ConfirmModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        <h2 className="text-xl font-semibold text-slate-800">{title}</h2>
-        <p className="mt-3 text-slate-600">{message}</p>
+      <div className="w-full max-w-md surface-card p-6-xl dark:bg-slate-800">
+        <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
+        <p className="mt-3 text-slate-600 dark:text-slate-300">{message}</p>
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onCancel}

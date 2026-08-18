@@ -25,7 +25,8 @@ export interface LedgerCustomer {
   id: number;
   full_name: string;
   phone: string;
-  address: string;
+  permanent_address?: string | null;
+  temporary_address?: string | null;
 }
 
 export interface LedgerSummary {

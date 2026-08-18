@@ -56,6 +56,9 @@ def calculate_interest(
     elif method == "RUPEES_PER_100":
         interest = (principal / Decimal("100")) * rate * months
 
+    elif method == "DAILY_COLLECTION":
+        return Decimal("0.00")
+
     else:
         raise ValueError(
             f"Invalid interest method: {method}"

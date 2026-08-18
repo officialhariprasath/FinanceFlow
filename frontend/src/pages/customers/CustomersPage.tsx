@@ -14,8 +14,10 @@ import {
 import { getLoans } from "../../services/loanService";
 
 import type { Customer, CustomerCreate } from "../../types/customer";
+import { useToast } from "../../context/ToastContext";
 
 function CustomersPage() {
+  const toast = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [activeCustomerIds, setActiveCustomerIds] = useState<Set<number>>(
     new Set()
@@ -91,6 +93,7 @@ function CustomersPage() {
       }
       await loadData();
       closeForm();
+      toast.success(editingCustomer ? "Customer updated." : "Customer added.");
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       setFormError(
@@ -112,6 +115,7 @@ function CustomersPage() {
       await deleteCustomer(customerToDelete.id);
       await loadData();
       setCustomerToDelete(null);
+      toast.success("Customer deleted.");
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       setPageError(
@@ -150,8 +154,8 @@ function CustomersPage() {
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Customers</h1>
-            <p className="mt-1 text-slate-500">
+            <h1 className="page-title">Customers</h1>
+            <p className="page-subtitle">
               {customers.length} customer{customers.length !== 1 ? "s" : ""}{" "}
               registered
             </p>
@@ -165,7 +169,7 @@ function CustomersPage() {
         </div>
 
         {/* Search */}
-        <div className="rounded-lg bg-white p-4 shadow">
+        <div className="surface-card p-4">
           <input
             type="text"
             placeholder="Search by name or phone number..."
@@ -176,17 +180,17 @@ function CustomersPage() {
         </div>
 
         {pageError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+          <div className="rounded-lg alert-error border p-4 text-red-700">
             {pageError}
           </div>
         )}
 
         {pageLoading ? (
-          <div className="rounded-lg bg-white p-10 text-center text-slate-500 shadow">
+          <div className="surface-card p-10 text-center text-muted">
             Loading customers...
           </div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-lg bg-white p-10 text-center text-slate-500 shadow">
+          <div className="surface-card p-10 text-center text-muted">
             No customers found.
           </div>
         ) : (
@@ -195,7 +199,7 @@ function CustomersPage() {
             {withActiveLoans.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-lg font-semibold text-slate-800">
+                  <h2 className="section-title">
                     Active Borrowers
                   </h2>
                   <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
@@ -215,7 +219,7 @@ function CustomersPage() {
             {withoutActiveLoans.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-lg font-semibold text-slate-800">
+                  <h2 className="section-title">
                     No Active Loans
                   </h2>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
@@ -239,7 +243,7 @@ function CustomersPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg">
             {formError && (
-              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div className="mb-3 rounded-lg alert-error border p-3 text-sm text-red-700">
                 {formError}
               </div>
             )}

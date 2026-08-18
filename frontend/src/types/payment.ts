@@ -9,6 +9,7 @@ export interface PaymentResponse {
   payment_mode: string;
   remarks: string | null;
   created_at: string;
+  profit_amount?: string | null;
 }
 
 export interface PaymentCreate {
@@ -17,4 +18,6 @@ export interface PaymentCreate {
   amount_paid: string;
   payment_mode: string;
   remarks?: string;
+  payment_reference?: string;
+  schedule_dates?: string[];
 }

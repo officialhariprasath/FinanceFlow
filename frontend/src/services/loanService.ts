@@ -7,6 +7,7 @@ import type {
   InterestSummaryResponse,
   SettlementPreviewResponse,
   SettlementRequest,
+  UnpaidSchedule,
 } from "../types/loan";
 
 export async function getLoans(): Promise<LoanResponse[]> {
@@ -56,6 +57,13 @@ export async function getLoanStatement(
 ): Promise<LoanStatementResponse> {
   const response = await api.get<LoanStatementResponse>(
     `/loans/${loanId}/statement`
+  );
+  return response.data;
+}
+
+export async function getUnpaidSchedules(loanId: number): Promise<UnpaidSchedule[]> {
+  const response = await api.get<UnpaidSchedule[]>(
+    `/loans/${loanId}/schedules/unpaid`
   );
   return response.data;
 }

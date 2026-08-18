@@ -13,14 +13,21 @@ import {
   getMaturityReport,
 } from "../../services/dashboardService";
 import { getProfile } from "../../services/authService";
+import { getFinanceFlowDashboard } from "../../services/financeflowDashboardService";
+import { useAuth } from "../../context/AuthContext";
 import { fmt } from "../../utils/fmt";
 import type { DashboardResponse } from "../../types/dashboard";
+import type { FinanceFlowDashboard } from "../../types/financeflowDashboard";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { session } = useAuth();
+  const isOwner = session?.is_owner ?? false;
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [ffDashboard, setFfDashboard] = useState<FinanceFlowDashboard | null>(null);
+  const [ffLoading, setFfLoading] = useState(true);
   const [ownerName, setOwnerName] = useState("");
 
   // Profit summary
@@ -44,10 +51,15 @@ export default function DashboardPage() {
   const [closed, setClosed] = useState<any>(null);
   const [closedLoading, setClosedLoading] = useState(false);
   const [closedError, setClosedError] = useState("");
+  const [dashTab, setDashTab] = useState<"overview" | "reports" | "legacy">("overview");
 
   useEffect(() => {
     loadDashboard();
     loadOverdue();
+    getFinanceFlowDashboard()
+      .then(setFfDashboard)
+      .catch(() => {})
+      .finally(() => setFfLoading(false));
     getProfile()
       .then((p) => setOwnerName(p.owner_name ?? ""))
       .catch(() => {});
@@ -122,12 +134,119 @@ export default function DashboardPage() {
     <MainLayout>
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">
+          <h1 className="page-title">
             {ownerName ? `Hi, ${ownerName} 👋` : "Dashboard"}
           </h1>
-          <p className="mt-1 text-slate-500">Welcome back to your finance.</p>
+          <p className="page-subtitle">Your lending business at a glance.</p>
+          {isOwner && (
+            <div className="mt-4 flex gap-2 border-b border-slate-200 dark:border-slate-700">
+              {(["overview", "reports", "legacy"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setDashTab(tab)}
+                  className={`border-b-2 px-4 py-2 text-sm font-medium capitalize ${
+                    dashTab === tab
+                      ? "border-blue-600 text-blue-700 dark:text-blue-400"
+                      : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
+        {dashTab === "overview" && (
+          <>
+            {ffLoading ? (
+              <PageLoading message="Loading finance overview..." />
+            ) : ffDashboard ? (
+              <>
+                <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => navigate("/capital")}
+                className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+              >
+                Add Capital
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/loans")}
+                className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700/50"
+              >
+                New Loan
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/collections")}
+                className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700/50"
+              >
+                Collect Payment
+              </button>
+            </div>
+
+            <div>
+              <h2 className="mb-3 text-lg font-semibold text-slate-800">Capital</h2>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <DashboardCard title="Capital Added" value={fmt(ffDashboard.capital_added)} onClick={() => navigate("/capital")} />
+                <DashboardCard title="Available Capital" value={fmt(ffDashboard.available_capital)} onClick={() => navigate("/capital")} />
+                <DashboardCard title="Capital Lent" value={fmt(ffDashboard.capital_currently_lent)} />
+                <DashboardCard title="Principal Outstanding" value={fmt(ffDashboard.principal_outstanding)} />
+              </div>
+            </div>
+
+            <div>
+              <h2 className="mb-3 text-lg font-semibold text-slate-800">Profit</h2>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <DashboardCard title="Profit Today" value={fmt(ffDashboard.profit_today)} />
+                <DashboardCard title="Profit This Month" value={fmt(ffDashboard.profit_this_month)} />
+                <DashboardCard title="Total Profit" value={fmt(ffDashboard.total_profit)} />
+                <DashboardCard title="Available Profit" value={fmt(ffDashboard.available_profit)} />
+              </div>
+            </div>
+
+            <div>
+              <h2 className="mb-3 text-lg font-semibold text-slate-800">Agent settlements</h2>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <DashboardCard
+                  title="Unsettled with agents"
+                  value={fmt(ffDashboard.unsettled_with_agents)}
+                  onClick={() => navigate("/agent-settlements")}
+                />
+                <DashboardCard
+                  title="Pending settlements"
+                  value={String(ffDashboard.pending_settlement_count)}
+                  onClick={() => navigate("/agent-settlements")}
+                />
+                <DashboardCard
+                  title="Pending settlement amount"
+                  value={fmt(ffDashboard.pending_settlement_total)}
+                  onClick={() => navigate("/agent-settlements")}
+                />
+              </div>
+            </div>
+
+            <div>
+              <h2 className="mb-3 text-lg font-semibold text-slate-800">Lending & Collections</h2>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <DashboardCard title="Active Loans" value={ffDashboard.active_loans} onClick={() => navigate("/loans")} />
+                <DashboardCard title="Overdue Loans" value={ffDashboard.overdue_loans} />
+                <DashboardCard title="Expected Today" value={fmt(ffDashboard.expected_today)} onClick={() => navigate("/collections")} />
+                <DashboardCard title="Collected Today" value={fmt(ffDashboard.collected_today)} onClick={() => navigate("/collections")} />
+                <DashboardCard title="Pending Today" value={fmt(ffDashboard.pending_today)} />
+                <DashboardCard title="Collection Rate" value={`${ffDashboard.collection_rate}%`} />
+              </div>
+            </div>
+          </>
+            ) : null}
+          </>
+        )}
+
+        {dashTab === "legacy" && (
+          <>
         {loading ? (
           <PageLoading message="Loading dashboard..." />
         ) : error ? (
@@ -150,13 +269,15 @@ export default function DashboardPage() {
             <RecentPaymentsTable payments={dashboard.recent_payments} />
           </>
         ) : null}
+          </>
+        )}
 
-        {/* Reports section */}
+        {dashTab === "reports" && (
         <div className="space-y-6">
           <h2 className="text-xl font-bold text-slate-800">Reports</h2>
 
           {/* Profit Summary */}
-          <div className="rounded-lg bg-white p-6 shadow">
+          <div className="surface-card p-6">
             <h3 className="mb-4 font-semibold text-slate-700">Profit Summary</h3>
             <div className="flex flex-wrap items-end gap-3">
               <div>
@@ -208,7 +329,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Maturity Report */}
-          <div className="rounded-lg bg-white p-6 shadow">
+          <div className="surface-card p-6">
             <h3 className="mb-4 font-semibold text-slate-700">Maturity Report</h3>
             <div className="flex flex-wrap items-end gap-3">
               <div>
@@ -252,7 +373,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
-                      <thead className="bg-slate-50">
+                      <thead className="table-head">
                         <tr>
                           <th className="px-3 py-2 text-left text-slate-600">Customer</th>
                           <th className="px-3 py-2 text-left text-slate-600">Phone</th>
@@ -264,7 +385,7 @@ export default function DashboardPage() {
                       </thead>
                       <tbody>
                         {maturity.loans.map((l: any) => (
-                          <tr key={l.loan_id} className="border-t hover:bg-slate-50">
+                          <tr key={l.loan_id} className="border-t hover:bg-slate-50 dark:hover:bg-slate-700/50">
                             <td className="px-3 py-2 font-medium">{l.customer_name}</td>
                             <td className="px-3 py-2 text-slate-600">{l.mobile_number}</td>
                             <td className="px-3 py-2 text-right">{fmt(l.principal_amount)}</td>
@@ -286,7 +407,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Overdue Loans */}
-          <div className="rounded-lg bg-white p-6 shadow">
+          <div className="surface-card p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-semibold text-slate-700">Overdue Loans</h3>
               <button
@@ -303,7 +424,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50">
+                    <thead className="table-head">
                       <tr>
                         <th className="px-3 py-2 text-left text-slate-600">Customer</th>
                         <th className="px-3 py-2 text-left text-slate-600">Phone</th>
@@ -315,7 +436,7 @@ export default function DashboardPage() {
                     </thead>
                     <tbody>
                       {overdue.loans.map((l: any) => (
-                        <tr key={l.loan_id} className="border-t hover:bg-slate-50">
+                        <tr key={l.loan_id} className="border-t hover:bg-slate-50 dark:hover:bg-slate-700/50">
                           <td className="px-3 py-2 font-medium">{l.customer_name}</td>
                           <td className="px-3 py-2 text-slate-600">{l.mobile_number}</td>
                           <td className="px-3 py-2 text-center text-red-600">{l.due_date}</td>
@@ -339,7 +460,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Closed Loans */}
-          <div className="rounded-lg bg-white p-6 shadow">
+          <div className="surface-card p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-semibold text-slate-700">Closed Loans</h3>
               <button
@@ -359,7 +480,7 @@ export default function DashboardPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50">
+                  <thead className="table-head">
                     <tr>
                       <th className="px-3 py-2 text-left text-slate-600">Customer</th>
                       <th className="px-3 py-2 text-left text-slate-600">Loan #</th>
@@ -377,7 +498,7 @@ export default function DashboardPage() {
                         (parseFloat(l.total_principal_paid) || 0) +
                         (parseFloat(l.total_interest_paid) || 0);
                       return (
-                        <tr key={l.loan_id} className="border-t hover:bg-slate-50">
+                        <tr key={l.loan_id} className="border-t hover:bg-slate-50 dark:hover:bg-slate-700/50">
                           <td className="px-3 py-2 font-medium">{l.customer_name}</td>
                           <td className="px-3 py-2 text-slate-600">#{l.loan_id}</td>
                           <td className="px-3 py-2 text-right">{fmt(l.principal_amount)}</td>
@@ -407,6 +528,7 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+        )}
       </div>
     </MainLayout>
   );

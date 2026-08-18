@@ -1,22 +1,37 @@
 export function PageLoading({ message = "Loading..." }: { message?: string }) {
   return (
-    <div className="rounded-lg bg-white p-10 text-center text-slate-500 shadow">
+    <div className="surface-card p-10 text-center text-muted">
       {message}
     </div>
   );
 }
 
-export function PageError({ message }: { message: string }) {
+export function PageError({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry?: () => void;
+}) {
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-      {message}
+    <div className="alert-error p-4">
+      <p>{message}</p>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+        >
+          Retry
+        </button>
+      )}
     </div>
   );
 }
 
 export function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-lg bg-white p-10 text-center text-slate-500 shadow">
+    <div className="surface-card p-10 text-center text-muted">
       {message}
     </div>
   );

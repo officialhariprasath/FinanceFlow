@@ -80,19 +80,15 @@ export default function RegisterForm() {
       className="space-y-5"
     >
       {error && (
-        <div className="rounded-lg bg-red-100 p-3 text-red-700">
-          {error}
-        </div>
+        <div className="alert-error">{error}</div>
       )}
 
       {success && (
-        <div className="rounded-lg bg-green-100 p-3 text-green-700">
-          {success}
-        </div>
+        <div className="alert-success">{success}</div>
       )}
 
       <div>
-        <label className="mb-2 block font-medium">
+        <label className="label-field">
           Finance Name
         </label>
 
@@ -103,12 +99,12 @@ export default function RegisterForm() {
           onChange={handleChange}
           placeholder="Enter finance name"
           required
-          className="w-full rounded-lg border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input-field px-4 py-3"
         />
       </div>
 
       <div>
-        <label className="mb-2 block font-medium">
+        <label className="label-field">
           Owner Name
         </label>
 
@@ -119,12 +115,12 @@ export default function RegisterForm() {
           onChange={handleChange}
           placeholder="Enter owner name"
           required
-          className="w-full rounded-lg border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input-field px-4 py-3"
         />
       </div>
 
       <div>
-        <label className="mb-2 block font-medium">
+        <label className="label-field">
           Email Address
         </label>
 
@@ -135,12 +131,12 @@ export default function RegisterForm() {
           onChange={handleChange}
           placeholder="Enter email"
           required
-          className="w-full rounded-lg border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input-field px-4 py-3"
         />
       </div>
 
       <div>
-        <label className="mb-2 block font-medium">
+        <label className="label-field">
           Mobile Number
         </label>
 
@@ -151,12 +147,12 @@ export default function RegisterForm() {
           onChange={handleChange}
           placeholder="Enter mobile number"
           required
-          className="w-full rounded-lg border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input-field px-4 py-3"
         />
       </div>
 
       <div>
-        <label className="mb-2 block font-medium">
+        <label className="label-field">
           Address
         </label>
 
@@ -167,12 +163,12 @@ export default function RegisterForm() {
           onChange={handleChange}
           placeholder="Enter address"
           required
-          className="w-full rounded-lg border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input-field px-4 py-3"
         />
       </div>
 
       <div>
-        <label className="mb-2 block font-medium">
+        <label className="label-field">
           Password
         </label>
 
@@ -183,12 +179,12 @@ export default function RegisterForm() {
           onChange={handleChange}
           placeholder="Enter password"
           required
-          className="w-full rounded-lg border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input-field px-4 py-3"
         />
       </div>
 
       <div>
-        <label className="mb-2 block font-medium">
+        <label className="label-field">
           Confirm Password
         </label>
 
@@ -199,7 +195,7 @@ export default function RegisterForm() {
           onChange={handleChange}
           placeholder="Confirm password"
           required
-          className="w-full rounded-lg border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input-field px-4 py-3"
         />
       </div>
 

@@ -70,8 +70,8 @@ export default function RenewalsPage() {
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Loan Renewals</h1>
-          <p className="mt-1 text-slate-500">
+          <h1 className="page-title">Loan Renewals</h1>
+          <p className="page-subtitle">
             {!loading && !error
               ? `${renewals.length} renewal${renewals.length !== 1 ? "s" : ""} recorded`
               : "Complete renewal history across all loans"}
@@ -85,40 +85,20 @@ export default function RenewalsPage() {
         ) : renewals.length === 0 ? (
           <EmptyState message="No loan renewals found." />
         ) : (
-          <div className="overflow-hidden rounded-lg bg-white shadow">
+          <div className="surface-card overflow-hidden">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-100">
+              <thead className="table-head">
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">
-                    Renewed On
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">
-                    Loan
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">
-                    Customer
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">
-                    Type
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">
-                    Old Due
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">
-                    New Due
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-700">
-                    Old Rate
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-700">
-                    New Rate
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-700">
-                    New Principal
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">
-                    Remarks
-                  </th>
+                  <th>Renewed On</th>
+                  <th>Loan</th>
+                  <th>Customer</th>
+                  <th>Type</th>
+                  <th>Old Due</th>
+                  <th>New Due</th>
+                  <th className="text-right">Old Rate</th>
+                  <th className="text-right">New Rate</th>
+                  <th className="text-right">New Principal</th>
+                  <th>Remarks</th>
                 </tr>
               </thead>
               <tbody>
@@ -126,45 +106,41 @@ export default function RenewalsPage() {
                   <tr
                     key={r.id}
                     onClick={() => navigate(`/loans/${r.old_loan_id}`)}
-                    className="cursor-pointer border-t hover:bg-slate-50"
+                    className="cursor-pointer border-t hover:bg-slate-50 dark:hover:bg-slate-700/50"
                   >
                     <td className="px-4 py-3">
                       {r.renewed_at.split("T")[0]}
                     </td>
-                    <td className="px-4 py-3 font-medium text-blue-600">
+                    <td className="px-4 py-3 font-medium text-blue-600 dark:text-blue-400">
                       #{r.old_loan_id}
                     </td>
-                    <td className="px-4 py-3 font-medium text-slate-800">
+                    <td className="px-4 py-3 table-cell-strong">
                       {customerMap[r.customer_id] ??
                         `Customer #${r.customer_id}`}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700">
+                      <span className="rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
                         {r.renewal_type}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {r.old_due_date}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {r.new_due_date}
-                    </td>
-                    <td className="px-4 py-3 text-right text-slate-600">
+                    <td className="px-4 py-3 table-cell">{r.old_due_date}</td>
+                    <td className="px-4 py-3 table-cell">{r.new_due_date}</td>
+                    <td className="px-4 py-3 text-right table-cell">
                       {r.old_interest_rate}
-                      <span className="ml-1 text-xs text-slate-400">
+                      <span className="ml-1 text-xs text-muted">
                         ({r.old_interest_method === "PERCENTAGE" ? "%" : "₹/₹100"})
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-600">
+                    <td className="px-4 py-3 text-right table-cell">
                       {r.new_interest_rate}
-                      <span className="ml-1 text-xs text-slate-400">
+                      <span className="ml-1 text-xs text-muted">
                         ({r.new_interest_method === "PERCENTAGE" ? "%" : "₹/₹100"})
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right font-medium">
+                    <td className="px-4 py-3 text-right table-cell-strong">
                       {fmt(r.new_principal)}
                     </td>
-                    <td className="px-4 py-3 text-slate-500">
+                    <td className="px-4 py-3 text-muted">
                       {r.remarks || "—"}
                     </td>
                   </tr>

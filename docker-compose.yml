@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: finnect-postgres
+    environment:
+      POSTGRES_USER: finnect
+      POSTGRES_PASSWORD: finnect
+      POSTGRES_DB: finnect
+    ports:
+      - "5433:5432"
+    volumes:
+      - finnect_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finnect -d finnect"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  finnect_pg_data:

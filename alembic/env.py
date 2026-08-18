@@ -13,6 +13,18 @@ from backend.app.models.finance_owner import FinanceOwner
 from backend.app.models.customer import Customer
 from backend.app.models.loan import Loan
 from backend.app.models.payment import Payment
+from backend.app.models.capital_account import CapitalAccount
+from backend.app.models.capital_transaction import CapitalTransaction
+from backend.app.models.profit_account import ProfitAccount
+from backend.app.models.profit_transaction import ProfitTransaction
+from backend.app.models.loan_schedule import LoanSchedule
+from backend.app.models.payment_allocation import PaymentAllocation
+from backend.app.models.agent import Agent
+from backend.app.models.agent_wallet import AgentWallet
+from backend.app.models.agent_ledger_entry import AgentLedgerEntry
+from backend.app.models.agent_settlement import AgentSettlement
+from backend.app.models.agent_customer_assignment import AgentCustomerAssignment
+from backend.app.models.financeflow_extended import Expense, AuditLog, Notification, LoanWriteOff
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -20,11 +32,15 @@ config = context.config
 
 load_dotenv()
 
-database_url = os.getenv("DATABASE_URL").replace("%", "%%")
+from backend.app.core.config import normalize_database_url
+
+database_url = normalize_database_url(os.getenv("DATABASE_URL"))
+if database_url:
+    database_url = database_url.replace("%", "%%")
 
 config.set_main_option(
     "sqlalchemy.url",
-    database_url
+    database_url or "",
 )
 
 # Interpret the config file for Python logging.

@@ -20,6 +20,16 @@ export interface LoanResponse {
   settlement_date: string | null;
   settlement_reason: string | null;
   closure_type: string | null;
+  collection_model?: string;
+  collection_frequency?: string;
+  installment_count?: number | null;
+  due_start_date?: string | null;
+  duration_days?: number | null;
+  daily_payment?: string | null;
+  daily_principal?: string | null;
+  daily_profit?: string | null;
+  total_expected_profit?: string | null;
+  total_profit_paid?: string | null;
 }
 
 export interface LoanCreate {
@@ -29,6 +39,14 @@ export interface LoanCreate {
   interest_rate: string;
   issue_date: string;
   due_date: string;
+  collection_model?: string;
+  collection_frequency?: string;
+  installment_count?: number;
+  due_start_date?: string;
+  duration_days?: number;
+  daily_payment?: string;
+  daily_principal?: string;
+  daily_profit?: string;
 }
 
 export interface LoanUpdate {
@@ -79,4 +97,14 @@ export interface SettlementRequest {
   settlement_date: string;
   payment_mode: string;
   settlement_reason?: string;
+}
+
+export interface UnpaidSchedule {
+  schedule_date: string;
+  expected_amount: string;
+  paid_amount: string;
+  pending_amount: string;
+  status: string;
+  is_today: boolean;
+  is_future: boolean;
 }

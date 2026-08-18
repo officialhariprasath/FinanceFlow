@@ -73,10 +73,10 @@ function CustomerLedgerPage() {
     return (
       <MainLayout>
         <div className="space-y-4 p-6">
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error}</div>
+          <div className="rounded-lg alert-error border p-4 text-red-700">{error}</div>
           <button
             onClick={() => navigate("/customers")}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50"
           >
             ← Back to Customers
           </button>
@@ -106,12 +106,17 @@ function CustomerLedgerPage() {
         </button>
 
         {/* Customer profile card */}
-        <div className="rounded-lg bg-white p-6 shadow">
+        <div className="surface-card p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">{customer.full_name}</h1>
+              <h1 className="page-title">{customer.full_name}</h1>
               <p className="mt-2 text-slate-600">📞 {customer.phone}</p>
-              {customer.address && <p className="text-slate-600">📍 {customer.address}</p>}
+              {customer.permanent_address && (
+                <p className="text-slate-600">📍 {customer.permanent_address}</p>
+              )}
+              {customer.temporary_address && (
+                <p className="text-sm text-slate-500">Temp: {customer.temporary_address}</p>
+              )}
             </div>
             <div className="flex flex-wrap gap-3">
               <button
@@ -142,7 +147,7 @@ function CustomerLedgerPage() {
             ["Interest Paid", fmt(summary.total_interest_paid), "text-slate-800"],
             ["Accrued Interest", fmt(summary.accrued_interest), "text-amber-600"],
           ].map(([label, value, color]) => (
-            <div key={label as string} className="rounded-lg bg-white p-4 shadow">
+            <div key={label as string} className="surface-card p-4">
               <p className="text-sm text-slate-500">{label}</p>
               <p className={`mt-2 text-xl font-bold ${color}`}>{value}</p>
             </div>
@@ -152,12 +157,12 @@ function CustomerLedgerPage() {
         {/* Loans */}
         <div className="space-y-5">
           {loans.length === 0 ? (
-            <div className="rounded-lg bg-white p-10 text-center text-slate-500 shadow">
+            <div className="surface-card p-10 text-center text-muted">
               No loans found for this customer.
             </div>
           ) : (
             loans.map((loan) => (
-              <div key={loan.loan_id} className="overflow-hidden rounded-lg bg-white shadow">
+              <div key={loan.loan_id} className="surface-card overflow-hidden">
                 {/* Loan header */}
                 <div className="flex flex-col gap-4 border-b bg-slate-50 p-5 md:flex-row md:items-center md:justify-between">
                   <div className="grid grid-cols-2 gap-x-8 gap-y-2 md:grid-cols-5">
@@ -240,7 +245,7 @@ function CustomerLedgerPage() {
                         </thead>
                         <tbody>
                           {loan.payments.map((payment, index) => (
-                            <tr key={index} className="border-b last:border-0 hover:bg-slate-50">
+                            <tr key={index} className="border-b last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/50">
                               <td className="px-3 py-2 text-slate-700">{payment.payment_date}</td>
                               <td className="px-3 py-2 text-right font-medium text-slate-800">{fmt(payment.amount_paid)}</td>
                               <td className="px-3 py-2 text-right text-slate-700">{fmt(payment.principal_paid)}</td>
@@ -265,7 +270,7 @@ function CustomerLedgerPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg">
             {editError && (
-              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div className="mb-3 rounded-lg alert-error border p-3 text-sm text-red-700">
                 {editError}
               </div>
             )}
@@ -274,7 +279,8 @@ function CustomerLedgerPage() {
                 id: customer.id,
                 full_name: customer.full_name,
                 phone: customer.phone,
-                address: customer.address ?? "",
+                permanent_address: customer.permanent_address ?? "",
+                temporary_address: customer.temporary_address ?? "",
               }}
               loading={saving}
               onSubmit={handleEditSubmit}

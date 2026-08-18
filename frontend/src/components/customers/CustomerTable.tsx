@@ -16,32 +16,23 @@ function CustomerTable({
 
   if (customers.length === 0) {
     return (
-      <div className="rounded-lg bg-white p-10 text-center text-slate-500 shadow">
+      <div className="surface-card p-10 text-center text-muted">
         No customers found.
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg bg-white shadow">
-      <table className="min-w-full">
-        <thead className="bg-slate-100">
+    <div className="surface-card overflow-hidden">
+      <table className="data-table">
+        <thead>
           <tr>
-            <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">
-              ID
-            </th>
-            <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">
-              Full Name
-            </th>
-            <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">
-              Phone
-            </th>
-            <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">
-              Address
-            </th>
-            <th className="px-6 py-3 text-center text-sm font-semibold text-slate-700">
-              Actions
-            </th>
+            <th>ID</th>
+            <th>Full Name</th>
+            <th>Phone</th>
+            <th>Permanent Address</th>
+            <th>Temporary Address</th>
+            <th className="text-center">Actions</th>
           </tr>
         </thead>
 
@@ -49,21 +40,17 @@ function CustomerTable({
           {customers.map((customer) => (
             <tr
               key={customer.id}
-              className="border-t transition-colors hover:bg-slate-50"
+              className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50"
             >
-              <td className="px-6 py-4 text-slate-600">{customer.id}</td>
-
-              <td className="px-6 py-4 font-medium text-slate-800">
+              <td className="text-muted">{customer.id}</td>
+              <td className="font-medium text-slate-800 dark:text-slate-100">
                 {customer.full_name}
               </td>
+              <td className="text-muted">{customer.phone}</td>
+              <td className="text-muted">{customer.permanent_address || "—"}</td>
+              <td className="text-muted">{customer.temporary_address || "—"}</td>
 
-              <td className="px-6 py-4 text-slate-600">{customer.phone}</td>
-
-              <td className="px-6 py-4 text-slate-600">
-                {customer.address || "—"}
-              </td>
-
-              <td className="px-6 py-4">
+              <td>
                 <div className="flex items-center justify-center gap-2">
                   <button
                     onClick={() =>

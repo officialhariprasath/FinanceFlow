@@ -7,14 +7,16 @@ from datetime import date, datetime
 class CustomerCreate(BaseModel):
     full_name: str
     phone: str
-    address: Optional[str] = None
+    permanent_address: str
+    temporary_address: Optional[str] = None
 
 
 class CustomerResponse(BaseModel):
     id: int
     full_name: str
     phone: str
-    address: Optional[str] = None
+    permanent_address: Optional[str] = None
+    temporary_address: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

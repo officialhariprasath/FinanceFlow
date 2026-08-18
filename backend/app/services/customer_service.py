@@ -31,7 +31,8 @@ def create_customer(
     db_customer = Customer(
         full_name=customer.full_name,
         phone=customer.phone,
-        address=customer.address,
+        permanent_address=customer.permanent_address,
+        temporary_address=customer.temporary_address,
         finance_owner_id=finance_owner_id,
     )
 
@@ -139,7 +140,8 @@ def update_customer(
 
     customer.full_name = data.full_name
     customer.phone = data.phone
-    customer.address = data.address
+    customer.permanent_address = data.permanent_address
+    customer.temporary_address = data.temporary_address
 
     db.commit()
     db.refresh(customer)

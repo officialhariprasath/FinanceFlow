@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from backend.app.core.auth import get_current_finance_owner
+from backend.app.core.auth import get_current_finance_owner, require_permissions
+from backend.app.core.auth_context import AuthContext
 from backend.app.database.session import get_db
 from backend.app.models.finance_owner import FinanceOwner
 from backend.app.schemas.loan_renewal import (
@@ -46,11 +47,11 @@ def renew_existing_loan(
 def fetch_loan_renewals(
     loan_id: int,
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["loans"])),
 ):
     # Return the complete renewal history of the loan.
     return get_loan_renewals(
         db=db,
         loan_id=loan_id,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )

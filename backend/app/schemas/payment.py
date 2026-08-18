@@ -1,9 +1,8 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
-
 from backend.app.models.enums import PaymentMode
 
 
@@ -24,7 +23,8 @@ class PaymentCreate(BaseModel):
     amount_paid: Decimal
     payment_mode: PaymentMode
     remarks: Optional[str] = None
-
+    payment_reference: Optional[str] = None
+    schedule_dates: Optional[List[date]] = None
     @field_validator("payment_mode", mode="before")
     @classmethod
     def normalize_payment_mode(cls, value):
@@ -50,6 +50,10 @@ class PaymentResponse(BaseModel):
     payment_mode: PaymentMode
     remarks: Optional[str] = None
     created_at: datetime
+    profit_amount: Optional[Decimal] = None
+    collected_by_agent_id: Optional[int] = None
+    payment_reference: Optional[str] = None
+    is_locked: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 

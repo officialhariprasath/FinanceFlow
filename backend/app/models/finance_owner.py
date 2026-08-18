@@ -40,3 +40,23 @@ class FinanceOwner(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+
+    capital_account = relationship(
+        "CapitalAccount",
+        back_populates="finance_owner",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    profit_account = relationship(
+        "ProfitAccount",
+        back_populates="finance_owner",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    agents = relationship(
+        "Agent",
+        back_populates="finance_owner",
+        cascade="all, delete-orphan",
+    )

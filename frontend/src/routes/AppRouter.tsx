@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import ProtectedRoute from "../components/common/ProtectedRoute";
+import OwnerRoute from "../components/common/OwnerRoute";
 
 import AuthPage from "../pages/auth/AuthPage";
 import DashboardPage from "../pages/dashboard/DashboardPage";
@@ -11,6 +12,18 @@ import LoanDetailPage from "../pages/loans/LoanDetailPage";
 import PaymentsPage from "../pages/payments/PaymentsPage";
 import RenewalsPage from "../pages/renewals/RenewalsPage";
 import SettingsPage from "../pages/settings/SettingsPage";
+import CapitalPage from "../pages/capital/CapitalPage";
+import ProfitPage from "../pages/profit/ProfitPage";
+import LedgersPage from "../pages/ledgers/LedgersPage";
+import ExpensesPage from "../pages/expenses/ExpensesPage";
+import DefaultsPage from "../pages/defaults/DefaultsPage";
+import ReportsPage from "../pages/reports/ReportsPage";
+import ReconciliationPage from "../pages/reconciliation/ReconciliationPage";
+import AuditPage from "../pages/audit/AuditPage";
+import CollectionsPage from "../pages/collections/CollectionsPage";
+import AgentsPage from "../pages/agents/AgentsPage";
+import AgentSettlementPage from "../pages/settlements/AgentSettlementPage";
+import OwnerSettlementsPage from "../pages/settlements/OwnerSettlementsPage";
 
 export default function AppRouter() {
   return (
@@ -23,6 +36,84 @@ export default function AppRouter() {
         <Route
           path="/dashboard"
           element={<ProtectedRoute><DashboardPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/capital"
+          element={<ProtectedRoute><CapitalPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/profit"
+          element={<ProtectedRoute><ProfitPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/ledgers"
+          element={<ProtectedRoute><LedgersPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/expenses"
+          element={<ProtectedRoute><ExpensesPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/defaults"
+          element={
+            <ProtectedRoute>
+              <OwnerRoute>
+                <DefaultsPage />
+              </OwnerRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports"
+          element={<ProtectedRoute><ReportsPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/reconciliation"
+          element={
+            <ProtectedRoute>
+              <OwnerRoute>
+                <ReconciliationPage />
+              </OwnerRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/audit"
+          element={
+            <ProtectedRoute>
+              <OwnerRoute>
+                <AuditPage />
+              </OwnerRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/collections"
+          element={<ProtectedRoute><CollectionsPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/settlements"
+          element={<ProtectedRoute><AgentSettlementPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/agent-settlements"
+          element={
+            <ProtectedRoute>
+              <OwnerRoute>
+                <OwnerSettlementsPage />
+              </OwnerRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/agents"
+          element={
+            <ProtectedRoute>
+              <OwnerRoute>
+                <AgentsPage />
+              </OwnerRoute>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/customers"

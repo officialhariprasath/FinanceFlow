@@ -8,6 +8,33 @@ export async function createPayment(
   return response.data;
 }
 
+export async function previewPayment(
+  loanId: number,
+  paymentDate: string,
+  amountPaid: string,
+  scheduleDates?: string[]
+): Promise<{
+  principal_amount: string;
+  profit_amount: string;
+  total_amount: string;
+  installment_count?: number;
+}> {
+  const response = await api.get("/payments/preview", {
+    params: {
+      loan_id: loanId,
+      payment_date: paymentDate,
+      amount_paid: amountPaid,
+      ...(scheduleDates?.length
+        ? { schedule_dates: scheduleDates }
+        : {}),
+    },
+    paramsSerializer: {
+      indexes: null,
+    },
+  });
+  return response.data;
+}
+
 export async function getLoanPayments(
   loanId: number
 ): Promise<PaymentResponse[]> {

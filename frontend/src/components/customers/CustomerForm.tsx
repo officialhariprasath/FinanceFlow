@@ -16,18 +16,21 @@ export default function CustomerForm({
 }: CustomerFormProps) {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
+  const [permanentAddress, setPermanentAddress] = useState("");
+  const [temporaryAddress, setTemporaryAddress] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (initialData) {
       setFullName(initialData.full_name);
       setPhone(initialData.phone);
-      setAddress(initialData.address ?? "");
+      setPermanentAddress(initialData.permanent_address ?? "");
+      setTemporaryAddress(initialData.temporary_address ?? "");
     } else {
       setFullName("");
       setPhone("");
-      setAddress("");
+      setPermanentAddress("");
+      setTemporaryAddress("");
     }
     setErrors({});
   }, [initialData]);
@@ -47,6 +50,10 @@ export default function CustomerForm({
       next.phone = "Enter a valid 10-digit mobile number.";
     }
 
+    if (!permanentAddress.trim()) {
+      next.permanentAddress = "Permanent address is required.";
+    }
+
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -58,28 +65,28 @@ export default function CustomerForm({
     onSubmit({
       full_name: fullName.trim(),
       phone: phone.trim(),
-      address: address.trim(),
+      permanent_address: permanentAddress.trim(),
+      temporary_address: temporaryAddress.trim() || undefined,
     });
   }
 
   return (
-    <div className="rounded-lg bg-white p-6 shadow">
-      <h2 className="mb-5 text-xl font-semibold text-slate-800">
+    <div className="surface-card p-6">
+      <h2 className="mb-5 text-xl font-semibold text-slate-800 dark:text-slate-100">
         {initialData ? "Edit Customer" : "Add New Customer"}
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="label-field">
             Full Name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="Enter customer full name"
-            className={`w-full rounded-lg border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.fullName ? "border-red-400" : "border-slate-300"
+            className={`input-field px-4 py-3 ${
+              errors.fullName ? "input-field-error" : ""
             }`}
           />
           {errors.fullName && (
@@ -88,17 +95,16 @@ export default function CustomerForm({
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="label-field">
             Mobile Number <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="Enter 10-digit mobile number"
             maxLength={10}
-            className={`w-full rounded-lg border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.phone ? "border-red-400" : "border-slate-300"
+            className={`input-field px-4 py-3 ${
+              errors.phone ? "input-field-error" : ""
             }`}
           />
           {errors.phone && (
@@ -107,15 +113,32 @@ export default function CustomerForm({
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            Address
+          <label className="label-field">
+            Permanent Address <span className="text-red-500">*</span>
           </label>
           <textarea
-            rows={3}
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Enter customer address (optional)"
-            className="w-full rounded-lg border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows={2}
+            value={permanentAddress}
+            onChange={(e) => setPermanentAddress(e.target.value)}
+            className={`input-field px-4 py-3 ${
+              errors.permanentAddress ? "input-field-error" : ""
+            }`}
+          />
+          {errors.permanentAddress && (
+            <p className="mt-1 text-sm text-red-600">{errors.permanentAddress}</p>
+          )}
+        </div>
+
+        <div>
+          <label className="label-field">
+            Temporary / Current Address
+          </label>
+          <textarea
+            rows={2}
+            value={temporaryAddress}
+            onChange={(e) => setTemporaryAddress(e.target.value)}
+            placeholder="Optional — where borrower currently stays"
+            className="input-field px-4 py-3"
           />
         </div>
 
@@ -125,18 +148,13 @@ export default function CustomerForm({
             disabled={loading}
             className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading
-              ? "Saving..."
-              : initialData
-              ? "Update Customer"
-              : "Add Customer"}
+            {loading ? "Saving..." : initialData ? "Update Customer" : "Add Customer"}
           </button>
-
           <button
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="rounded-lg border border-slate-300 px-6 py-3 font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="btn-secondary px-6 py-3 font-medium"
           >
             Cancel
           </button>

@@ -27,7 +27,8 @@ class Customer(Base):
         nullable=False
     )
 
-    address = Column(String(255))
+    permanent_address = Column(String(300), nullable=True)
+    temporary_address = Column(String(300), nullable=True)
 
     finance_owner = relationship(
         "FinanceOwner",

@@ -113,6 +113,58 @@ class Loan(Base):
         nullable=True,
     )
 
+    collection_model = Column(
+        String(30),
+        default="STANDARD",
+        nullable=False,
+    )
+
+    duration_days = Column(
+        Integer,
+        nullable=True,
+    )
+
+    daily_payment = Column(
+        Numeric(12, 2),
+        nullable=True,
+    )
+
+    daily_principal = Column(
+        Numeric(12, 2),
+        nullable=True,
+    )
+
+    daily_profit = Column(
+        Numeric(12, 2),
+        nullable=True,
+    )
+
+    collection_frequency = Column(
+        String(20),
+        default="DAILY",
+        nullable=False,
+    )
+
+    installment_count = Column(
+        Integer,
+        nullable=True,
+    )
+
+    due_start_date = Column(
+        Date,
+        nullable=True,
+    )
+
+    total_expected_profit = Column(
+        Numeric(12, 2),
+        nullable=True,
+    )
+
+    total_profit_paid = Column(
+        Numeric(12, 2),
+        default=0,
+    )
+
     finance_owner = relationship(
         "FinanceOwner",
         back_populates="loans",
@@ -132,6 +184,19 @@ class Loan(Base):
 
     payments = relationship(
         "Payment",
+        back_populates="loan",
+        cascade="all, delete-orphan",
+    )
+
+    schedules = relationship(
+        "LoanSchedule",
+        back_populates="loan",
+        cascade="all, delete-orphan",
+        order_by="LoanSchedule.schedule_date",
+    )
+
+    payment_allocations = relationship(
+        "PaymentAllocation",
         back_populates="loan",
         cascade="all, delete-orphan",
     )

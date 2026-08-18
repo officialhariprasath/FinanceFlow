@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import Breadcrumbs from "../../components/common/Breadcrumbs";
 import MainLayout from "../../components/layout/MainLayout";
 import { PageLoading, PageError } from "../../components/common/PageStates";
 import ConfirmModal from "../../components/common/ConfirmModal";
@@ -13,7 +14,8 @@ import {
 } from "../../services/loanService";
 import { getLoanPayments, deletePayment } from "../../services/paymentService";
 import { getLoanRenewals } from "../../services/renewalService";
-import { fmt, statusBadge } from "../../utils/fmt";
+import { fmt } from "../../utils/fmt";
+import StatusChip from "../../components/common/StatusChip";
 import type { LoanResponse, LoanStatementResponse, InterestSummaryResponse } from "../../types/loan";
 import type { PaymentResponse } from "../../types/payment";
 import type { LoanRenewalResponse } from "../../types/renewal";
@@ -90,19 +92,22 @@ export default function LoanDetailPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <button onClick={() => navigate("/loans")} className="text-sm text-blue-600 hover:underline">
-          ← Back to Loans
-        </button>
+        <Breadcrumbs
+          items={[
+            { label: "Loans", to: "/loans" },
+            {
+              label: statement?.customer_name ?? `Loan #${loan.id}`,
+            },
+          ]}
+        />
 
         {/* Loan header */}
-        <div className="rounded-lg bg-white p-6 shadow">
+        <div className="surface-card p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold text-slate-800">Loan #{loan.id}</h1>
-                <span className={`rounded-full px-3 py-1 text-sm font-medium ${statusBadge(loan.status)}`}>
-                  {loan.status}
-                </span>
+                <h1 className="page-title">Loan #{loan.id}</h1>
+                <StatusChip status={loan.status} />
               </div>
               {statement && (
                 <p className="mt-2 text-slate-600">
@@ -138,7 +143,7 @@ export default function LoanDetailPage() {
         {/* Loan details grid */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {/* Customer name card — links to ledger */}
-          <div className="rounded-lg bg-white p-4 shadow">
+          <div className="surface-card p-4">
             <p className="text-xs text-slate-500">Customer</p>
             <button
               onClick={() => navigate(`/customers/${loan.customer_id}/ledger`)}
@@ -159,9 +164,26 @@ export default function LoanDetailPage() {
             ["Interest Method", loan.interest_method === "PERCENTAGE" ? `${loan.interest_rate}% / month` : `₹${loan.interest_rate} per ₹100`],
             ["Issue Date", loan.issue_date],
             ["Due Date", loan.due_date],
+            ...(loan.collection_model === "DAILY_COLLECTION"
+              ? [
+                  [
+                    "Collection",
+                    (loan.collection_frequency ?? "DAILY").replace(/_/g, " "),
+                  ],
+                  ["First collection", loan.due_start_date ?? loan.issue_date],
+                  [
+                    "Installment",
+                    fmt(loan.daily_payment ?? "0"),
+                  ],
+                  [
+                    "Installments",
+                    String(loan.installment_count ?? loan.duration_days ?? "—"),
+                  ],
+                ]
+              : []),
             ["Closure Type", loan.closure_type || "—"],
           ].map(([label, value]) => (
-            <div key={label} className="rounded-lg bg-white p-4 shadow">
+            <div key={label} className="surface-card p-4">
               <p className="text-xs text-slate-500">{label}</p>
               <p className="mt-1 font-semibold text-slate-800">{value}</p>
             </div>
@@ -170,7 +192,7 @@ export default function LoanDetailPage() {
 
         {/* Interest summary */}
         {interest && (
-          <div className="rounded-lg bg-white p-6 shadow">
+          <div className="surface-card p-6">
             <h2 className="mb-4 font-semibold text-slate-800">Current Interest Summary</h2>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <div className="rounded-lg border p-3">
@@ -207,7 +229,7 @@ export default function LoanDetailPage() {
         )}
 
         {/* Payment history */}
-        <div className="rounded-lg bg-white shadow">
+        <div className="surface-card">
           <div className="flex items-center justify-between border-b px-6 py-4">
             <h2 className="font-semibold text-slate-800">Payment History</h2>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
@@ -215,13 +237,13 @@ export default function LoanDetailPage() {
             </span>
           </div>
           {deleteError && (
-            <div className="mx-6 mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div className="mx-6 mt-3 rounded-lg alert-error border p-3 text-sm text-red-700">
               {deleteError}
             </div>
           )}
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-50">
+              <thead className="table-head">
                 <tr>
                   <th className="px-4 py-3 text-left text-slate-600">Date</th>
                   <th className="px-4 py-3 text-right text-slate-600">Amount</th>
@@ -237,7 +259,7 @@ export default function LoanDetailPage() {
                   <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-500">No payments recorded.</td></tr>
                 ) : (
                   payments.map((p) => (
-                    <tr key={p.id} className="border-t hover:bg-slate-50">
+                    <tr key={p.id} className="border-t hover:bg-slate-50 dark:hover:bg-slate-700/50">
                       <td className="px-4 py-3">{p.payment_date}</td>
                       <td className="px-4 py-3 text-right font-medium">{fmt(p.amount_paid)}</td>
                       <td className="px-4 py-3 text-right">{fmt(p.interest_paid)}</td>
@@ -266,13 +288,13 @@ export default function LoanDetailPage() {
 
         {/* Renewal history */}
         {renewals.length > 0 && (
-          <div className="rounded-lg bg-white shadow">
+          <div className="surface-card">
             <div className="border-b px-6 py-4">
               <h2 className="font-semibold text-slate-800">Renewal History</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-slate-50">
+                <thead className="table-head">
                   <tr>
                     <th className="px-4 py-3 text-left text-slate-600">Date</th>
                     <th className="px-4 py-3 text-left text-slate-600">Type</th>
@@ -286,7 +308,7 @@ export default function LoanDetailPage() {
                 </thead>
                 <tbody>
                   {renewals.map((r) => (
-                    <tr key={r.id} className="border-t hover:bg-slate-50">
+                    <tr key={r.id} className="border-t hover:bg-slate-50 dark:hover:bg-slate-700/50">
                       <td className="px-4 py-3">{r.renewed_at.split("T")[0]}</td>
                       <td className="px-4 py-3">
                         <span className="rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700">{r.renewal_type}</span>
@@ -309,6 +331,12 @@ export default function LoanDetailPage() {
       {showPayment && (
         <RecordPaymentModal
           loanId={id}
+          collectionModel={loan.collection_model ?? "STANDARD"}
+          defaultAmount={
+            loan.collection_model === "DAILY_COLLECTION"
+              ? loan.daily_payment ?? "120"
+              : ""
+          }
           onClose={() => setShowPayment(false)}
           onSuccess={() => { setShowPayment(false); loadAll(); }}
         />

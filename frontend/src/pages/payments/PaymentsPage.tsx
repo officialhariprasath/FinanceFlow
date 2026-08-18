@@ -75,8 +75,8 @@ export default function PaymentsPage() {
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Payments</h1>
-          <p className="mt-1 text-slate-500">
+          <h1 className="page-title">Payments</h1>
+          <p className="page-subtitle">
             {!loading && !error
               ? `${payments.length} payment${payments.length !== 1 ? "s" : ""} recorded`
               : "Complete payment history across all loans"}
@@ -90,51 +90,51 @@ export default function PaymentsPage() {
         ) : payments.length === 0 ? (
           <EmptyState message="No payments recorded yet." />
         ) : (
-          <div className="overflow-hidden rounded-lg bg-white shadow">
+          <div className="surface-card overflow-hidden">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-100">
+              <thead className="table-head">
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Date</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Customer</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Loan ID</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Amount Paid</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Interest</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Principal</th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-700">Mode</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Remarks</th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-700">Action</th>
+                  <th>Date</th>
+                  <th>Customer</th>
+                  <th>Loan ID</th>
+                  <th className="text-right">Amount Paid</th>
+                  <th className="text-right">Interest</th>
+                  <th className="text-right">Principal</th>
+                  <th className="text-center">Mode</th>
+                  <th>Remarks</th>
+                  <th className="text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {payments.map((p) => (
-                  <tr key={p.id} className="border-t hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium">{p.payment_date}</td>
-                    <td className="px-4 py-3 font-medium text-slate-800">
+                  <tr key={p.id} className="border-t hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                    <td className="px-4 py-3 table-cell-strong">{p.payment_date}</td>
+                    <td className="px-4 py-3 table-cell-strong">
                       {p.customer_name || `#${p.customer_id}`}
                     </td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => navigate(`/loans/${p.loan_id}`)}
-                        className="font-medium text-blue-600 hover:underline"
+                        className="font-medium text-blue-600 hover:underline dark:text-blue-400"
                       >
                         #{p.loan_id}
                       </button>
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-slate-800">
+                    <td className="px-4 py-3 text-right table-cell-strong">
                       {fmt(p.amount_paid)}
                     </td>
-                    <td className="px-4 py-3 text-right text-amber-600">
+                    <td className="px-4 py-3 text-right text-amber-600 dark:text-amber-400">
                       {fmt(p.interest_paid)}
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-700">
+                    <td className="px-4 py-3 text-right table-cell">
                       {fmt(p.principal_paid)}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-slate-700 dark:text-slate-300">
                         {p.payment_mode}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-500">{p.remarks || "—"}</td>
+                    <td className="px-4 py-3 text-muted">{p.remarks || "—"}</td>
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => navigate(`/loans/${p.loan_id}`)}

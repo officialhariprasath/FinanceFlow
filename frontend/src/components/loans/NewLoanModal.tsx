@@ -1,419 +1,855 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+
+
 import { createLoan } from "../../services/loanService";
+
 import { createCustomer } from "../../services/customerService";
+
+import { getCapitalSummary } from "../../services/capitalService";
+
 import api from "../../api/axios";
+
 import type { LoanCreate } from "../../types/loan";
+
 import type { CustomerCreate } from "../../types/customer";
 
+import { fmt } from "../../utils/fmt";
+
+import {
+
+  calculateInstallmentLoanTerms,
+
+  dueDateFromStart,
+
+  FREQUENCY_COUNT_LABELS,
+
+  FREQUENCY_LABELS,
+
+  installmentAmountLabel,
+
+  type CollectionFrequency,
+
+} from "../../utils/loanCalc";
+
+
+
 interface CustomerOption {
+
   id: number;
+
   full_name: string;
+
 }
 
+
+
 interface Props {
+
   onClose: () => void;
+
   onSuccess: () => void;
+
   preselectedCustomerId?: number;
+
 }
+
+
 
 type CustomerMode = "existing" | "new";
 
-const EMPTY_LOAN: Omit<LoanCreate, "customer_id"> = {
-  principal_amount: "",
-  interest_method: "PERCENTAGE",
-  interest_rate: "",
-  issue_date: new Date().toISOString().split("T")[0],
-  due_date: "",
-};
 
-const EMPTY_NEW_CUSTOMER: CustomerCreate = {
-  full_name: "",
-  phone: "",
-  address: "",
-};
+
+const DEFAULT_PRINCIPAL = "10000";
+
+const DEFAULT_INTEREST = "20";
+
+const DEFAULT_COUNT = "100";
+
+
+
+const FREQUENCIES: CollectionFrequency[] = [
+
+  "DAILY",
+
+  "WEEKLY",
+
+  "BI_WEEKLY",
+
+  "MONTHLY",
+
+];
+
+
 
 export default function NewLoanModal({
+
   onClose,
+
   onSuccess,
+
   preselectedCustomerId,
+
 }: Props) {
-  const [mode, setMode] = useState<CustomerMode>(
-    preselectedCustomerId ? "existing" : "existing"
-  );
 
-  // Existing customer
+  const [mode, setMode] = useState<CustomerMode>("existing");
+
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
+
   const [selectedCustomerId, setSelectedCustomerId] = useState<number>(
+
     preselectedCustomerId ?? 0
+
   );
 
-  // New customer fields
-  const [newCustomer, setNewCustomer] =
-    useState<CustomerCreate>(EMPTY_NEW_CUSTOMER);
 
-  // Loan fields
-  const [loan, setLoan] =
-    useState<Omit<LoanCreate, "customer_id">>(EMPTY_LOAN);
+
+  const [newCustomer, setNewCustomer] = useState<CustomerCreate>({
+
+    full_name: "",
+
+    phone: "",
+
+    permanent_address: "",
+
+    temporary_address: "",
+
+  });
+
+
+
+  const [frequency, setFrequency] = useState<CollectionFrequency>("DAILY");
+
+  const [principalAmount, setPrincipalAmount] = useState(DEFAULT_PRINCIPAL);
+
+  const [interestPercent, setInterestPercent] = useState(DEFAULT_INTEREST);
+
+  const [installmentCount, setInstallmentCount] = useState(DEFAULT_COUNT);
+
+  const [issueDate, setIssueDate] = useState(
+
+    new Date().toISOString().split("T")[0]
+
+  );
+
+  const [dueStartDate, setDueStartDate] = useState(
+
+    new Date().toISOString().split("T")[0]
+
+  );
+
+
+
+  const [availableCapital, setAvailableCapital] = useState<string | null>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
   const [saving, setSaving] = useState(false);
+
   const [apiError, setApiError] = useState("");
 
+
+
+  const count = Number(installmentCount) || 0;
+
+
+
+  const terms = useMemo(() => {
+
+    const principal = Number(principalAmount) || 0;
+
+    const interest = Number(interestPercent) || 0;
+
+    if (principal <= 0 || count <= 0) return null;
+
+    return calculateInstallmentLoanTerms(principal, interest, count);
+
+  }, [principalAmount, interestPercent, count]);
+
+
+
+  const dueDate = useMemo(
+
+    () => dueDateFromStart(dueStartDate, frequency, count),
+
+    [dueStartDate, frequency, count]
+
+  );
+
+
+
   useEffect(() => {
+
     api
+
       .get<CustomerOption[]>("/customers/names")
+
       .then((r) => setCustomers(r.data))
+
       .catch(() => {});
+
+    getCapitalSummary()
+
+      .then((s) => setAvailableCapital(s.available_capital))
+
+      .catch(() => {});
+
   }, []);
 
-  function validate(): boolean {
-    const e: Record<string, string> = {};
 
-    if (mode === "existing") {
-      if (!selectedCustomerId) e.customer_id = "Select a customer.";
-    } else {
-      if (!newCustomer.full_name.trim())
-        e.new_full_name = "Full name is required.";
-      else if (newCustomer.full_name.trim().length < 2)
-        e.new_full_name = "Full name must be at least 2 characters.";
 
-      if (!newCustomer.phone.trim())
-        e.new_phone = "Mobile number is required.";
-      else if (!/^\d{10}$/.test(newCustomer.phone.trim()))
-        e.new_phone = "Enter a valid 10-digit mobile number.";
+  useEffect(() => {
+
+    if (dueStartDate < issueDate) {
+
+      setDueStartDate(issueDate);
+
     }
 
-    if (!loan.principal_amount || Number(loan.principal_amount) <= 0)
-      e.principal_amount = "Enter a valid principal amount.";
-    if (!loan.interest_rate || Number(loan.interest_rate) <= 0)
-      e.interest_rate = "Enter a valid interest rate.";
-    if (!loan.issue_date) e.issue_date = "Issue date is required.";
-    if (!loan.due_date) e.due_date = "Due date is required.";
-    if (loan.issue_date && loan.due_date && loan.due_date <= loan.issue_date)
-      e.due_date = "Due date must be after issue date.";
+  }, [issueDate, dueStartDate]);
+
+
+
+  function validate(): boolean {
+
+    const e: Record<string, string> = {};
+
+
+
+    if (mode === "existing" && !selectedCustomerId) {
+
+      e.customer_id = "Select a borrower.";
+
+    }
+
+    if (mode === "new") {
+
+      if (!newCustomer.full_name.trim()) e.new_full_name = "Name required.";
+
+      if (!/^\d{10}$/.test(newCustomer.phone.trim()))
+
+        e.new_phone = "Valid 10-digit phone required.";
+
+      if (!newCustomer.permanent_address.trim())
+
+        e.new_permanent = "Permanent address required.";
+
+    }
+
+    if (Number(principalAmount) <= 0) e.principal_amount = "Invalid principal.";
+
+    if (Number(interestPercent) <= 0) e.interest_percent = "Invalid interest %.";
+
+    if (count <= 0) e.installment_count = "Invalid count.";
+
+    if (dueStartDate < issueDate) {
+
+      e.due_start_date = "First collection cannot be before issue date.";
+
+    }
+
+    if (
+
+      availableCapital !== null &&
+
+      Number(principalAmount) > Number(availableCapital)
+
+    ) {
+
+      e.capital = "Insufficient available capital.";
+
+    }
+
+
 
     setErrors(e);
+
     return Object.keys(e).length === 0;
+
   }
 
+
+
   async function handleSubmit(e: React.FormEvent) {
+
     e.preventDefault();
-    if (!validate()) return;
+
+    if (!validate() || !terms) return;
+
+
 
     try {
+
       setSaving(true);
+
       setApiError("");
+
+
 
       let customerId = selectedCustomerId;
 
       if (mode === "new") {
+
         const created = await createCustomer({
+
           full_name: newCustomer.full_name.trim(),
+
           phone: newCustomer.phone.trim(),
-          address: newCustomer.address.trim(),
+
+          permanent_address: newCustomer.permanent_address.trim(),
+
+          temporary_address: newCustomer.temporary_address?.trim() || undefined,
+
         });
+
         customerId = created.id;
+
       }
 
-      await createLoan({ ...loan, customer_id: customerId });
+
+
+      const payload: LoanCreate = {
+
+        customer_id: customerId,
+
+        principal_amount: principalAmount,
+
+        interest_method: "DAILY_COLLECTION",
+
+        interest_rate: "0",
+
+        issue_date: issueDate,
+
+        due_date: dueDate,
+
+        collection_model: "DAILY_COLLECTION",
+
+        collection_frequency: frequency,
+
+        installment_count: count,
+
+        due_start_date: dueStartDate,
+
+        duration_days: frequency === "DAILY" ? count : undefined,
+
+        daily_payment: terms.installmentAmount.toFixed(2),
+
+        daily_principal: terms.installmentPrincipal.toFixed(2),
+
+        daily_profit: terms.installmentProfit.toFixed(2),
+
+      };
+
+
+
+      await createLoan(payload);
+
       onSuccess();
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail;
+
+    } catch (err: unknown) {
+
+      const detail = (err as { response?: { data?: { detail?: string } } })
+
+        ?.response?.data?.detail;
+
       setApiError(
+
         typeof detail === "string" ? detail : "Failed to create loan."
+
       );
+
     } finally {
+
       setSaving(false);
+
     }
+
   }
+
+
 
   const inputCls = (key: string) =>
-    `w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+
+    `w-full rounded-lg border px-3 py-2 text-sm ${
+
       errors[key] ? "border-red-400" : "border-slate-300"
+
     }`;
 
-  function fieldErr(key: string) {
-    return errors[key] ? (
-      <p className="mt-1 text-xs text-red-600">{errors[key]}</p>
-    ) : null;
-  }
+
 
   return (
+
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
-        {/* Header */}
+
+      <div className="w-full max-w-lg surface-card-xl">
+
         <div className="border-b px-6 py-4">
+
           <h2 className="text-xl font-semibold text-slate-800">New Loan</h2>
+
+          <p className="text-sm text-slate-500">
+
+            Choose collection frequency — amounts and schedule are auto-calculated
+
+          </p>
+
         </div>
 
-        {/* Scrollable body */}
+
+
         <div className="max-h-[80vh] overflow-y-auto px-6 py-5">
+
           {apiError && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+
+            <div className="mb-4 rounded-lg alert-error border p-3 text-sm text-red-700">
+
               {apiError}
+
             </div>
+
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-            {/* Customer mode toggle — only shown when not preselected */}
+
+
+          {availableCapital !== null && (
+
+            <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm">
+
+              Available capital:{" "}
+
+              <span className="font-semibold">{fmt(availableCapital)}</span>
+
+            </div>
+
+          )}
+
+
+
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+
             {!preselectedCustomerId && (
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Customer
-                </label>
-                <div className="flex rounded-lg border border-slate-300 overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setMode("existing")}
-                    className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                      mode === "existing"
-                        ? "bg-blue-600 text-white"
-                        : "bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    Existing Customer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode("new")}
-                    className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                      mode === "new"
-                        ? "bg-blue-600 text-white"
-                        : "bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    New Customer
-                  </button>
-                </div>
+
+              <div className="flex rounded-lg border overflow-hidden">
+
+                <button
+
+                  type="button"
+
+                  onClick={() => setMode("existing")}
+
+                  className={`flex-1 py-2 text-sm ${
+
+                    mode === "existing" ? "bg-blue-600 text-white" : ""
+
+                  }`}
+
+                >
+
+                  Existing Borrower
+
+                </button>
+
+                <button
+
+                  type="button"
+
+                  onClick={() => setMode("new")}
+
+                  className={`flex-1 py-2 text-sm ${
+
+                    mode === "new" ? "bg-blue-600 text-white" : ""
+
+                  }`}
+
+                >
+
+                  New Borrower
+
+                </button>
+
               </div>
+
             )}
 
-            {/* Existing customer dropdown */}
+
+
             {mode === "existing" && (
+
               <div>
-                {!preselectedCustomerId && (
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Select Customer
-                  </label>
-                )}
+
+                <label className="text-sm font-medium">Borrower</label>
+
                 {preselectedCustomerId ? (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+
+                  <div className="mt-1 rounded-lg border bg-slate-50 px-3 py-2 text-sm">
+
                     {customers.find((c) => c.id === preselectedCustomerId)
+
                       ?.full_name ?? `Customer #${preselectedCustomerId}`}
+
                   </div>
+
                 ) : (
-                  <>
-                    <select
-                      value={selectedCustomerId}
-                      onChange={(e) =>
-                        setSelectedCustomerId(Number(e.target.value))
-                      }
-                      className={inputCls("customer_id")}
-                    >
-                      <option value={0}>Select customer...</option>
-                      {customers.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.full_name}
-                        </option>
-                      ))}
-                    </select>
-                    {fieldErr("customer_id")}
-                  </>
+
+                  <select
+
+                    value={selectedCustomerId}
+
+                    onChange={(e) =>
+
+                      setSelectedCustomerId(Number(e.target.value))
+
+                    }
+
+                    className={inputCls("customer_id")}
+
+                  >
+
+                    <option value={0}>Select borrower...</option>
+
+                    {customers.map((c) => (
+
+                      <option key={c.id} value={c.id}>{c.full_name}</option>
+
+                    ))}
+
+                  </select>
+
                 )}
+
               </div>
+
             )}
 
-            {/* New customer fields */}
+
+
             {mode === "new" && (
-              <div className="space-y-4 rounded-lg border border-blue-100 bg-blue-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
-                  New Customer Details
+
+              <div className="space-y-3 rounded-lg border bg-blue-50 p-4">
+
+                <input
+
+                  placeholder="Full name *"
+
+                  value={newCustomer.full_name}
+
+                  onChange={(e) =>
+
+                    setNewCustomer({ ...newCustomer, full_name: e.target.value })
+
+                  }
+
+                  className={inputCls("new_full_name")}
+
+                />
+
+                <input
+
+                  placeholder="10-digit phone *"
+
+                  value={newCustomer.phone}
+
+                  onChange={(e) =>
+
+                    setNewCustomer({ ...newCustomer, phone: e.target.value })
+
+                  }
+
+                  className={inputCls("new_phone")}
+
+                />
+
+                <textarea
+
+                  placeholder="Permanent address *"
+
+                  rows={2}
+
+                  value={newCustomer.permanent_address}
+
+                  onChange={(e) =>
+
+                    setNewCustomer({
+
+                      ...newCustomer,
+
+                      permanent_address: e.target.value,
+
+                    })
+
+                  }
+
+                  className={inputCls("new_permanent")}
+
+                />
+
+                <textarea
+
+                  placeholder="Temporary / current address (optional)"
+
+                  rows={2}
+
+                  value={newCustomer.temporary_address ?? ""}
+
+                  onChange={(e) =>
+
+                    setNewCustomer({
+
+                      ...newCustomer,
+
+                      temporary_address: e.target.value,
+
+                    })
+
+                  }
+
+                  className={inputCls("new_temp")}
+
+                />
+
+              </div>
+
+            )}
+
+
+
+            <div>
+
+              <label className="text-sm font-medium">Collection frequency *</label>
+
+              <select
+
+                value={frequency}
+
+                onChange={(e) =>
+
+                  setFrequency(e.target.value as CollectionFrequency)
+
+                }
+
+                className={inputCls("frequency")}
+
+              >
+
+                {FREQUENCIES.map((f) => (
+
+                  <option key={f} value={f}>
+
+                    {FREQUENCY_LABELS[f]}
+
+                  </option>
+
+                ))}
+
+              </select>
+
+            </div>
+
+
+
+            <div className="grid grid-cols-2 gap-3">
+
+              <div>
+
+                <label className="text-sm font-medium">Principal (₹) *</label>
+
+                <input
+
+                  type="number"
+
+                  value={principalAmount}
+
+                  onChange={(e) => setPrincipalAmount(e.target.value)}
+
+                  className={inputCls("principal_amount")}
+
+                />
+
+              </div>
+
+              <div>
+
+                <label className="text-sm font-medium">Interest % *</label>
+
+                <input
+
+                  type="number"
+
+                  value={interestPercent}
+
+                  onChange={(e) => setInterestPercent(e.target.value)}
+
+                  className={inputCls("interest_percent")}
+
+                  placeholder="20"
+
+                />
+
+              </div>
+
+              <div>
+
+                <label className="text-sm font-medium">
+
+                  {FREQUENCY_COUNT_LABELS[frequency]} *
+
+                </label>
+
+                <input
+
+                  type="number"
+
+                  value={installmentCount}
+
+                  onChange={(e) => setInstallmentCount(e.target.value)}
+
+                  className={inputCls("installment_count")}
+
+                  placeholder={frequency === "DAILY" ? "100" : "12"}
+
+                />
+
+              </div>
+
+              <div>
+
+                <label className="text-sm font-medium">Issue date</label>
+
+                <input
+
+                  type="date"
+
+                  value={issueDate}
+
+                  onChange={(e) => setIssueDate(e.target.value)}
+
+                  className={inputCls("issue_date")}
+
+                />
+
+              </div>
+
+              <div className="col-span-2">
+
+                <label className="text-sm font-medium">
+
+                  First collection date *
+
+                </label>
+
+                <input
+
+                  type="date"
+
+                  value={dueStartDate}
+
+                  min={issueDate}
+
+                  onChange={(e) => setDueStartDate(e.target.value)}
+
+                  className={inputCls("due_start_date")}
+
+                />
+
+                <p className="mt-1 text-xs text-slate-500">
+
+                  Installments are scheduled from this date based on frequency
+
                 </p>
 
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Full Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={newCustomer.full_name}
-                    onChange={(e) =>
-                      setNewCustomer({
-                        ...newCustomer,
-                        full_name: e.target.value,
-                      })
-                    }
-                    placeholder="Enter customer full name"
-                    className={inputCls("new_full_name")}
-                  />
-                  {fieldErr("new_full_name")}
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Mobile Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={newCustomer.phone}
-                    onChange={(e) =>
-                      setNewCustomer({
-                        ...newCustomer,
-                        phone: e.target.value,
-                      })
-                    }
-                    placeholder="10-digit mobile number"
-                    maxLength={10}
-                    className={inputCls("new_phone")}
-                  />
-                  {fieldErr("new_phone")}
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    value={newCustomer.address}
-                    onChange={(e) =>
-                      setNewCustomer({
-                        ...newCustomer,
-                        address: e.target.value,
-                      })
-                    }
-                    placeholder="Address (optional)"
-                    className={inputCls("new_address")}
-                  />
-                </div>
               </div>
+
+            </div>
+
+
+
+            {errors.capital && (
+
+              <p className="text-xs text-red-600">{errors.capital}</p>
+
             )}
 
-            {/* Divider */}
-            <div className="border-t border-slate-200 pt-1">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Loan Details
-              </p>
-            </div>
 
-            {/* Principal */}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Principal Amount (₹)
-              </label>
-              <input
-                type="number"
-                min="1"
-                step="0.01"
-                value={loan.principal_amount}
-                onChange={(e) =>
-                  setLoan({ ...loan, principal_amount: e.target.value })
-                }
-                placeholder="e.g. 50000"
-                className={inputCls("principal_amount")}
-              />
-              {fieldErr("principal_amount")}
-            </div>
 
-            {/* Interest method */}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Interest Method
-              </label>
-              <select
-                value={loan.interest_method}
-                onChange={(e) =>
-                  setLoan({ ...loan, interest_method: e.target.value })
-                }
-                className={inputCls("interest_method")}
-              >
-                <option value="PERCENTAGE">Percentage (% per month)</option>
-                <option value="RUPEES_PER_100">
-                  Rupees per ₹100 per month
-                </option>
-              </select>
-            </div>
+            {terms && (
 
-            {/* Interest rate */}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                {loan.interest_method === "PERCENTAGE"
-                  ? "Interest Rate (% per month)"
-                  : "Interest Rate (₹ per ₹100)"}
-              </label>
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={loan.interest_rate}
-                onChange={(e) =>
-                  setLoan({ ...loan, interest_rate: e.target.value })
-                }
-                placeholder={
-                  loan.interest_method === "PERCENTAGE" ? "e.g. 2" : "e.g. 3"
-                }
-                className={inputCls("interest_rate")}
-              />
-              {fieldErr("interest_rate")}
-            </div>
+              <div className="rounded-lg border bg-slate-50 p-4 text-sm">
 
-            {/* Issue date */}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Issue Date
-              </label>
-              <input
-                type="date"
-                value={loan.issue_date}
-                onChange={(e) =>
-                  setLoan({ ...loan, issue_date: e.target.value })
-                }
-                className={inputCls("issue_date")}
-              />
-              {fieldErr("issue_date")}
-            </div>
+                <p className="font-medium text-slate-800">Auto-calculated</p>
 
-            {/* Due date */}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Due Date
-              </label>
-              <input
-                type="date"
-                value={loan.due_date}
-                onChange={(e) =>
-                  setLoan({ ...loan, due_date: e.target.value })
-                }
-                className={inputCls("due_date")}
-              />
-              {fieldErr("due_date")}
-            </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
 
-            {/* Actions */}
-            <div className="flex gap-3 pt-2">
+                  <span>Final due date</span>
+
+                  <span className="font-medium">{dueDate}</span>
+
+                  <span>{installmentAmountLabel(frequency)}</span>
+
+                  <span className="font-medium">{fmt(terms.installmentAmount)}</span>
+
+                  <span>Principal / installment</span>
+
+                  <span>{fmt(terms.installmentPrincipal)}</span>
+
+                  <span>Profit / installment</span>
+
+                  <span className="text-green-700">{fmt(terms.installmentProfit)}</span>
+
+                  <span>Total repayment</span>
+
+                  <span>{fmt(terms.totalRepayment)}</span>
+
+                  <span>Expected profit</span>
+
+                  <span className="text-green-700">{fmt(terms.totalProfit)}</span>
+
+                  <span>Installments</span>
+
+                  <span>{count}</span>
+
+                </div>
+
+              </div>
+
+            )}
+
+
+
+            <div className="flex gap-3">
+
               <button
+
                 type="submit"
+
                 disabled={saving}
+
                 className="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+
               >
-                {saving
-                  ? mode === "new"
-                    ? "Creating customer & loan..."
-                    : "Creating loan..."
-                  : "Create Loan"}
+
+                {saving ? "Creating..." : "Create Loan"}
+
               </button>
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={saving}
-                className="rounded-lg border border-slate-300 px-6 py-2 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-              >
+
+              <button type="button" onClick={onClose} className="rounded-lg border px-6 py-2">
+
                 Cancel
+
               </button>
+
             </div>
+
           </form>
+
         </div>
+
       </div>
+
     </div>
+
   );
+
 }
+
+
