@@ -40,7 +40,8 @@ git push origin main
 ## 3. Vercel — frontend
 
 1. Open [vercel.com/new](https://vercel.com/new) → import same GitHub repo
-2. **Root Directory:** `frontend`
+2. **Root Directory:** leave as **repo root** (`.`) — `vercel.json` at root builds `frontend/`
+   - **Alternative:** set Root Directory to `frontend` only (then root `vercel.json` is not used)
 3. **Framework:** Vite (auto-detected)
 4. **Environment variable:**
 
