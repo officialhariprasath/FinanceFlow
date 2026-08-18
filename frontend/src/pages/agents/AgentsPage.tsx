@@ -381,7 +381,7 @@ export default function AgentsPage() {
           </div>
         )}
 
-        <div className="table-responsive table-shell">
+        <div className="table-responsive table-shell is-wide">
           <table className="min-w-full text-sm">
             <thead className="table-head">
               <tr>

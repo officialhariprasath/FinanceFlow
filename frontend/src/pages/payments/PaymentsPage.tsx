@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ScrollableTable from "../../components/common/ScrollableTable";
 import MainLayout from "../../components/layout/MainLayout";
 import { PageLoading, PageError, EmptyState } from "../../components/common/PageStates";
 import { getLoans } from "../../services/loanService";
@@ -90,8 +91,10 @@ export default function PaymentsPage() {
         ) : payments.length === 0 ? (
           <EmptyState message="No payments recorded yet." />
         ) : (
-          <div className="surface-card overflow-hidden">
-            <table className="min-w-full text-sm">
+          <div className="surface-card">
+            <p className="table-scroll-hint">Swipe sideways to see all columns</p>
+            <ScrollableTable>
+            <table className="data-table table-wide-lg text-sm">
               <thead className="table-head">
                 <tr>
                   <th>Date</th>
@@ -147,6 +150,7 @@ export default function PaymentsPage() {
                 ))}
               </tbody>
             </table>
+            </ScrollableTable>
           </div>
         )}
       </div>

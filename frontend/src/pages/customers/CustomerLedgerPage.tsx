@@ -162,7 +162,7 @@ function CustomerLedgerPage() {
             </div>
           ) : (
             loans.map((loan) => (
-              <div key={loan.loan_id} className="surface-card overflow-hidden">
+              <div key={loan.loan_id} className="surface-card">
                 {/* Loan header */}
                 <div className="flex flex-col gap-4 border-b bg-slate-50 p-5 md:flex-row md:items-center md:justify-between">
                   <div className="grid grid-cols-2 gap-x-8 gap-y-2 md:grid-cols-5">

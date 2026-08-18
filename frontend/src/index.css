@@ -21,6 +21,8 @@ body {
   /* Cards & surfaces */
   .surface-card {
     @apply rounded-lg border border-slate-200 bg-white shadow dark:border-slate-700 dark:bg-slate-800;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .surface-muted {
@@ -77,10 +79,35 @@ body {
   /* Tables */
   .table-shell {
     @apply overflow-x-auto rounded-lg border border-slate-200 bg-white shadow dark:border-slate-700 dark:bg-slate-800;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+    touch-action: pan-x pan-y;
+  }
+
+  .table-scroll-hint {
+    @apply px-4 pb-2 text-center text-xs text-slate-400 dark:text-slate-500 md:hidden;
   }
 
   .data-table {
-    @apply min-w-full divide-y divide-slate-200 dark:divide-slate-700;
+    @apply w-full min-w-full divide-y divide-slate-200 dark:divide-slate-700;
+  }
+
+  .table-wide {
+    min-width: 720px;
+  }
+
+  .table-wide-lg {
+    min-width: 960px;
   }
 
   .data-table thead {
@@ -136,9 +163,26 @@ body {
 }
 
 /* Responsive tables */
-.table-responsive {
+.table-responsive,
+.table-shell {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.table-responsive > table,
+.table-shell > table {
+  min-width: 720px;
+  width: 100%;
+}
+
+.table-responsive.is-wide > table,
+.table-shell.is-wide > table {
+  min-width: 960px;
 }
 
 /* Safe area for notched phones (Capacitor / PWA) */

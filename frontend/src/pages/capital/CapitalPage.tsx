@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import ScrollableTable from "../../components/common/ScrollableTable";
 import MainLayout from "../../components/layout/MainLayout";
 import DashboardCard from "../../components/dashboard/DashboardCard";
 import { PageError, PageLoading } from "../../components/common/PageStates";
@@ -303,8 +304,10 @@ export default function CapitalPage() {
               No capital transactions yet. Add capital to start the ledger.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <>
+            <p className="table-scroll-hint">Swipe sideways to see all columns</p>
+            <ScrollableTable>
+              <table className="data-table table-wide-lg text-sm">
                 <thead className="table-head">
                   <tr>
                     <th className="px-6 py-3 text-left font-medium text-gray-500 dark:text-slate-400">
@@ -346,7 +349,8 @@ export default function CapitalPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollableTable>
+            </>
           )}
         </div>
       </div>

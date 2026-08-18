@@ -158,23 +158,23 @@ export default function CollectionsPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-4 pb-6">
-        <div className="sticky top-14 z-20 -mx-4 space-y-3 border-b border-slate-200 bg-slate-100/95 px-4 py-3 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Collections</h1>
-            <p className="text-sm text-slate-500">
-              Installments due today — collect or pay in advance.
-            </p>
+        <div className="space-y-4 pb-6">
+          <div className="space-y-3">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Collections</h1>
+              <p className="text-sm text-slate-500">
+                Installments due today — collect or pay in advance.
+              </p>
+            </div>
+            {summaryBar}
+            <button
+              type="button"
+              onClick={load}
+              className="text-xs text-blue-600 hover:underline dark:text-blue-400 sm:hidden"
+            >
+              Pull to refresh ↻
+            </button>
           </div>
-          {summaryBar}
-          <button
-            type="button"
-            onClick={load}
-            className="text-xs text-blue-600 hover:underline dark:text-blue-400 sm:hidden"
-          >
-            Pull to refresh ↻
-          </button>
-        </div>
 
         <div className="surface-card">
           <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700 sm:px-6">
@@ -196,7 +196,7 @@ export default function CollectionsPage() {
                       className={`rounded-lg border p-4 ${
                         paid
                           ? "border-green-200 bg-green-50/80 dark:border-green-900 dark:bg-green-950/30"
-                          : "surface-card border-slate-200 dark:border-slate-700"
+                          : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -234,8 +234,10 @@ export default function CollectionsPage() {
               </div>
 
               {/* Desktop table */}
-              <div className="table-responsive hidden md:block">
-                <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+              <div className="hidden md:block">
+                <p className="table-scroll-hint">Swipe sideways to see all columns</p>
+                <div className="table-responsive">
+                <table className="data-table table-wide text-sm">
                   <thead className="surface-muted">
                     <tr>
                       <th className="px-4 py-3 text-left">Borrower</th>
@@ -279,6 +281,7 @@ export default function CollectionsPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </>
           )}

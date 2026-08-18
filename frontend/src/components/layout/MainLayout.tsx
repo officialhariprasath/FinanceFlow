@@ -34,9 +34,9 @@ function MainLayout({ children }: MainLayoutProps) {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Navbar onMenuClick={() => setMenuOpen((o) => !o)} menuOpen={menuOpen} />
         <main
-          className="flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain p-4 sm:p-6"
+          className="flex-1 overflow-y-auto overscroll-y-contain p-4 sm:p-6 min-w-0"
         >
-          <div className="mx-auto max-w-7xl">{children}</div>
+          <div className="mx-auto w-full min-w-0 max-w-7xl">{children}</div>
         </main>
       </div>
     </div>
