@@ -15,7 +15,7 @@ function LoginForm({ agentOnly = false }: Props) {
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<LoginMode>(agentOnly ? "agent" : "owner");
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -28,8 +28,8 @@ function LoginForm({ agentOnly = false }: Props) {
       setLoading(true);
       const data =
         mode === "owner"
-          ? await login(email, password)
-          : await agentLogin(email, password);
+          ? await login(identifier, password)
+          : await agentLogin(identifier, password);
       await setToken(data.access_token);
       const isAgent = agentOnly || mode === "agent";
       navigate(isAgent ? "/collections" : "/dashboard");
@@ -72,12 +72,14 @@ function LoginForm({ agentOnly = false }: Props) {
       )}
 
       <div>
-        <label className="label-field">Email Address</label>
+        <label className="label-field">Email or mobile number</label>
         <input
-          type="email"
-          placeholder="Enter your email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          inputMode="email"
+          autoComplete="username"
+          placeholder="email@example.com or 9876543210"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
           required
           className="input-field px-4 py-3"
         />
@@ -102,6 +104,15 @@ function LoginForm({ agentOnly = false }: Props) {
           required
           className="input-field px-4 py-3"
         />
+        <div className="mt-2 text-right">
+          <button
+            type="button"
+            onClick={() => navigate("/forgot-password")}
+            className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+          >
+            Forgot password?
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

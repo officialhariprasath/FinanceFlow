@@ -123,14 +123,37 @@ def delete_agent(db: Session, finance_owner_id: int, agent_id: int) -> None:
     db.commit()
 
 
-def authenticate_agent(db: Session, email: str, password: str):
-    agent = (
-        db.query(Agent)
-        .filter(Agent.email == email.lower().strip(), Agent.is_active.is_(True))
-        .first()
+def authenticate_agent(db: Session, username: str, password: str):
+    from backend.app.services.email_otp_service import (
+        looks_like_email,
+        normalize_identifier,
+        normalize_phone,
     )
+
+    raw = (username or "").strip()
+    agent = None
+    if looks_like_email(raw):
+        agent = (
+            db.query(Agent)
+            .filter(Agent.email == normalize_identifier(raw), Agent.is_active.is_(True))
+            .first()
+        )
+    else:
+        phone = normalize_phone(raw)
+        agent = (
+            db.query(Agent)
+            .filter(Agent.phone == phone, Agent.is_active.is_(True))
+            .first()
+        )
+        if agent is None and phone:
+            agent = (
+                db.query(Agent)
+                .filter(Agent.phone.endswith(phone[-10:]), Agent.is_active.is_(True))
+                .first()
+            )
+
     if agent is None or not verify_password(password, agent.password_hash):
-        raise ValueError("Invalid email or password.")
+        raise ValueError("Invalid email/mobile or password.")
 
     permissions = agent.get_permissions_list()
     token = create_access_token(

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import {
   register,
+  sendOtp,
   type RegisterRequest,
 } from "../../services/authService";
 
@@ -17,26 +18,48 @@ export default function RegisterForm() {
     address: "",
     password: "",
     confirmPassword: "",
+    otp_code: "",
   });
 
   const [loading, setLoading] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [otpHint, setOtpHint] = useState("");
 
-  function handleChange(
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  async function handleSubmit(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
-    e.preventDefault();
+  async function handleSendOtp() {
+    setError("");
+    setOtpHint("");
+    if (!form.email.trim()) {
+      setError("Enter your email first, then send the code.");
+      return;
+    }
+    try {
+      setSendingOtp(true);
+      const res = await sendOtp(form.email, "register_owner");
+      setOtpHint(
+        res.mailed
+          ? "Code sent to your email. Check inbox/spam."
+          : `Testing mode — use code: ${res.dev_code}`
+      );
+      if (res.dev_code) {
+        setForm((f) => ({ ...f, otp_code: res.dev_code || "" }));
+      }
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response
+        ?.data?.detail;
+      setError(typeof detail === "string" ? detail : "Could not send verification code.");
+    } finally {
+      setSendingOtp(false);
+    }
+  }
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setError("");
     setSuccess("");
 
@@ -44,10 +67,13 @@ export default function RegisterForm() {
       setError("Passwords do not match.");
       return;
     }
+    if (!form.otp_code.trim()) {
+      setError("Enter the 6-digit email verification code.");
+      return;
+    }
 
     try {
       setLoading(true);
-
       const payload: RegisterRequest = {
         business_name: form.business_name,
         owner_name: form.owner_name,
@@ -55,43 +81,28 @@ export default function RegisterForm() {
         email: form.email,
         address: form.address,
         password: form.password,
+        otp_code: form.otp_code.trim(),
       };
-
       await register(payload);
-
-      setSuccess("Registration successful.");
-
-      setTimeout(() => {
-        navigate("/");
-      }, 1200);
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.detail ??
-          "Registration failed."
-      );
+      setSuccess("Registration successful. You can log in now.");
+      setTimeout(() => navigate("/"), 1200);
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response
+        ?.data?.detail;
+      setError(typeof detail === "string" ? detail : "Registration failed.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-5"
-    >
-      {error && (
-        <div className="alert-error">{error}</div>
-      )}
-
-      {success && (
-        <div className="alert-success">{success}</div>
-      )}
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {error && <div className="alert-error">{error}</div>}
+      {success && <div className="alert-success">{success}</div>}
+      {otpHint && <div className="alert-info">{otpHint}</div>}
 
       <div>
-        <label className="label-field">
-          Finance Name
-        </label>
-
+        <label className="label-field">Finance Name</label>
         <input
           type="text"
           name="business_name"
@@ -104,10 +115,7 @@ export default function RegisterForm() {
       </div>
 
       <div>
-        <label className="label-field">
-          Owner Name
-        </label>
-
+        <label className="label-field">Owner Name</label>
         <input
           type="text"
           name="owner_name"
@@ -120,26 +128,45 @@ export default function RegisterForm() {
       </div>
 
       <div>
-        <label className="label-field">
-          Email Address
-        </label>
+        <label className="label-field">Email Address</label>
+        <div className="flex gap-2">
+          <input
+            type="email"
+            name="email"
+            value={form.email}
+            onChange={handleChange}
+            placeholder="Enter email"
+            required
+            className="input-field flex-1 px-4 py-3"
+          />
+          <button
+            type="button"
+            onClick={() => void handleSendOtp()}
+            disabled={sendingOtp}
+            className="shrink-0 rounded-lg border border-blue-600 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50 dark:text-blue-300"
+          >
+            {sendingOtp ? "Sending…" : "Send code"}
+          </button>
+        </div>
+      </div>
 
+      <div>
+        <label className="label-field">Email verification code (6 digits)</label>
         <input
-          type="email"
-          name="email"
-          value={form.email}
+          type="text"
+          name="otp_code"
+          inputMode="numeric"
+          maxLength={6}
+          value={form.otp_code}
           onChange={handleChange}
-          placeholder="Enter email"
+          placeholder="123456"
           required
-          className="input-field px-4 py-3"
+          className="input-field px-4 py-3 tracking-widest"
         />
       </div>
 
       <div>
-        <label className="label-field">
-          Mobile Number
-        </label>
-
+        <label className="label-field">Mobile Number</label>
         <input
           type="tel"
           name="phone"
@@ -152,10 +179,7 @@ export default function RegisterForm() {
       </div>
 
       <div>
-        <label className="label-field">
-          Address
-        </label>
-
+        <label className="label-field">Address</label>
         <input
           type="text"
           name="address"
@@ -168,10 +192,7 @@ export default function RegisterForm() {
       </div>
 
       <div>
-        <label className="label-field">
-          Password
-        </label>
-
+        <label className="label-field">Password</label>
         <input
           type="password"
           name="password"
@@ -184,10 +205,7 @@ export default function RegisterForm() {
       </div>
 
       <div>
-        <label className="label-field">
-          Confirm Password
-        </label>
-
+        <label className="label-field">Confirm Password</label>
         <input
           type="password"
           name="confirmPassword"

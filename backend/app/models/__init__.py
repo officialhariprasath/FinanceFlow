@@ -16,3 +16,4 @@ from .agent_ledger_entry import AgentLedgerEntry
 from .agent_settlement import AgentSettlement
 from .agent_customer_assignment import AgentCustomerAssignment
 from .financeflow_extended import Expense, AuditLog, Notification, LoanWriteOff
+from .email_otp import EmailOtp

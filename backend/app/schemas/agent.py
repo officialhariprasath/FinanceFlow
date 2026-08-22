@@ -15,6 +15,7 @@ class AgentCreate(BaseModel):
     permissions: Optional[List[str]] = None
     is_active: bool = True
     assigned_area: Optional[str] = None
+    otp_code: Optional[str] = None
 
     @field_validator("role", mode="before")
     @classmethod

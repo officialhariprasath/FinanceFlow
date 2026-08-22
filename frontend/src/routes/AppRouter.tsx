@@ -4,6 +4,7 @@ import ProtectedRoute from "../components/common/ProtectedRoute";
 import OwnerRoute from "../components/common/OwnerRoute";
 
 import AuthPage from "../pages/auth/AuthPage";
+import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import CustomersPage from "../pages/customers/CustomersPage";
 import CustomerLedgerPage from "../pages/customers/CustomerLedgerPage";
@@ -31,6 +32,7 @@ export default function AppRouter() {
       <Routes>
         {/* Public */}
         <Route path="/" element={<AuthPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         {/* Protected */}
         <Route

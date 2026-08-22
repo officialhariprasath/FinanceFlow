@@ -14,6 +14,7 @@ class FinanceOwnerCreate(BaseModel):
     email: EmailStr
     password: str
     address: str
+    otp_code: str | None = None
 
 
 class FinanceOwnerResponse(BaseModel):

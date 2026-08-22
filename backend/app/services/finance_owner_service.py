@@ -22,14 +22,17 @@ def create_finance_owner(
     owner: FinanceOwnerCreate,
 ):
     """
-    Register a new finance owner.
+    Register a new finance owner (email OTP must already be verified by the API layer).
     """
+    from backend.app.services.email_otp_service import normalize_phone
+
+    phone = normalize_phone(owner.phone) or owner.phone.strip()
 
     existing_owner = (
         db.query(FinanceOwner)
         .filter(
-            (FinanceOwner.email == owner.email)
-            | (FinanceOwner.phone == owner.phone)
+            (FinanceOwner.email == str(owner.email).lower())
+            | (FinanceOwner.phone == phone)
         )
         .first()
     )
@@ -42,8 +45,8 @@ def create_finance_owner(
     db_owner = FinanceOwner(
         business_name=owner.business_name,
         owner_name=owner.owner_name,
-        phone=owner.phone,
-        email=owner.email,
+        phone=phone,
+        email=str(owner.email).lower(),
         password_hash=hash_password(owner.password),
         address=owner.address,
     )
@@ -72,27 +75,48 @@ def create_finance_owner(
 
 def authenticate_finance_owner(
     db: Session,
-    email: str,
+    username: str,
     password: str,
 ):
     """
-    Authenticate a finance owner and generate a JWT access token.
+    Authenticate a finance owner by email OR mobile number.
     """
-
-    owner = (
-        db.query(FinanceOwner)
-        .filter(FinanceOwner.email == email)
-        .first()
+    from backend.app.services.email_otp_service import (
+        looks_like_email,
+        normalize_identifier,
+        normalize_phone,
     )
 
+    raw = (username or "").strip()
+    owner = None
+    if looks_like_email(raw):
+        owner = (
+            db.query(FinanceOwner)
+            .filter(FinanceOwner.email == normalize_identifier(raw))
+            .first()
+        )
+    else:
+        phone = normalize_phone(raw)
+        owner = (
+            db.query(FinanceOwner)
+            .filter(FinanceOwner.phone == phone)
+            .first()
+        )
+        if owner is None and phone:
+            owner = (
+                db.query(FinanceOwner)
+                .filter(FinanceOwner.phone.endswith(phone[-10:]))
+                .first()
+            )
+
     if owner is None:
-        raise ValueError("Invalid email or password.")
+        raise ValueError("Invalid email/mobile or password.")
 
     if not verify_password(
         password,
         owner.password_hash,
     ):
-        raise ValueError("Invalid email or password.")
+        raise ValueError("Invalid email/mobile or password.")
 
     access_token = create_access_token(
         data={

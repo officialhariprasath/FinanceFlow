@@ -20,6 +20,7 @@ from backend.app.services.finance_owner_service import (
     authenticate_finance_owner,
     create_finance_owner,
 )
+from backend.app.services.email_otp_service import verify_otp
 
 router = APIRouter(
     prefix="/finance-owners",
@@ -36,8 +37,19 @@ def register_finance_owner(
     db: Session = Depends(get_db),
 ):
     """
-    Register a new finance owner.
+    Register a new finance owner (requires email OTP from /auth/send-otp).
     """
+    if not owner.otp_code or not verify_otp(
+        db,
+        email=str(owner.email),
+        purpose="register_owner",
+        code=owner.otp_code,
+        consume=True,
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired email verification code. Request a new code.",
+        )
     try:
         return create_finance_owner(db, owner)
     except ValueError as e:

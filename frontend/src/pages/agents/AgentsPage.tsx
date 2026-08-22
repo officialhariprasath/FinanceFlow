@@ -12,6 +12,7 @@ import {
   getRolePresets,
   updateAgent,
 } from "../../services/agentService";
+import { sendOtp } from "../../services/authService";
 import {
   assignCustomersToAgent,
   getAgentAssignments,
@@ -53,7 +54,10 @@ export default function AgentsPage() {
     role: "COLLECTION_AGENT",
     permissions: [],
     is_active: true,
+    otp_code: "",
   });
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [otpHint, setOtpHint] = useState("");
 
   async function load() {
     try {
@@ -96,7 +100,9 @@ export default function AgentsPage() {
       role: "COLLECTION_AGENT",
       permissions: rolePresets.COLLECTION_AGENT ?? [],
       is_active: true,
+      otp_code: "",
     });
+    setOtpHint("");
     setFormError("");
     setShowForm(true);
   }
@@ -112,9 +118,38 @@ export default function AgentsPage() {
       permissions: agent.permissions,
       is_active: agent.is_active,
       assigned_area: agent.assigned_area ?? "",
+      otp_code: "",
     });
+    setOtpHint("");
     setFormError("");
     setShowForm(true);
+  }
+
+  async function handleSendAgentOtp() {
+    setFormError("");
+    setOtpHint("");
+    if (!form.email.trim()) {
+      setFormError("Enter the agent email first.");
+      return;
+    }
+    try {
+      setSendingOtp(true);
+      const res = await sendOtp(form.email, "register_agent");
+      setOtpHint(
+        res.mailed
+          ? "Code sent to the agent email. Ask them for the 6-digit code."
+          : `Testing mode — use code: ${res.dev_code}`
+      );
+      if (res.dev_code) {
+        setForm((f) => ({ ...f, otp_code: res.dev_code }));
+      }
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response
+        ?.data?.detail;
+      setFormError(typeof detail === "string" ? detail : "Could not send code.");
+    } finally {
+      setSendingOtp(false);
+    }
   }
 
   function onRoleChange(role: string) {
@@ -263,6 +298,37 @@ export default function AgentsPage() {
                   className="rounded-lg border px-3 py-2 text-sm"
                   required
                 />
+                {!editing && (
+                  <>
+                    <div className="flex gap-2 sm:col-span-2">
+                      <input
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="6-digit email code"
+                        value={form.otp_code ?? ""}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            otp_code: e.target.value.replace(/\D/g, "").slice(0, 6),
+                          })
+                        }
+                        className="flex-1 rounded-lg border px-3 py-2 text-sm tracking-widest"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSendAgentOtp}
+                        disabled={sendingOtp}
+                        className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                      >
+                        {sendingOtp ? "Sending…" : "Send code"}
+                      </button>
+                    </div>
+                    {otpHint && (
+                      <p className="sm:col-span-2 text-xs text-emerald-700">{otpHint}</p>
+                    )}
+                  </>
+                )}
                 <input
                   type="password"
                   placeholder={editing ? "New password (optional)" : "Password"}

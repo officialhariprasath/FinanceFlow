@@ -31,6 +31,7 @@ from backend.app.services.agent_service import (
     agent_to_response,
     update_agent,
 )
+from backend.app.services.email_otp_service import verify_otp
 
 router = APIRouter(prefix="/agents", tags=["Agents"])
 
@@ -75,6 +76,17 @@ def create_agent_endpoint(
     db: Session = Depends(get_db),
     owner: FinanceOwner = Depends(get_current_finance_owner),
 ):
+    if not payload.otp_code or not verify_otp(
+        db,
+        email=str(payload.email),
+        purpose="register_agent",
+        code=payload.otp_code,
+        consume=True,
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired email verification code for this agent. Send a new code.",
+        )
     agent = create_agent(db, owner.id, payload)
     return agent_to_response(agent)
 

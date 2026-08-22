@@ -20,6 +20,7 @@ export interface AgentCreate {
   permissions?: string[];
   is_active?: boolean;
   assigned_area?: string;
+  otp_code?: string;
 }
 
 export interface AgentUpdate {
