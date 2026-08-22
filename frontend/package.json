@@ -7,10 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:agent": "tsc -b && vite build --mode agent",
-    "cap:sync": "npm run build:agent && npx cap sync android",
+    "build:mobile": "tsc -b && vite build --mode mobile",
+    "cap:sync": "npm run build:mobile && npx cap sync android",
     "cap:apk": "npm run cap:sync && cd android && gradlew.bat assembleDebug",
     "cap:open": "npx cap open android",
     "cap:release": "npm run cap:sync && cd android && gradlew.bat assembleRelease",
+    "cap:apk:agent": "npm run build:agent && npx cap sync android && cd android && gradlew.bat assembleDebug",
     "lint": "eslint .",
     "preview": "vite preview"
   },

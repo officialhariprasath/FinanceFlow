@@ -9,13 +9,17 @@ FinanceFlow ships as:
 
 ## What the Android app does
 
-- Same FinanceFlow UI (owner + agent roles)
+- **Full FinanceFlow app** (owner + agent) — same menus as the website
+- Login screen has **Owner / Agent** toggle (not agent-only)
 - Talks to your live API: `https://financeflow-api-gf0x.onrender.com`
 - **Stores a local backup on the phone** (customers, loans, payments, renewals, collections, capital)
 - Auto-backs up after login / when the app resumes (at most every 6 hours)
 - Settings → **Device backup** → Backup now / Export & share (Drive, Files, WhatsApp, etc.)
 
 Backup files live in the app’s private storage while installed. Use **Export / share backup** to keep a copy in Google Drive or Downloads if you reinstall the phone.
+
+`npm run cap:apk` builds the **full** app (`.env.mobile`).  
+Optional agent-only APK: `npm run cap:apk:agent` (`.env.agent`).
 
 ---
 
@@ -58,14 +62,14 @@ npm run cap:open
 
 ## Agent API URL
 
-`frontend/.env.agent` is used for APK builds:
+`frontend/.env.mobile` is used for the **full** APK:
 
 ```
 VITE_API_BASE_URL=https://financeflow-api-gf0x.onrender.com
-VITE_AGENT_APP=true
+VITE_AGENT_APP=false
 ```
 
-Change that URL if your Render service hostname changes, then rebuild with `npm run cap:apk`.
+Optional agent-only build uses `frontend/.env.agent` with `VITE_AGENT_APP=true`.
 
 ---
 

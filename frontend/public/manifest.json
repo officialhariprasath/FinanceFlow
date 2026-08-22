@@ -1,7 +1,7 @@
 {
-  "name": "FinanceFlow Agent",
+  "name": "FinanceFlow",
   "short_name": "FinanceFlow",
-  "description": "Collection agent app for daily lending operations",
+  "description": "Full finance management system for owners and collection agents",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1d4ed8",
