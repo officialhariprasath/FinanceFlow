@@ -18,9 +18,9 @@ export default function DeleteCustomerModal({
   if (!customer) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-md surface-card p-6-xl">
-        <h2 className="text-xl font-semibold text-slate-800">Delete Customer</h2>
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-md">
+        <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Delete Customer</h2>
 
         {hasActiveLoans && (
           <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3">

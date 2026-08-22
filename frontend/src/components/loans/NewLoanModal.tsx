@@ -380,26 +380,16 @@ export default function NewLoanModal({
 
   return (
 
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-
-      <div className="w-full max-w-lg surface-card-xl">
-
-        <div className="border-b px-6 py-4">
-
-          <h2 className="text-xl font-semibold text-slate-800">New Loan</h2>
-
+    <div className="modal-backdrop">
+      <div className="surface-card-xl max-h-[90dvh] overflow-hidden flex flex-col">
+        <div className="shrink-0 border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-700 dark:bg-slate-800">
+          <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">New Loan</h2>
           <p className="text-sm text-slate-500">
-
             Choose collection frequency — amounts and schedule are auto-calculated
-
           </p>
-
         </div>
 
-
-
-        <div className="max-h-[80vh] overflow-y-auto px-6 py-5">
-
+        <div className="min-h-0 flex-1 overflow-y-auto bg-white px-6 py-5 dark:bg-slate-800">
           {apiError && (
 
             <div className="mb-4 rounded-lg alert-error border p-3 text-sm text-red-700">
@@ -774,10 +764,8 @@ export default function NewLoanModal({
 
             {terms && (
 
-              <div className="rounded-lg border bg-slate-50 p-4 text-sm">
-
-                <p className="font-medium text-slate-800">Auto-calculated</p>
-
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-600 dark:bg-slate-700/50">
+                <p className="font-medium text-slate-800 dark:text-slate-100">Auto-calculated</p>
                 <div className="mt-2 grid grid-cols-2 gap-2">
 
                   <span>Final due date</span>

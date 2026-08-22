@@ -20,7 +20,7 @@ export default function AppUpdateModal({
   onLater,
 }: Props) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-4 sm:items-center">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/60 p-4 backdrop-blur-[1px] sm:items-center">
       <div className="modal-panel max-w-md shadow-2xl">
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
           Update available

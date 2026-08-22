@@ -208,10 +208,9 @@ export default function RecordPaymentModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg surface-card p-6-xl max-h-[90vh] overflow-y-auto dark:bg-slate-800">
-        <h2 className="mb-2 text-xl font-semibold text-slate-800">
-          {isAgent ? "Confirm Collection" : "Record Payment"}
+    <div className="modal-backdrop">
+      <div className="modal-panel max-h-[90vh] max-w-lg overflow-y-auto">
+        <h2 className="mb-2 text-xl font-semibold text-slate-800 dark:text-slate-100">          {isAgent ? "Confirm Collection" : "Record Payment"}
         </h2>
         <p className="mb-4 text-sm text-slate-500">
           {isInstallment

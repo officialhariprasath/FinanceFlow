@@ -18,8 +18,8 @@ export default function ConfirmModal({
   onCancel,
 }: ConfirmModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md surface-card p-6-xl dark:bg-slate-800">
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-md">
         <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
         <p className="mt-3 text-slate-600 dark:text-slate-300">{message}</p>
         <div className="mt-6 flex justify-end gap-3">

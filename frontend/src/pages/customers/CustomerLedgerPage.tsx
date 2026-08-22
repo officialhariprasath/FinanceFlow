@@ -267,8 +267,8 @@ function CustomerLedgerPage() {
 
       {/* Edit customer modal */}
       {showEditForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg">
+        <div className="modal-backdrop">
+          <div className="w-full max-w-lg rounded-xl bg-white p-1 shadow-xl dark:bg-slate-800">
             {editError && (
               <div className="mb-3 rounded-lg alert-error border p-3 text-sm text-red-700">
                 {editError}

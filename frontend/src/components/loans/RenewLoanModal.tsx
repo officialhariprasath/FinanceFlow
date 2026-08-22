@@ -50,9 +50,9 @@ export default function RenewLoanModal({ loan, onClose, onSuccess }: Props) {
     `w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors[k] ? "border-red-400" : "border-slate-300"}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md surface-card p-6-xl">
-        <h2 className="mb-2 text-xl font-semibold text-slate-800">Renew Loan #{loan.id}</h2>
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-md">
+        <h2 className="mb-2 text-xl font-semibold text-slate-800 dark:text-slate-100">Renew Loan #{loan.id}</h2>
         <p className="mb-4 text-sm text-slate-500">
           Current due date: <strong>{loan.due_date}</strong> · Rate: <strong>{loan.interest_rate}</strong>
         </p>

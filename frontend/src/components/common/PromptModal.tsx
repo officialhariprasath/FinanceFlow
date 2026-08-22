@@ -36,10 +36,10 @@ export default function PromptModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="modal-backdrop">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md surface-card p-6-xl dark:bg-slate-800"
+        className="modal-panel max-w-md"
       >
         <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
         {message && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{message}</p>}

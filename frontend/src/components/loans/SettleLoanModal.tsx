@@ -62,9 +62,9 @@ export default function SettleLoanModal({ loan, onClose, onSuccess }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md surface-card p-6-xl">
-        <h2 className="mb-2 text-xl font-semibold text-slate-800">Settle Loan #{loan.id}</h2>
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-md">
+        <h2 className="mb-2 text-xl font-semibold text-slate-800 dark:text-slate-100">Settle Loan #{loan.id}</h2>
         <p className="mb-4 text-sm text-slate-500">
           Settlement closes the loan. Any waived amount will be recorded.
         </p>
