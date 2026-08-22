@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "com.financeflow.agent",
-  appName: "FinanceFlow Agent",
+  appName: "FinanceFlow",
   webDir: "dist",
   server: {
     androidScheme: "https",
@@ -10,6 +10,17 @@ const config: CapacitorConfig = {
   },
   android: {
     allowMixedContent: true,
+  },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 1200,
+      backgroundColor: "#1d4ed8",
+      showSpinner: false,
+    },
+    StatusBar: {
+      style: "DARK",
+      backgroundColor: "#1d4ed8",
+    },
   },
 };
 

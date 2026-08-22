@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">FinanceFlow Agent</string>
-    <string name="title_activity_main">FinanceFlow Agent</string>
+    <string name="app_name">FinanceFlow</string>
+    <string name="title_activity_main">FinanceFlow</string>
     <string name="package_name">com.financeflow.agent</string>
     <string name="custom_url_scheme">com.financeflow.agent</string>
 </resources>

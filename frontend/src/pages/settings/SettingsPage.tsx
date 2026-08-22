@@ -12,6 +12,13 @@ import {
   markNotificationRead,
   type Notification,
 } from "../../services/extendedService";
+import {
+  createDeviceBackup,
+  getBackupMeta,
+  shareLatestBackup,
+  type BackupMeta,
+} from "../../services/localBackupService";
+import { isNativeApp, platformLabel } from "../../utils/platform";
 import type { FinanceSettings } from "../../types/settings";
 
 export default function SettingsPage() {
@@ -29,6 +36,9 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState("");
   const [saveError, setSaveError] = useState("");
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [backupMeta, setBackupMeta] = useState<BackupMeta | null>(null);
+  const [backingUp, setBackingUp] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const [form, setForm] = useState({
     business_name: "",
@@ -72,6 +82,7 @@ export default function SettingsPage() {
           });
         }
         setNotifications(await notifPromise);
+        setBackupMeta(await getBackupMeta());
       } catch {
         setError("Failed to load settings.");
       } finally {
@@ -84,6 +95,34 @@ export default function SettingsPage() {
   function handleLogout() {
     logout();
     navigate("/");
+  }
+
+  async function handleBackupNow() {
+    try {
+      setBackingUp(true);
+      const meta = await createDeviceBackup(session?.display_name ?? undefined);
+      setBackupMeta(meta);
+      toast.success(
+        isNativeApp()
+          ? "Backup saved on this phone."
+          : "Backup downloaded to this device."
+      );
+    } catch {
+      toast.error("Backup failed. Check your connection and try again.");
+    } finally {
+      setBackingUp(false);
+    }
+  }
+
+  async function handleShareBackup() {
+    try {
+      setSharing(true);
+      await shareLatestBackup();
+    } catch {
+      toast.error("Could not share backup. Create a backup first.");
+    } finally {
+      setSharing(false);
+    }
   }
 
   async function handleMarkRead(id: number) {
@@ -194,6 +233,53 @@ export default function SettingsPage() {
                   ))
                 )}
               </ul>
+            </div>
+
+            <div className="surface-card p-6 dark:bg-slate-800">
+              <h2 className="mb-2 font-semibold text-slate-800 dark:text-slate-100">
+                Device backup
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                Running as <span className="font-medium">{platformLabel()}</span>.
+                A local copy of customers, loans, payments, renewals, collections, and
+                capital is stored on this device so you still have data if the cloud
+                is unreachable.
+              </p>
+              {backupMeta ? (
+                <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-600 dark:bg-slate-700/40">
+                  <p className="font-medium text-slate-800 dark:text-slate-100">
+                    Last backup:{" "}
+                    {new Date(backupMeta.exported_at).toLocaleString("en-IN")}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {backupMeta.counts.customers} customers · {backupMeta.counts.loans}{" "}
+                    loans · {backupMeta.counts.payments} payments ·{" "}
+                    {backupMeta.counts.renewals} renewals
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">
+                  No local backup yet. Create one after you sync online.
+                </p>
+              )}
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleBackupNow}
+                  disabled={backingUp}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {backingUp ? "Backing up…" : "Backup now"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareBackup}
+                  disabled={sharing}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
+                >
+                  {sharing ? "Opening…" : "Export / share backup"}
+                </button>
+              </div>
             </div>
 
             <div className="surface-card p-6 dark:bg-slate-800">

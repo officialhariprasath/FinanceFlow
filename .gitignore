@@ -40,3 +40,8 @@ dist/
 # OS files
 .DS_Store
 Thumbs.db
+# Android APK builds (generate locally with npm run cap:apk)
+*.apk
+*.aab
+frontend/android/app/build/
+

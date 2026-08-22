@@ -10,6 +10,7 @@
     "cap:sync": "npm run build:agent && npx cap sync android",
     "cap:apk": "npm run cap:sync && cd android && gradlew.bat assembleDebug",
     "cap:open": "npx cap open android",
+    "cap:release": "npm run cap:sync && cd android && gradlew.bat assembleRelease",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -17,6 +18,9 @@
     "@capacitor/android": "^7.2.0",
     "@capacitor/app": "^7.0.1",
     "@capacitor/core": "^7.2.0",
+    "@capacitor/filesystem": "^7.1.8",
+    "@capacitor/preferences": "^7.0.4",
+    "@capacitor/share": "^7.0.4",
     "@capacitor/splash-screen": "^7.0.1",
     "@capacitor/status-bar": "^7.0.1",
     "@tailwindcss/vite": "^4.3.3",
