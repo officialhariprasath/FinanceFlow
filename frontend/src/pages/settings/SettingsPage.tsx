@@ -19,6 +19,7 @@ import {
   type BackupMeta,
 } from "../../services/localBackupService";
 import { isNativeApp, platformLabel } from "../../utils/platform";
+import { useAppUpdateContext } from "../../components/common/AppUpdateProvider";
 import type { FinanceSettings } from "../../types/settings";
 
 export default function SettingsPage() {
@@ -26,6 +27,7 @@ export default function SettingsPage() {
   const toast = useToast();
   const { theme, toggleTheme } = useTheme();
   const { logout, session, hasPermission } = useAuth();
+  const appUpdate = useAppUpdateContext();
   const isOwner = session?.is_owner ?? false;
   const canEditBusiness = isOwner && hasPermission("settings");
 
@@ -234,6 +236,38 @@ export default function SettingsPage() {
                 )}
               </ul>
             </div>
+
+            {isNativeApp() && (
+              <div className="surface-card p-6 dark:bg-slate-800">
+                <h2 className="mb-2 font-semibold text-slate-800 dark:text-slate-100">
+                  App updates
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">
+                  Installed version:{" "}
+                  <span className="font-medium">
+                    {appUpdate.local?.versionName ?? "…"} (
+                    {appUpdate.local?.versionCode ?? "—"})
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const result = await appUpdate.checkNow();
+                    if (result?.update) {
+                      toast.success(`Update ${result.update.versionName} available.`);
+                    } else if (result?.local) {
+                      toast.success("You are on the latest version.");
+                    } else {
+                      toast.error("Could not check for updates.");
+                    }
+                  }}
+                  disabled={appUpdate.checking || appUpdate.installing}
+                  className="mt-4 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
+                >
+                  {appUpdate.checking ? "Checking…" : "Check for updates"}
+                </button>
+              </div>
+            )}
 
             <div className="surface-card p-6 dark:bg-slate-800">
               <h2 className="mb-2 font-semibold text-slate-800 dark:text-slate-100">

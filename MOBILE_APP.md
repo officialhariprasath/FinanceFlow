@@ -96,7 +96,10 @@ See `DEMO_CREDENTIALS.md`.
 
 | Command | Description |
 |---------|-------------|
-| `npm run build:agent` | Build web bundle for the app |
+| `npm run build:mobile` | Build **full** web bundle for the APK |
 | `npm run cap:sync` | Build + sync into Android project |
-| `npm run cap:apk` | Produce debug APK |
+| `npm run cap:apk` | Produce debug APK (full app) |
+| `npm run cap:apk:agent` | Optional agent-only APK |
 | `npm run cap:open` | Open Android Studio |
+
+See **APP_UPDATE.md** for publishing updates without sharing the APK by hand.

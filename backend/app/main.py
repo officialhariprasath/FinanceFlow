@@ -26,6 +26,7 @@ from backend.app.api.agent import router as agent_router
 from backend.app.api.agent_wallet import router as agent_wallet_router
 from backend.app.api.agent_settlement import router as agent_settlement_router
 from backend.app.api.extended import router as extended_router
+from backend.app.api.app_update import router as app_update_router
 
 # -----------------------------
 # FastAPI Application
@@ -63,6 +64,7 @@ app.include_router(agent_router)
 app.include_router(agent_wallet_router)
 app.include_router(agent_settlement_router)
 app.include_router(extended_router)
+app.include_router(app_update_router)
 
 # -----------------------------
 # Root Endpoint
