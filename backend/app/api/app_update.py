@@ -11,7 +11,7 @@ router = APIRouter(tags=["App Update"])
 APP_UPDATE = {
     "versionCode": 3,
     "versionName": "1.2.0",
-    "apkUrl": "https://github.com/officialhariprasath/FinanceFlow/releases/download/v1.2.0/FinanceFlow.apk",
+    "apkUrl": "https://github.com/officialhariprasath/FinanceFlow/releases/download/1.2.1/FinanceFlow-v1.2.0.apk",
     "notes": "Full FinanceFlow app with in-app updates and device backup.",
     "force": False,
 }
