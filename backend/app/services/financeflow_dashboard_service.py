@@ -84,15 +84,15 @@ def get_financeflow_dashboard(
     )
 
     overdue_loans = (
-        db.query(LoanSchedule)
+        db.query(func.count(func.distinct(LoanSchedule.loan_id)))
         .join(Loan, LoanSchedule.loan_id == Loan.id)
         .filter(
             Loan.finance_owner_id == finance_owner_id,
             Loan.status == "ACTIVE",
             LoanSchedule.status == ScheduleStatus.OVERDUE.value,
         )
-        .count()
-    )
+        .scalar()
+    ) or 0
 
     total_borrowers = (
         db.query(Customer)
