@@ -50,9 +50,25 @@ export default function RegisterForm() {
         setForm((f) => ({ ...f, otp_code: res.dev_code || "" }));
       }
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response
-        ?.data?.detail;
-      setError(typeof detail === "string" ? detail : "Could not send verification code.");
+      const ax = err as {
+        response?: { data?: { detail?: unknown }; status?: number };
+        code?: string;
+        message?: string;
+      };
+      const detail = ax.response?.data?.detail;
+      if (typeof detail === "string") {
+        setError(detail);
+      } else if (Array.isArray(detail)) {
+        setError("Enter a valid email address.");
+      } else if (!ax.response && (ax.message === "Network Error" || ax.code === "ERR_NETWORK")) {
+        setError(
+          "Cannot reach the server. Wait a few seconds (server may be waking up) and try again."
+        );
+      } else if (ax.code === "ECONNABORTED") {
+        setError("Server took too long. Please try Send code again.");
+      } else {
+        setError("Could not send verification code.");
+      }
     } finally {
       setSendingOtp(false);
     }

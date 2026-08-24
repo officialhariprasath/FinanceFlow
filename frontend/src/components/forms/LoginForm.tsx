@@ -43,13 +43,11 @@ function LoginForm({ agentOnly = false }: Props) {
       if (typeof detail === "string") {
         setError(detail);
       } else if (!ax.response && (ax.message === "Network Error" || ax.code === "ERR_NETWORK")) {
-        const api = (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env
-          ?.VITE_API_BASE_URL;
         setError(
-          api
-            ? `Cannot reach API at ${api}. Is the local server running?`
-            : "Cannot reach server. Check internet or try again in a minute."
+          "Cannot reach the server. Wait a few seconds (server may be waking up) and try again."
         );
+      } else if (ax.code === "ECONNABORTED") {
+        setError("Server took too long to respond. Please try again.");
       } else {
         setError("Login failed.");
       }
