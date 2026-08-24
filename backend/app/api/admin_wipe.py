@@ -13,15 +13,12 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import text
-from sqlalchemy.orm import Session
 
 from backend.app.core.auth_context import get_current_finance_owner
 from backend.app.database.connection import SessionLocal
-from backend.app.database.deps import get_db
-from backend.app.models.finance_owner import FinanceOwner
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -36,12 +33,6 @@ class WipeRequest(BaseModel):
 def _run_wipe(wiped_by: str) -> dict:
     wipe_db = SessionLocal()
     try:
-        # Fast path: delete tenants (CASCADE clears most child rows), then OTPs.
-        wipe_db.execute(text("DELETE FROM email_otps"))
-        wipe_db.execute(text("DELETE FROM finance_owners"))
-        wipe_db.execute(text("DELETE FROM agents"))
-        wipe_db.commit()
-
         rows = wipe_db.execute(
             text(
                 """
@@ -54,10 +45,17 @@ def _run_wipe(wiped_by: str) -> dict:
             )
         ).fetchall()
         tables = [r[0] for r in rows]
-        if tables:
-            quoted = ", ".join(f'"{t}"' for t in tables)
-            wipe_db.execute(text(f"TRUNCATE TABLE {quoted} RESTART IDENTITY CASCADE"))
-            wipe_db.commit()
+        if not tables:
+            return {
+                "ok": True,
+                "wiped_by": wiped_by,
+                "tables": [],
+                "message": "No tables to wipe.",
+            }
+
+        quoted = ", ".join(f'"{t}"' for t in tables)
+        wipe_db.execute(text(f"TRUNCATE TABLE {quoted} RESTART IDENTITY CASCADE"))
+        wipe_db.commit()
 
         return {
             "ok": True,
@@ -75,7 +73,6 @@ def _run_wipe(wiped_by: str) -> dict:
 @router.post("/wipe-all")
 def wipe_all_data(
     body: WipeRequest,
-    db: Session = Depends(get_db),
     x_factory_reset: str | None = Header(default=None, alias="X-Factory-Reset"),
     authorization: str | None = Header(default=None),
 ):
@@ -85,23 +82,26 @@ def wipe_all_data(
             detail=f'Confirmation failed. Send {{"confirm": "{CONFIRM_PHRASE}"}}',
         )
 
-    # Preferred: shared factory header (no row lock on finance_owners).
     expected = os.getenv("ADMIN_WIPE_TOKEN", FACTORY_RESET_HEADER)
     if x_factory_reset and x_factory_reset == expected:
         return _run_wipe("factory-reset-header")
 
-    # Fallback: owner bearer token (release locks before wipe).
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(
             status_code=401,
             detail="Provide owner Bearer token or X-Factory-Reset header.",
         )
 
-    owner = get_current_finance_owner(
-        token=authorization.split(" ", 1)[1].strip(),
-        db=db,
-    )
-    wiped_by = owner.email
-    db.expire_all()
-    db.rollback()
+    db = SessionLocal()
+    try:
+        owner = get_current_finance_owner(
+            token=authorization.split(" ", 1)[1].strip(),
+            db=db,
+        )
+        wiped_by = owner.email
+        db.expire_all()
+        db.rollback()
+    finally:
+        db.close()
+
     return _run_wipe(wiped_by)
