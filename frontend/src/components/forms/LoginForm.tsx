@@ -43,7 +43,13 @@ function LoginForm({ agentOnly = false }: Props) {
       if (typeof detail === "string") {
         setError(detail);
       } else if (!ax.response && (ax.message === "Network Error" || ax.code === "ERR_NETWORK")) {
-        setError("Cannot reach server. Check internet or try again in a minute.");
+        const api = (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env
+          ?.VITE_API_BASE_URL;
+        setError(
+          api
+            ? `Cannot reach API at ${api}. Is the local server running?`
+            : "Cannot reach server. Check internet or try again in a minute."
+        );
       } else {
         setError("Login failed.");
       }

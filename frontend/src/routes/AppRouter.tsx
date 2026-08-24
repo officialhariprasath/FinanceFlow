@@ -19,6 +19,7 @@ import LedgersPage from "../pages/ledgers/LedgersPage";
 import ExpensesPage from "../pages/expenses/ExpensesPage";
 import DefaultsPage from "../pages/defaults/DefaultsPage";
 import ReportsPage from "../pages/reports/ReportsPage";
+import SimulationPage from "../pages/simulation/SimulationPage";
 import ReconciliationPage from "../pages/reconciliation/ReconciliationPage";
 import AuditPage from "../pages/audit/AuditPage";
 import CollectionsPage from "../pages/collections/CollectionsPage";
@@ -68,6 +69,16 @@ export default function AppRouter() {
         <Route
           path="/reports"
           element={<ProtectedRoute><ReportsPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/simulation"
+          element={
+            <ProtectedRoute>
+              <OwnerRoute>
+                <SimulationPage />
+              </OwnerRoute>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/reconciliation"

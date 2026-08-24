@@ -60,6 +60,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Insights",
     items: [
       { to: "/reports", label: "Reports", permission: "reports" },
+      { to: "/simulation", label: "Simulation", permission: "reports", ownerOnly: true },
       { to: "/reconciliation", label: "Reconciliation", permission: "ledger", ownerOnly: true },
       { to: "/audit", label: "Audit", permission: "dashboard", ownerOnly: true },
     ],
@@ -97,6 +98,7 @@ export const PAGE_TITLES: Record<string, string> = {
   "/expenses": "Expenses",
   "/defaults": "Defaults",
   "/reports": "Reports",
+  "/simulation": "Lending Simulation",
   "/reconciliation": "Reconciliation",
   "/audit": "Audit",
   "/agents": "Manage Agents",
