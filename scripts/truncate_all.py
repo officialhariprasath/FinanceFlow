@@ -1,6 +1,5 @@
 """Truncate all application tables for a clean re-seed without docker volume wipe."""
 
-import os
 import sys
 from pathlib import Path
 
@@ -11,34 +10,28 @@ from sqlalchemy import text
 from backend.app.database.session import SessionLocal
 
 
-TABLES = [
-    "agent_ledger_entries",
-    "agent_settlements",
-    "agent_customer_assignments",
-    "agent_wallets",
-    "payment_allocations",
-    "payments",
-    "loan_schedules",
-    "loan_renewals",
-    "profit_transactions",
-    "capital_transactions",
-    "loans",
-    "customers",
-    "agents",
-    "profit_accounts",
-    "capital_accounts",
-    "finance_settings",
-    "finance_owners",
-]
-
-
 def main():
     db = SessionLocal()
     try:
-        for table in TABLES:
-            db.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
+        rows = db.execute(
+            text(
+                """
+                SELECT tablename
+                FROM pg_tables
+                WHERE schemaname = 'public'
+                  AND tablename <> 'alembic_version'
+                ORDER BY tablename
+                """
+            )
+        ).fetchall()
+        tables = [r[0] for r in rows]
+        if not tables:
+            print("No tables found.")
+            return
+        quoted = ", ".join(f'"{t}"' for t in tables)
+        db.execute(text(f"TRUNCATE TABLE {quoted} RESTART IDENTITY CASCADE"))
         db.commit()
-        print("All tables truncated.")
+        print(f"Truncated {len(tables)} tables:", ", ".join(tables))
     finally:
         db.close()
 

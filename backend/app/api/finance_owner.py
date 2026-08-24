@@ -38,18 +38,24 @@ def register_finance_owner(
 ):
     """
     Register a new finance owner (requires email OTP from /auth/send-otp).
+
+    Bootstrap exception: when the database has zero owners (fresh production),
+    OTP is optional so the first owner can register without mail setup.
     """
-    if not owner.otp_code or not verify_otp(
-        db,
-        email=str(owner.email),
-        purpose="register_owner",
-        code=owner.otp_code,
-        consume=True,
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid or expired email verification code. Request a new code.",
-        )
+    owner_count = db.query(FinanceOwner).count()
+    bootstrap = owner_count == 0
+    if not bootstrap:
+        if not owner.otp_code or not verify_otp(
+            db,
+            email=str(owner.email),
+            purpose="register_owner",
+            code=owner.otp_code,
+            consume=True,
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid or expired email verification code. Request a new code.",
+            )
     try:
         return create_finance_owner(db, owner)
     except ValueError as e:

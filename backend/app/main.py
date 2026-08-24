@@ -29,6 +29,7 @@ from backend.app.api.extended import router as extended_router
 from backend.app.api.app_update import router as app_update_router
 from backend.app.api.auth_email import router as auth_email_router
 from backend.app.api.simulation import router as simulation_router
+from backend.app.api.admin_wipe import router as admin_wipe_router
 
 # -----------------------------
 # FastAPI Application
@@ -69,6 +70,7 @@ app.include_router(extended_router)
 app.include_router(app_update_router)
 app.include_router(auth_email_router)
 app.include_router(simulation_router)
+app.include_router(admin_wipe_router)
 
 # -----------------------------
 # Root Endpoint
