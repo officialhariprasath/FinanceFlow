@@ -7,6 +7,7 @@ export interface CollectionItem {
   expected_amount: string;
   paid_amount: string;
   pending_amount: string;
+  overdue_pending_amount?: string;
   expected_principal: string;
   expected_profit: string;
   status: string;
@@ -17,6 +18,7 @@ export interface CollectionSummary {
   expected_collection: string;
   collected: string;
   pending: string;
+  overdue_pending?: string;
   collection_rate: string;
   overdue_count: number;
   items: CollectionItem[];

@@ -14,6 +14,7 @@ class CollectionItemResponse(BaseModel):
     expected_amount: Decimal
     paid_amount: Decimal
     pending_amount: Decimal
+    overdue_pending_amount: Decimal = Decimal("0.00")
     expected_principal: Decimal
     expected_profit: Decimal
     status: str
@@ -24,6 +25,7 @@ class CollectionSummaryResponse(BaseModel):
     expected_collection: Decimal
     collected: Decimal
     pending: Decimal
+    overdue_pending: Decimal = Decimal("0.00")
     collection_rate: Decimal
     overdue_count: int
     items: List[CollectionItemResponse]

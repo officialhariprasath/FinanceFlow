@@ -15,7 +15,8 @@ export function statusToKind(status: string): StatusKind {
   if (s === "PAID" || s === "COMPLETED") return "paid";
   if (s === "REJECTED") return "rejected";
   if (s === "OVERDUE" || s === "DEFAULTED") return "overdue";
-  if (s === "PARTIAL" || s === "PENDING" || s === "PENDING_VERIFICATION") return "pending";
+  if (s === "PARTIAL") return "partial";
+  if (s === "PENDING" || s === "PENDING_VERIFICATION") return "pending";
   return "neutral";
 }
 

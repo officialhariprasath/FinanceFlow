@@ -24,7 +24,13 @@ function formatScheduleLabel(row: UnpaidSchedule): string {
     day: "numeric",
     month: "short",
   });
-  const tag = row.is_today ? " · Today" : row.is_future ? " · Advance" : "";
+  const tag = row.is_today
+    ? " · Today"
+    : row.is_future
+      ? " · Advance"
+      : row.status === "OVERDUE"
+        ? " · Overdue"
+        : "";
   return `${date} — ${fmt(row.pending_amount)}${tag}`;
 }
 
@@ -84,19 +90,31 @@ export default function RecordPaymentModal({
         setUnpaidSchedules(rows);
         if (rows.length === 0) return;
 
-        const initial =
-          defaultScheduleDate && rows.some((r) => r.schedule_date === defaultScheduleDate)
-            ? [defaultScheduleDate]
-            : rows.find((r) => r.is_today)
-              ? [rows.find((r) => r.is_today)!.schedule_date]
-              : [rows[0].schedule_date];
+        const overdueDates = rows
+          .filter((r) => r.status === "OVERDUE")
+          .map((r) => r.schedule_date);
+        const todayDate = rows.find((r) => r.is_today)?.schedule_date;
+
+        let initial: string[];
+        if (overdueDates.length > 0) {
+          initial = todayDate ? [...overdueDates, todayDate] : [...overdueDates];
+        } else if (
+          defaultScheduleDate &&
+          rows.some((r) => r.schedule_date === defaultScheduleDate)
+        ) {
+          initial = [defaultScheduleDate];
+        } else if (todayDate) {
+          initial = [todayDate];
+        } else {
+          initial = [rows[0].schedule_date];
+        }
 
         setSelectedDates(initial);
         const total = sumPending(rows, initial);
         setForm((prev) => ({
           ...prev,
           payment_date: initial[0],
-          amount_paid: defaultAmount || total.toFixed(2),
+          amount_paid: total.toFixed(2),
         }));
       })
       .catch(() => setUnpaidSchedules([]))

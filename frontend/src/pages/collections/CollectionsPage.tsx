@@ -75,6 +75,7 @@ export default function CollectionsPage() {
           setPendingSettlement(!!w.has_pending_settlement);
         } catch {
           setWalletTotal(null);
+          setPendingSettlement(false);
         }
       }
     } catch {
@@ -120,10 +121,13 @@ export default function CollectionsPage() {
     );
   }
 
+  const overduePending = Number(data?.overdue_pending ?? 0);
+  const hasOverdue = overduePending > 0 || (data?.overdue_count ?? 0) > 0;
+
   const summaryBar = (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
       <div className="surface-card p-3">
-        <p className="text-xs text-slate-500">Expected</p>
+        <p className="text-xs text-slate-500">Expected today</p>
         <p className="text-lg font-bold">{fmt(data?.expected_collection)}</p>
       </div>
       <div className="surface-card p-3">
@@ -131,8 +135,27 @@ export default function CollectionsPage() {
         <p className="text-lg font-bold text-green-700 dark:text-green-400">{fmt(data?.collected)}</p>
       </div>
       <div className="surface-card p-3">
-        <p className="text-xs text-slate-500">Pending</p>
-        <p className="text-lg font-bold text-amber-600">{fmt(data?.pending)}</p>
+        <p className="text-xs text-slate-500">Pending today</p>
+        <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{fmt(data?.pending)}</p>
+      </div>
+      <div
+        className={`p-3 ${
+          hasOverdue
+            ? "rounded-lg border border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/40"
+            : "surface-card"
+        }`}
+      >
+        <p className={`text-xs ${hasOverdue ? "text-red-700 dark:text-red-300" : "text-slate-500"}`}>
+          Overdue pending
+        </p>
+        <p className={`text-lg font-bold ${hasOverdue ? "text-red-700 dark:text-red-300" : ""}`}>
+          {fmt(data?.overdue_pending ?? "0")}
+        </p>
+        {hasOverdue && (
+          <p className="text-[11px] text-red-600 dark:text-red-400">
+            {data?.overdue_count} installment{data?.overdue_count === 1 ? "" : "s"}
+          </p>
+        )}
       </div>
       {isAgent ? (
         <>
@@ -163,7 +186,7 @@ export default function CollectionsPage() {
             <div>
               <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Collections</h1>
               <p className="text-sm text-slate-500">
-                Installments due today — collect or pay in advance.
+                Due today plus overdue arrears — collect or pay in advance.
               </p>
             </div>
             {summaryBar}
@@ -178,11 +201,11 @@ export default function CollectionsPage() {
 
         <div className="surface-card">
           <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700 sm:px-6">
-            <h2 className="font-semibold">Borrowers to collect today</h2>
+            <h2 className="font-semibold">Borrowers to collect</h2>
           </div>
           {!data?.items.length ? (
             <p className="px-6 py-10 text-center text-sm text-slate-500">
-              No daily collection loans scheduled for today.
+              No collections due today and no overdue installments.
             </p>
           ) : (
             <>
@@ -190,13 +213,16 @@ export default function CollectionsPage() {
               <div className="space-y-3 p-4 md:hidden">
                 {data.items.map((item) => {
                   const paid = item.status === "PAID";
+                  const overdueAmt = Number(item.overdue_pending_amount ?? 0);
                   return (
                     <div
-                      key={`${item.loan_id}-${item.schedule_date}`}
+                      key={`${item.loan_id}-${item.schedule_date}-${item.status}`}
                       className={`rounded-lg border p-4 ${
                         paid
                           ? "border-green-200 bg-green-50/80 dark:border-green-900 dark:bg-green-950/30"
-                          : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800"
+                          : item.status === "OVERDUE"
+                            ? "border-red-200 bg-red-50/70 dark:border-red-900 dark:bg-red-950/30"
+                            : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -218,9 +244,16 @@ export default function CollectionsPage() {
                         </div>
                         <div>
                           <p className="text-xs text-slate-500">Pending</p>
-                          <p className="font-medium">{fmt(item.pending_amount)}</p>
+                          <p className="font-medium text-amber-700 dark:text-amber-300">
+                            {fmt(item.pending_amount)}
+                          </p>
                         </div>
                       </div>
+                      {overdueAmt > 0 && (
+                        <p className="mt-2 text-xs font-medium text-red-700 dark:text-red-300">
+                          Includes {fmt(item.overdue_pending_amount)} overdue arrears
+                        </p>
+                      )}
                       <div className="mt-3">
                         <CollectionRowActions
                           item={item}
@@ -250,13 +283,17 @@ export default function CollectionsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {data.items.map((item) => (
+                    {data.items.map((item) => {
+                      const overdueAmt = Number(item.overdue_pending_amount ?? 0);
+                      return (
                       <tr
-                        key={`${item.loan_id}-${item.schedule_date}`}
+                        key={`${item.loan_id}-${item.schedule_date}-${item.status}`}
                         className={
                           item.status === "PAID"
                             ? "bg-green-50/50 dark:bg-green-950/20"
-                            : undefined
+                            : item.status === "OVERDUE"
+                              ? "bg-red-50/40 dark:bg-red-950/20"
+                              : undefined
                         }
                       >
                         <td className="px-4 py-3">
@@ -266,7 +303,14 @@ export default function CollectionsPage() {
                         <td className="px-4 py-3">#{item.loan_id}</td>
                         <td className="px-4 py-3 text-right">{fmt(item.expected_amount)}</td>
                         <td className="px-4 py-3 text-right">{fmt(item.paid_amount)}</td>
-                        <td className="px-4 py-3 text-right">{fmt(item.pending_amount)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <div>{fmt(item.pending_amount)}</div>
+                          {overdueAmt > 0 && (
+                            <div className="text-xs text-red-600 dark:text-red-400">
+                              {fmt(item.overdue_pending_amount)} overdue
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-center">
                           <StatusChip status={item.status} />
                         </td>
@@ -278,7 +322,8 @@ export default function CollectionsPage() {
                           />
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
                 </div>

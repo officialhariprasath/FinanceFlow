@@ -7,9 +7,20 @@ from backend.app.models.customer import Customer
 from backend.app.models.enums import CollectionModel, ScheduleStatus
 from backend.app.models.loan import Loan
 from backend.app.models.loan_schedule import LoanSchedule
-from backend.app.services.schedule_service import mark_overdue_schedules
+from backend.app.services.schedule_service import mark_overdue_schedules, schedule_pending_amount
 
 ZERO = Decimal("0.00")
+TWOPLACES = Decimal("0.01")
+
+
+def _status_label(status: str) -> str:
+    if status == ScheduleStatus.PAID.value:
+        return "PAID"
+    if status == ScheduleStatus.OVERDUE.value:
+        return "OVERDUE"
+    if status == ScheduleStatus.PARTIAL.value:
+        return "PARTIAL"
+    return "PENDING"
 
 
 def get_today_collections(
@@ -23,6 +34,7 @@ def get_today_collections(
 
     mark_overdue_schedules(db, finance_owner_id, target_date)
 
+    # Agents with no assignments must see nothing (not the full book).
     assigned_customer_ids: set[int] | None = None
     if agent_id is not None:
         from backend.app.models.agent_customer_assignment import AgentCustomerAssignment
@@ -35,8 +47,7 @@ def get_today_collections(
             )
             .all()
         )
-        if rows:
-            assigned_customer_ids = {r[0] for r in rows}
+        assigned_customer_ids = {r[0] for r in rows}
 
     loans = (
         db.query(Loan, Customer)
@@ -52,11 +63,14 @@ def get_today_collections(
     items = []
     expected_total = ZERO
     collected_total = ZERO
+    overdue_pending_total = ZERO
+    overdue_installment_count = 0
 
     for loan, customer in loans:
         if assigned_customer_ids is not None and customer.id not in assigned_customer_ids:
             continue
-        schedule = (
+
+        today_schedule = (
             db.query(LoanSchedule)
             .filter(
                 LoanSchedule.loan_id == loan.id,
@@ -65,24 +79,62 @@ def get_today_collections(
             .first()
         )
 
-        if schedule is None:
+        overdue_schedules = (
+            db.query(LoanSchedule)
+            .filter(
+                LoanSchedule.loan_id == loan.id,
+                LoanSchedule.schedule_date < target_date,
+                LoanSchedule.status == ScheduleStatus.OVERDUE.value,
+            )
+            .order_by(LoanSchedule.schedule_date.asc())
+            .all()
+        )
+
+        if today_schedule is None and not overdue_schedules:
             continue
 
-        expected = schedule.expected_amount
-        paid = schedule.paid_amount
-        pending = max(expected - paid, ZERO)
+        today_expected = ZERO
+        today_paid = ZERO
+        today_pending = ZERO
+        expected_principal = ZERO
+        expected_profit = ZERO
+        status_label = "PENDING"
+        schedule_date = target_date
 
-        expected_total += expected
-        collected_total += paid
+        if today_schedule is not None:
+            today_expected = Decimal(today_schedule.expected_amount)
+            today_paid = Decimal(today_schedule.paid_amount)
+            today_pending = schedule_pending_amount(today_schedule)
+            expected_principal = Decimal(today_schedule.expected_principal)
+            expected_profit = Decimal(today_schedule.expected_profit)
+            status_label = _status_label(today_schedule.status)
+            schedule_date = today_schedule.schedule_date
 
-        if schedule.status == ScheduleStatus.PAID.value:
-            status_label = "PAID"
-        elif schedule.status == ScheduleStatus.OVERDUE.value:
+            expected_total += today_expected
+            collected_total += today_paid
+
+        overdue_pending = ZERO
+        for sched in overdue_schedules:
+            overdue_pending += schedule_pending_amount(sched)
+            overdue_installment_count += 1
+
+        overdue_pending = overdue_pending.quantize(TWOPLACES)
+        overdue_pending_total += overdue_pending
+
+        # Arrears take priority in status and default collect date.
+        if overdue_schedules:
             status_label = "OVERDUE"
-        elif schedule.status == ScheduleStatus.PARTIAL.value:
-            status_label = "PARTIAL"
-        else:
-            status_label = "PENDING"
+            if today_schedule is None or today_pending <= ZERO:
+                schedule_date = overdue_schedules[0].schedule_date
+                if today_schedule is None:
+                    expected_principal = Decimal(overdue_schedules[0].expected_principal)
+                    expected_profit = Decimal(overdue_schedules[0].expected_profit)
+
+        pending_amount = (today_pending + overdue_pending).quantize(TWOPLACES)
+
+        # Skip fully settled loans with no arrears and nothing due today.
+        if today_schedule is None and pending_amount <= ZERO:
+            continue
 
         items.append(
             {
@@ -90,31 +142,41 @@ def get_today_collections(
                 "customer_id": customer.id,
                 "customer_name": customer.full_name,
                 "customer_phone": customer.phone,
-                "schedule_date": schedule.schedule_date,
-                "expected_amount": expected,
-                "paid_amount": paid,
-                "pending_amount": pending,
-                "expected_principal": schedule.expected_principal,
-                "expected_profit": schedule.expected_profit,
+                "schedule_date": schedule_date,
+                "expected_amount": today_expected if today_schedule is not None else overdue_pending,
+                "paid_amount": today_paid,
+                "pending_amount": pending_amount,
+                "overdue_pending_amount": overdue_pending,
+                "expected_principal": expected_principal,
+                "expected_profit": expected_profit,
                 "status": status_label,
             }
         )
 
-    pending_total = max(expected_total - collected_total, ZERO)
+    # Sort: overdue first, then unpaid today, paid last.
+    status_rank = {"OVERDUE": 0, "PARTIAL": 1, "PENDING": 2, "PAID": 3}
+    items.sort(
+        key=lambda item: (
+            status_rank.get(item["status"], 9),
+            item["customer_name"],
+            item["loan_id"],
+        )
+    )
+
+    pending_total = max(expected_total - collected_total, ZERO).quantize(TWOPLACES)
     collection_rate = (
-        (collected_total / expected_total * Decimal("100")).quantize(Decimal("0.01"))
+        (collected_total / expected_total * Decimal("100")).quantize(TWOPLACES)
         if expected_total > ZERO
         else ZERO
     )
 
-    overdue_count = sum(1 for item in items if item["status"] == "OVERDUE")
-
     return {
         "date": target_date,
-        "expected_collection": expected_total,
-        "collected": collected_total,
+        "expected_collection": expected_total.quantize(TWOPLACES),
+        "collected": collected_total.quantize(TWOPLACES),
         "pending": pending_total,
+        "overdue_pending": overdue_pending_total.quantize(TWOPLACES),
         "collection_rate": collection_rate,
-        "overdue_count": overdue_count,
+        "overdue_count": overdue_installment_count,
         "items": items,
     }
