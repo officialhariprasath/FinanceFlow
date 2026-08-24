@@ -67,6 +67,17 @@ def login(email, password, agent=False):
     return resp["access_token"]
 
 
+def request_otp(email: str, purpose: str) -> str | None:
+    status, resp = request(
+        "POST",
+        "/auth/send-otp",
+        {"email": email, "purpose": purpose},
+    )
+    if status != 200:
+        raise RuntimeError(f"OTP send failed for {email}: {status} {resp}")
+    return resp.get("dev_code")
+
+
 def ensure_customer(token, data):
     status, resp = request("POST", "/customers/", data, token=token)
     if status in (200, 201) and "id" in resp:
@@ -162,6 +173,7 @@ def main():
         loan_ids.append(loan["id"])
 
     # Collection agent Kumar
+    agent_otp = request_otp(AGENT_EMAIL, "register_agent")
     status, agent = request(
         "POST",
         "/agents/",
@@ -173,6 +185,17 @@ def main():
             "role": "COLLECTION_AGENT",
             "assigned_area": "Secunderabad Zone A",
             "is_active": True,
+            "otp_code": agent_otp,
+            "permissions": [
+                "dashboard",
+                "collections",
+                "customers",
+                "customers.create",
+                "loans",
+                "loans.create",
+                "payments",
+                "settlements",
+            ],
         },
         token=owner_token,
     )
@@ -185,6 +208,7 @@ def main():
             raise RuntimeError(f"Agent create failed: {status} {agent}")
 
     # Manager (optional second login)
+    manager_otp = request_otp(MANAGER_EMAIL, "register_agent")
     request(
         "POST",
         "/agents/",
@@ -196,6 +220,7 @@ def main():
             "role": "MANAGER",
             "assigned_area": "All zones",
             "is_active": True,
+            "otp_code": manager_otp,
         },
         token=owner_token,
     )
