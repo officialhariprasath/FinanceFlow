@@ -102,7 +102,9 @@ export default function SettingsPage() {
   async function handleBackupNow() {
     try {
       setBackingUp(true);
-      const meta = await createDeviceBackup(session?.display_name ?? undefined);
+      const meta = await createDeviceBackup(session?.display_name ?? undefined, {
+        download: !isNativeApp(),
+      });
       setBackupMeta(meta);
       toast.success(
         isNativeApp()

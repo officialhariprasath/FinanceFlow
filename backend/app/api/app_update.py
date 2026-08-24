@@ -6,13 +6,13 @@ from fastapi import APIRouter
 
 router = APIRouter(tags=["App Update"])
 
-# Bump these when you publish a new APK, then redeploy the API (or edit + restart).
-# apkUrl must be a direct download link (GitHub Release asset works well).
+# Bump these when you publish a new APK, then redeploy the API.
+# Prefer a direct HTTPS APK URL (Vercel /releases or GitHub Release asset).
 APP_UPDATE = {
     "versionCode": 4,
     "versionName": "1.2.1",
-    "apkUrl": "https://github.com/officialhariprasath/FinanceFlow/releases/download/v1.2.1/FinanceFlow.apk",
-    "notes": "Modal fixes, email/phone login, forgot password, registration OTP verification.",
+    "apkUrl": "https://finance-flow-rho-ten.vercel.app/releases/FinanceFlow-v1.2.1.apk",
+    "notes": "Fix auto backup download on login; reliable in-app APK update link.",
     "force": False,
 }
 

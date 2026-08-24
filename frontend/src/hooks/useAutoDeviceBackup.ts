@@ -11,48 +11,49 @@ import {
 const MIN_INTERVAL_MS = 6 * 60 * 60 * 1000; // at most every 6 hours
 
 /**
- * When signed in on the Android app, keep an automatic local backup
- * so the phone retains a recoverable copy of business data.
+ * Silent on-device backup for the Android app only.
+ * Never triggers a file download. Web / login must not auto-export.
  */
 export function useAutoDeviceBackup() {
   const { isAuthenticated, session } = useAuth();
   const running = useRef(false);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    // Auto backup is native-only and never downloads a file.
+    if (!isAuthenticated || !Capacitor.isNativePlatform()) return;
 
-    async function maybeBackup(reason: string) {
+    async function maybeBackup() {
       if (running.current) return;
       running.current = true;
       try {
         const meta = await getBackupMeta();
         if (meta) {
           const age = Date.now() - new Date(meta.exported_at).getTime();
-          if (age < MIN_INTERVAL_MS && reason !== "manual-login") return;
+          if (age < MIN_INTERVAL_MS) return;
         }
-        await createDeviceBackup(session?.display_name ?? undefined);
+        // Silent write to app storage — no Share / no browser download.
+        await createDeviceBackup(session?.display_name ?? undefined, {
+          download: false,
+        });
       } catch {
-        // Silent — network may be offline; user can retry from Settings.
+        // Offline / permission — user can retry from Settings.
       } finally {
         running.current = false;
       }
     }
 
-    // Shortly after login / app open
     const t = window.setTimeout(() => {
-      void maybeBackup(session ? "manual-login" : "open");
-    }, 4000);
+      void maybeBackup();
+    }, 8000);
 
     let remove: (() => void) | undefined;
-    if (Capacitor.isNativePlatform()) {
-      CapApp.addListener("appStateChange", ({ isActive }) => {
-        if (isActive) void maybeBackup("resume");
-      }).then((h) => {
-        remove = () => {
-          void h.remove();
-        };
-      });
-    }
+    CapApp.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) void maybeBackup();
+    }).then((h) => {
+      remove = () => {
+        void h.remove();
+      };
+    });
 
     return () => {
       window.clearTimeout(t);

@@ -122,8 +122,14 @@ async function ensureBackupDir(): Promise<void> {
 /**
  * Pull live data from the API and store a full JSON backup on the device.
  * Uses app Data directory (survives while the app is installed) + Preferences cache.
+ *
+ * @param options.download  Web only: trigger a browser file download (Settings → Backup).
+ *                          Default false — never auto-download on login.
  */
-export async function createDeviceBackup(sessionHint?: string): Promise<BackupMeta> {
+export async function createDeviceBackup(
+  sessionHint?: string,
+  options?: { download?: boolean }
+): Promise<BackupMeta> {
   const payload = await gatherBackupData(sessionHint);
   const json = JSON.stringify(payload, null, 2);
 
@@ -152,8 +158,8 @@ export async function createDeviceBackup(sessionHint?: string): Promise<BackupMe
     });
     file_path = latestPath;
     uri = written.uri;
-  } else {
-    // Browser fallback — downloadable blob keeps parity for testing.
+  } else if (options?.download) {
+    // Explicit user action in Settings only — never on login/auto.
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

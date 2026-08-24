@@ -93,10 +93,31 @@ export async function downloadAndInstallUpdate(
     throw new Error("Updates only apply inside the Android app.");
   }
 
+  const candidates = [
+    update.apkUrl,
+    "https://finance-flow-rho-ten.vercel.app/releases/FinanceFlow-v1.2.1.apk",
+    "https://github.com/officialhariprasath/FinanceFlow/releases/download/1.2.1/FinanceFlow-v1.2.1.apk",
+  ].filter((u, i, arr) => u && arr.indexOf(u) === i);
+
   onProgress?.(5);
-  const res = await fetch(update.apkUrl, { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error(`Download failed (${res.status}). Check the APK link.`);
+  let res: Response | null = null;
+  let lastStatus = 0;
+  for (const url of candidates) {
+    try {
+      const attempt = await fetch(url, { cache: "no-store", redirect: "follow" });
+      lastStatus = attempt.status;
+      if (attempt.ok) {
+        res = attempt;
+        break;
+      }
+    } catch {
+      // try next
+    }
+  }
+  if (!res) {
+    throw new Error(
+      `Download failed (${lastStatus || "network"}). Update file is missing — try again after the latest deploy, or install FinanceFlow-v1.2.1.apk manually.`
+    );
   }
 
   const reader = res.body?.getReader();
@@ -122,6 +143,10 @@ export async function downloadAndInstallUpdate(
     received = buf.length;
   }
 
+  if (received < 100_000) {
+    throw new Error("Downloaded file looks too small to be an APK. Check the update link.");
+  }
+
   const merged = new Uint8Array(received);
   let offset = 0;
   for (const part of chunks) {
@@ -143,14 +168,21 @@ export async function downloadAndInstallUpdate(
   });
 
   onProgress?.(98);
-  const permission = await ApkInstaller.canRequestPackageInstalls();
-  if (!permission.allowed) {
-    await ApkInstaller.openInstallSettings();
-    throw new Error(
-      "Turn on “Allow from this source”, then tap Update again."
-    );
+  try {
+    const permission = await ApkInstaller.canRequestPackageInstalls();
+    if (!permission.allowed) {
+      await ApkInstaller.openInstallSettings();
+      throw new Error(
+        "Turn on “Allow from this source” for FinanceFlow, then tap Update again."
+      );
+    }
+    await ApkInstaller.install({ path: uri });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("Allow from this source") || msg.includes("Allow install")) {
+      throw e instanceof Error ? e : new Error(msg);
+    }
+    throw new Error(msg || "Could not open the Android installer.");
   }
-
-  await ApkInstaller.install({ path: uri });
   onProgress?.(100);
 }
