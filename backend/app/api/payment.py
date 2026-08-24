@@ -9,6 +9,7 @@ from backend.app.core.auth import get_current_finance_owner, require_permissions
 from backend.app.core.auth_context import AuthContext
 from backend.app.database.deps import get_db
 from backend.app.models.finance_owner import FinanceOwner
+from backend.app.models.loan import Loan
 from backend.app.models.payment_allocation import PaymentAllocation
 from backend.app.schemas.payment import (
     PaymentCreate,
@@ -79,26 +80,30 @@ def create_payment_endpoint(
         finance_owner_id=ctx.finance_owner_id,
         collected_by_agent_id=ctx.actor_id if not ctx.is_owner else None,
     )
+    # Payment is already committed. Never fail the HTTP response on notify.
     if not ctx.is_owner:
-        from backend.app.models.customer import Customer
-        from backend.app.services.notification_service import create_notification
+        try:
+            from backend.app.models.customer import Customer
+            from backend.app.services.notification_service import create_notification
 
-        loan = db.query(Loan).filter(Loan.id == payment.loan_id).first()
-        customer = (
-            db.query(Customer).filter(Customer.id == loan.customer_id).first()
-            if loan
-            else None
-        )
-        loan_label = customer.full_name if customer else f"Loan #{payment.loan_id}"
-        create_notification(
-            db,
-            ctx.finance_owner_id,
-            "Collection recorded",
-            f"Agent collected ₹{payment.amount_paid} for {loan_label}.",
-            "info",
-            action_url="/collections",
-        )
-        db.commit()
+            loan = db.query(Loan).filter(Loan.id == created.loan_id).first()
+            customer = (
+                db.query(Customer).filter(Customer.id == loan.customer_id).first()
+                if loan
+                else None
+            )
+            loan_label = customer.full_name if customer else f"Loan #{created.loan_id}"
+            create_notification(
+                db,
+                ctx.finance_owner_id,
+                "Collection recorded",
+                f"Agent collected ₹{created.amount_paid} for {loan_label}.",
+                "info",
+                action_url="/collections",
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
     return _enrich_payment(db, created)
 
 

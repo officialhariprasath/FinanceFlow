@@ -182,6 +182,8 @@ export default function RecordPaymentModal({
       setApiError("");
       const payload: PaymentCreate = {
         ...form,
+        payment_reference: form.payment_reference?.trim() || undefined,
+        remarks: form.remarks?.trim() || undefined,
         ...(isInstallment && selectedDates.length > 0
           ? { schedule_dates: selectedDates, payment_date: selectedDates[0] }
           : {}),
@@ -190,7 +192,7 @@ export default function RecordPaymentModal({
       toast.success(isAgent ? "Collection recorded." : "Payment recorded.");
       onSuccess();
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })
+      const detail = (err as { response?: { data?: { detail?: string | unknown } } })
         ?.response?.data?.detail;
       setApiError(
         typeof detail === "string" ? detail : "Failed to record payment."
@@ -385,7 +387,7 @@ export default function RecordPaymentModal({
           {(form.payment_mode === "UPI" || form.payment_mode === "Bank Transfer") && (
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Reference (UPI / txn no.)
+                Reference (optional)
               </label>
               <input
                 type="text"
@@ -393,7 +395,7 @@ export default function RecordPaymentModal({
                 onChange={(e) =>
                   setForm({ ...form, payment_reference: e.target.value })
                 }
-                placeholder="UPI123456789"
+                placeholder="UPI / bank txn no. (optional)"
                 className={inputCls("payment_reference")}
               />
             </div>
