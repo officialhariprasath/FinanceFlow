@@ -15,9 +15,14 @@ import { getLoans } from "../../services/loanService";
 
 import type { Customer, CustomerCreate } from "../../types/customer";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 
 function CustomersPage() {
   const toast = useToast();
+  const { hasPermission } = useAuth();
+  const canCreateCustomer = hasPermission("customers.create");
+  const canEditCustomer = hasPermission("customers.edit");
+  const canDeleteCustomer = hasPermission("customers.delete");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [activeCustomerIds, setActiveCustomerIds] = useState<Set<number>>(
     new Set()
@@ -160,12 +165,14 @@ function CustomersPage() {
               registered
             </p>
           </div>
-          <button
-            onClick={openAddForm}
-            className="rounded-lg bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700"
-          >
-            + Add Customer
-          </button>
+          {canCreateCustomer && (
+            <button
+              onClick={openAddForm}
+              className="rounded-lg bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700"
+            >
+              + Add Customer
+            </button>
+          )}
         </div>
 
         {/* Search */}
@@ -211,6 +218,8 @@ function CustomersPage() {
                   customers={withActiveLoans}
                   onEdit={openEditForm}
                   onDelete={(c) => setCustomerToDelete(c)}
+                  canEdit={canEditCustomer}
+                  canDelete={canDeleteCustomer}
                 />
               </div>
             )}
@@ -231,6 +240,8 @@ function CustomersPage() {
                   customers={withoutActiveLoans}
                   onEdit={openEditForm}
                   onDelete={(c) => setCustomerToDelete(c)}
+                  canEdit={canEditCustomer}
+                  canDelete={canDeleteCustomer}
                 />
               </div>
             )}

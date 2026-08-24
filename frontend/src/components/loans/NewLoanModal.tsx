@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../../context/AuthContext";
 
 
 
@@ -91,6 +92,8 @@ export default function NewLoanModal({
   preselectedCustomerId,
 
 }: Props) {
+  const { hasPermission } = useAuth();
+  const canCreateCustomer = hasPermission("customers.create");
 
   const [mode, setMode] = useState<CustomerMode>("existing");
 
@@ -440,6 +443,7 @@ export default function NewLoanModal({
 
                 </button>
 
+                {canCreateCustomer && (
                 <button
 
                   type="button"
@@ -457,6 +461,7 @@ export default function NewLoanModal({
                   New Borrower
 
                 </button>
+                )}
 
               </div>
 

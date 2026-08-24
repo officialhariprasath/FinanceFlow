@@ -67,6 +67,12 @@ class Permission(str, Enum):
     LEDGER = "ledger"
     EXPENSES = "expenses"
     REPORTS = "reports"
+    # Action-level (optional; assigned per agent in addition to module access)
+    CUSTOMERS_CREATE = "customers.create"
+    CUSTOMERS_EDIT = "customers.edit"
+    CUSTOMERS_DELETE = "customers.delete"
+    LOANS_CREATE = "loans.create"
+    LOANS_EDIT = "loans.edit"
 
 
 class WalletChannel(str, Enum):

@@ -50,10 +50,9 @@ def _build_context_from_token(payload: dict, db: Session) -> AuthContext:
         if agent is None:
             raise HTTPException(status_code=401, detail="Agent not found or inactive.")
 
-        token_permissions = payload.get("permissions") or []
+        # Always use live agent permissions so owner edits apply without waiting
+        # for an exact token refresh edge-case.
         permissions = agent.get_permissions_list()
-        if token_permissions and set(token_permissions) != set(permissions):
-            permissions = list(token_permissions)
 
         return AuthContext(
             finance_owner_id=owner_id,

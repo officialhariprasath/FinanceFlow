@@ -13,10 +13,14 @@ import {
 import type { CustomerLedger } from "../../types/ledger";
 import type { CustomerCreate } from "../../types/customer";
 import { fmt } from "../../utils/fmt";
+import { useAuth } from "../../context/AuthContext";
 
 function CustomerLedgerPage() {
   const { customerId } = useParams();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canCreateLoan = hasPermission("loans.create");
+  const canEditCustomer = hasPermission("customers.edit");
 
   const [ledger, setLedger] = useState<CustomerLedger | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,18 +123,22 @@ function CustomerLedgerPage() {
               )}
             </div>
             <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => setShowNewLoan(true)}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                New Loan
-              </button>
-              <button
-                onClick={() => { setEditError(""); setShowEditForm(true); }}
-                className="rounded-lg border border-amber-500 px-4 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50"
-              >
-                Edit Customer
-              </button>
+              {canCreateLoan && (
+                <button
+                  onClick={() => setShowNewLoan(true)}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  New Loan
+                </button>
+              )}
+              {canEditCustomer && (
+                <button
+                  onClick={() => { setEditError(""); setShowEditForm(true); }}
+                  className="rounded-lg border border-amber-500 px-4 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50"
+                >
+                  Edit Customer
+                </button>
+              )}
             </div>
           </div>
         </div>

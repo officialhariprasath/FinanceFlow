@@ -46,6 +46,7 @@ export interface SessionInfo {
 export interface PermissionOption {
   key: string;
   label: string;
+  group?: "modules" | "actions" | string;
 }
 
 export const ROLE_LABELS: Record<string, string> = {

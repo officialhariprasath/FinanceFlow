@@ -162,8 +162,24 @@ export default function AgentsPage() {
 
   function togglePermission(key: string) {
     const set = new Set(form.permissions ?? []);
-    if (set.has(key)) set.delete(key);
-    else set.add(key);
+    if (set.has(key)) {
+      set.delete(key);
+      // Drop related action flags when a module is turned off
+      if (key === "loans") {
+        set.delete("loans.create");
+        set.delete("loans.edit");
+      }
+      if (key === "customers") {
+        set.delete("customers.create");
+        set.delete("customers.edit");
+        set.delete("customers.delete");
+      }
+    } else {
+      set.add(key);
+      // Ensure module access when an action is enabled
+      if (key.startsWith("loans.")) set.add("loans");
+      if (key.startsWith("customers.")) set.add("customers");
+    }
     setForm({ ...form, permissions: Array.from(set) });
   }
 
@@ -367,21 +383,49 @@ export default function AgentsPage() {
               </div>
 
               <div>
-                <p className="mb-2 text-sm font-medium text-slate-700">Permissions</p>
+                <p className="mb-1 text-sm font-medium text-slate-700">Module access</p>
+                <p className="mb-2 text-xs text-slate-500">
+                  Controls which screens this agent can open.
+                </p>
                 <div className="flex flex-wrap gap-2">
-                  {permissions.map((p) => (
-                    <label
-                      key={p.key}
-                      className="flex items-center gap-1 rounded border px-2 py-1 text-xs"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form.permissions?.includes(p.key)}
-                        onChange={() => togglePermission(p.key)}
-                      />
-                      {p.label}
-                    </label>
-                  ))}
+                  {permissions
+                    .filter((p) => (p.group ?? "modules") === "modules")
+                    .map((p) => (
+                      <label
+                        key={p.key}
+                        className="flex items-center gap-1 rounded border px-2 py-1 text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={form.permissions?.includes(p.key)}
+                          onChange={() => togglePermission(p.key)}
+                        />
+                        {p.label}
+                      </label>
+                    ))}
+                </div>
+                <p className="mb-1 mt-4 text-sm font-medium text-slate-700">
+                  Actions
+                </p>
+                <p className="mb-2 text-xs text-slate-500">
+                  Optional write permissions. Turn these on to let the agent create or edit records.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {permissions
+                    .filter((p) => p.group === "actions")
+                    .map((p) => (
+                      <label
+                        key={p.key}
+                        className="flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={form.permissions?.includes(p.key)}
+                          onChange={() => togglePermission(p.key)}
+                        />
+                        {p.label}
+                      </label>
+                    ))}
                 </div>
               </div>
 

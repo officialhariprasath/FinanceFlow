@@ -69,17 +69,46 @@ class SessionResponse(BaseModel):
 class PermissionOption(BaseModel):
     key: str
     label: str
+    group: str = "modules"
 
 
 PERMISSION_OPTIONS = [
-    PermissionOption(key=Permission.DASHBOARD.value, label="Dashboard"),
-    PermissionOption(key=Permission.COLLECTIONS.value, label="Collections"),
-    PermissionOption(key=Permission.CUSTOMERS.value, label="Customers"),
-    PermissionOption(key=Permission.LOANS.value, label="Loans"),
-    PermissionOption(key=Permission.PAYMENTS.value, label="Payments"),
-    PermissionOption(key=Permission.CAPITAL.value, label="Capital"),
-    PermissionOption(key=Permission.PROFIT.value, label="Profit"),
-    PermissionOption(key=Permission.AGENTS.value, label="Agents"),
-    PermissionOption(key=Permission.SETTLEMENTS.value, label="Settlements"),
-    PermissionOption(key=Permission.SETTINGS.value, label="Settings"),
+    PermissionOption(key=Permission.DASHBOARD.value, label="Dashboard", group="modules"),
+    PermissionOption(key=Permission.COLLECTIONS.value, label="Collections", group="modules"),
+    PermissionOption(key=Permission.CUSTOMERS.value, label="Customers", group="modules"),
+    PermissionOption(key=Permission.LOANS.value, label="Loans", group="modules"),
+    PermissionOption(key=Permission.PAYMENTS.value, label="Payments", group="modules"),
+    PermissionOption(key=Permission.SETTLEMENTS.value, label="Settlements", group="modules"),
+    PermissionOption(key=Permission.CAPITAL.value, label="Capital", group="modules"),
+    PermissionOption(key=Permission.PROFIT.value, label="Profit", group="modules"),
+    PermissionOption(key=Permission.AGENTS.value, label="Agents", group="modules"),
+    PermissionOption(key=Permission.LEDGER.value, label="Ledger", group="modules"),
+    PermissionOption(key=Permission.EXPENSES.value, label="Expenses", group="modules"),
+    PermissionOption(key=Permission.REPORTS.value, label="Reports", group="modules"),
+    PermissionOption(key=Permission.SETTINGS.value, label="Settings", group="modules"),
+    PermissionOption(
+        key=Permission.CUSTOMERS_CREATE.value,
+        label="Create customers",
+        group="actions",
+    ),
+    PermissionOption(
+        key=Permission.CUSTOMERS_EDIT.value,
+        label="Edit customers",
+        group="actions",
+    ),
+    PermissionOption(
+        key=Permission.CUSTOMERS_DELETE.value,
+        label="Delete customers",
+        group="actions",
+    ),
+    PermissionOption(
+        key=Permission.LOANS_CREATE.value,
+        label="Create loans",
+        group="actions",
+    ),
+    PermissionOption(
+        key=Permission.LOANS_EDIT.value,
+        label="Edit loans",
+        group="actions",
+    ),
 ]

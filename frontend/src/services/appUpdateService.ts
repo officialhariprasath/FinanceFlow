@@ -95,8 +95,8 @@ export async function downloadAndInstallUpdate(
 
   const candidates = [
     update.apkUrl,
-    "https://finance-flow-rho-ten.vercel.app/releases/FinanceFlow-v1.2.1.apk",
-    "https://github.com/officialhariprasath/FinanceFlow/releases/download/1.2.1/FinanceFlow-v1.2.1.apk",
+    "https://finance-flow-rho-ten.vercel.app/releases/FinanceFlow-v1.2.2.apk",
+    "https://github.com/officialhariprasath/FinanceFlow/releases/download/1.2.2/FinanceFlow-v1.2.2.apk",
   ].filter((u, i, arr) => u && arr.indexOf(u) === i);
 
   onProgress?.(5);
@@ -116,7 +116,7 @@ export async function downloadAndInstallUpdate(
   }
   if (!res) {
     throw new Error(
-      `Download failed (${lastStatus || "network"}). Update file is missing — try again after the latest deploy, or install FinanceFlow-v1.2.1.apk manually.`
+      `Download failed (${lastStatus || "network"}). Update file is missing — try again after the latest deploy, or install FinanceFlow-v1.2.2.apk manually.`
     );
   }
 

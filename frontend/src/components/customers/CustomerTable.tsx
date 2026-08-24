@@ -6,12 +6,16 @@ type CustomerTableProps = {
   customers: Customer[];
   onEdit: (customer: Customer) => void;
   onDelete: (customer: Customer) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 };
 
 function CustomerTable({
   customers,
   onEdit,
   onDelete,
+  canEdit = true,
+  canDelete = true,
 }: CustomerTableProps) {
   const navigate = useNavigate();
 
@@ -46,18 +50,22 @@ function CustomerTable({
               >
                 View
               </button>
-              <button
-                onClick={() => onEdit(customer)}
-                className="rounded bg-amber-500 px-3 py-1.5 text-xs font-medium text-white"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => onDelete(customer)}
-                className="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white"
-              >
-                Delete
-              </button>
+              {canEdit && (
+                <button
+                  onClick={() => onEdit(customer)}
+                  className="rounded bg-amber-500 px-3 py-1.5 text-xs font-medium text-white"
+                >
+                  Edit
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  onClick={() => onDelete(customer)}
+                  className="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white"
+                >
+                  Delete
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -101,18 +109,22 @@ function CustomerTable({
                       >
                         View
                       </button>
-                      <button
-                        onClick={() => onEdit(customer)}
-                        className="rounded bg-amber-500 px-3 py-1 text-sm font-medium text-white hover:bg-amber-600"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => onDelete(customer)}
-                        className="rounded bg-red-600 px-3 py-1 text-sm font-medium text-white hover:bg-red-700"
-                      >
-                        Delete
-                      </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => onEdit(customer)}
+                          className="rounded bg-amber-500 px-3 py-1 text-sm font-medium text-white hover:bg-amber-600"
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => onDelete(customer)}
+                          className="rounded bg-red-600 px-3 py-1 text-sm font-medium text-white hover:bg-red-700"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

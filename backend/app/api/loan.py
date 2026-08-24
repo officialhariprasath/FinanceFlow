@@ -53,12 +53,12 @@ router = APIRouter(
 def create_loan_endpoint(
     loan: LoanCreate,
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["loans.create"])),
 ):
     return create_loan(
         db=db,
         loan=loan,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )
 
 
@@ -261,7 +261,7 @@ def update_existing_loan(
     loan_id: int,
     loan_data: LoanUpdate,
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["loans.edit"])),
 ):
     """
     Update an existing loan.
@@ -271,7 +271,7 @@ def update_existing_loan(
         db=db,
         loan_id=loan_id,
         loan_data=loan_data,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )
 
     if not loan:

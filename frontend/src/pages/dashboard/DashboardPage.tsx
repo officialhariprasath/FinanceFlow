@@ -21,8 +21,10 @@ import type { FinanceFlowDashboard } from "../../types/financeflowDashboard";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { session } = useAuth();
+  const { session, hasPermission } = useAuth();
   const isOwner = session?.is_owner ?? false;
+  const canCreateLoan = hasPermission("loans.create");
+  const canAddCapital = isOwner && hasPermission("capital");
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -165,6 +167,7 @@ export default function DashboardPage() {
             ) : ffDashboard ? (
               <>
                 <div className="flex flex-wrap gap-3">
+              {canAddCapital && (
               <button
                 type="button"
                 onClick={() => navigate("/capital")}
@@ -172,6 +175,8 @@ export default function DashboardPage() {
               >
                 Add Capital
               </button>
+              )}
+              {canCreateLoan && (
               <button
                 type="button"
                 onClick={() => navigate("/loans")}
@@ -179,6 +184,7 @@ export default function DashboardPage() {
               >
                 New Loan
               </button>
+              )}
               <button
                 type="button"
                 onClick={() => navigate("/collections")}

@@ -9,9 +9,12 @@ import api from "../../api/axios";
 import { fmt } from "../../utils/fmt";
 import StatusChip from "../../components/common/StatusChip";
 import type { LoanResponse } from "../../types/loan";
+import { useAuth } from "../../context/AuthContext";
 
 export default function LoansPage() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canCreateLoan = hasPermission("loans.create");
   const [loans, setLoans] = useState<LoanResponse[]>([]);
   const [customerMap, setCustomerMap] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
@@ -89,12 +92,14 @@ export default function LoansPage() {
               {loans.length} loan{loans.length !== 1 ? "s" : ""}
             </p>
           </div>
-          <button
-            onClick={() => setShowNewLoan(true)}
-            className="rounded-lg bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700"
-          >
-            + New Loan
-          </button>
+          {canCreateLoan && (
+            <button
+              onClick={() => setShowNewLoan(true)}
+              className="rounded-lg bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700"
+            >
+              + New Loan
+            </button>
+          )}
         </div>
 
         {/* Filters */}

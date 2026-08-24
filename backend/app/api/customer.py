@@ -19,9 +19,8 @@ from backend.app.services.customer_service import (
     update_customer,
     delete_customer,
 )
-from backend.app.core.auth import get_current_finance_owner, require_permissions
+from backend.app.core.auth import require_permissions
 from backend.app.core.auth_context import AuthContext
-from backend.app.models.finance_owner import FinanceOwner
 
 router = APIRouter(
     prefix="/customers",
@@ -37,12 +36,12 @@ router = APIRouter(
 def create_customer_endpoint(
     customer: CustomerCreate,
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["customers.create"])),
 ):
     return create_customer(
         db=db,
         customer=customer,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )
 
 @router.get(
@@ -100,12 +99,12 @@ def update_customer_endpoint(
     customer_id: int,
     customer: CustomerCreate,
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["customers.edit"])),
 ):
     return update_customer(
         db=db,
         customer_id=customer_id,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
         data=customer,
     )
 
@@ -117,12 +116,12 @@ def update_customer_endpoint(
 def delete_customer_endpoint(
     customer_id: int,
     db: Session = Depends(get_db),
-    current_owner: FinanceOwner = Depends(get_current_finance_owner),
+    ctx: AuthContext = Depends(require_permissions(["customers.delete"])),
 ):
     delete_customer(
         db=db,
         customer_id=customer_id,
-        finance_owner_id=current_owner.id,
+        finance_owner_id=ctx.finance_owner_id,
     )
     return {"message": "Customer deleted successfully."}
 
