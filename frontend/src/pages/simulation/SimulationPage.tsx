@@ -121,8 +121,18 @@ export default function SimulationPage() {
         products,
         scenario_name: "Current business",
       });
-    } catch {
-      setError("Could not load current business snapshot. Are you logged in as owner?");
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number; data?: { detail?: string } } })
+        ?.response?.status;
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response
+        ?.data?.detail;
+      if (status === 401 || status === 403) {
+        setError("Owner login required to load current business data.");
+      } else if (typeof detail === "string") {
+        setError(detail);
+      } else {
+        setError("Could not load current business snapshot. Try again in a moment.");
+      }
     } finally {
       setLoading(false);
     }

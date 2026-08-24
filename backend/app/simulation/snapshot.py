@@ -91,17 +91,19 @@ def build_business_snapshot(
                 LoanSchedule.loan_id == loan.id,
                 LoanSchedule.status.in_(["PENDING", "PARTIAL", "OVERDUE"]),
             )
-            .order_by(LoanSchedule.due_date.asc())
+            .order_by(LoanSchedule.schedule_date.asc())
             .all()
         )
         if not pending:
             continue
 
         remaining = len(pending)
-        next_due = pending[0].due_date
-        inst_amt = money(loan.daily_payment or 0)
-        inst_prin = money(loan.daily_principal or 0)
-        inst_profit = money(loan.daily_profit or 0)
+        next_due = pending[0].schedule_date
+        # Prefer live schedule amounts; fall back to loan template fields.
+        first = pending[0]
+        inst_amt = money(first.expected_amount or loan.daily_payment or 0)
+        inst_prin = money(first.expected_principal or loan.daily_principal or 0)
+        inst_profit = money(first.expected_profit or loan.daily_profit or 0)
         freq = _map_frequency(loan.collection_frequency)
         pid = (
             f"{freq.value}-{inst_amt}-{loan.installment_count or remaining}"

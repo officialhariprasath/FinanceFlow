@@ -228,7 +228,13 @@ def get_snapshot(
     db: Session = Depends(get_db),
     owner: FinanceOwner = Depends(get_current_finance_owner),
 ):
-    snap = build_business_snapshot(db, owner.id)
+    try:
+        snap = build_business_snapshot(db, owner.id)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not build business snapshot: {exc}",
+        ) from exc
     return SnapshotOut(
         snapshot_date=snap.snapshot_date,
         available_cash=snap.available_cash,
