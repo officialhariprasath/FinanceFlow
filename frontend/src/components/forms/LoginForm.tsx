@@ -34,9 +34,19 @@ function LoginForm({ agentOnly = false }: Props) {
       const isAgent = agentOnly || mode === "agent";
       navigate(isAgent ? "/collections" : "/dashboard");
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })
-        ?.response?.data?.detail;
-      setError(typeof detail === "string" ? detail : "Login failed.");
+      const ax = err as {
+        response?: { data?: { detail?: string } };
+        message?: string;
+        code?: string;
+      };
+      const detail = ax.response?.data?.detail;
+      if (typeof detail === "string") {
+        setError(detail);
+      } else if (!ax.response && (ax.message === "Network Error" || ax.code === "ERR_NETWORK")) {
+        setError("Cannot reach server. Check internet or try again in a minute.");
+      } else {
+        setError("Login failed.");
+      }
     } finally {
       setLoading(false);
     }
