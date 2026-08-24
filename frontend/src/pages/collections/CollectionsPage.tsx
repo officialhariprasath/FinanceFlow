@@ -122,6 +122,8 @@ export default function CollectionsPage() {
   }
 
   const overduePending = Number(data?.overdue_pending ?? 0);
+  const pendingToday = Number(data?.pending ?? 0);
+  const toCollectNow = pendingToday + overduePending;
   const hasOverdue = overduePending > 0 || (data?.overdue_count ?? 0) > 0;
 
   const summaryBar = (
@@ -156,6 +158,13 @@ export default function CollectionsPage() {
             {data?.overdue_count} installment{data?.overdue_count === 1 ? "" : "s"}
           </p>
         )}
+      </div>
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/40">
+        <p className="text-xs text-blue-800 dark:text-blue-200">To collect now</p>
+        <p className="text-lg font-bold text-blue-900 dark:text-blue-100">
+          {fmt(toCollectNow.toFixed(2))}
+        </p>
+        <p className="text-[11px] text-blue-700 dark:text-blue-300">Today + overdue</p>
       </div>
       {isAgent ? (
         <>
