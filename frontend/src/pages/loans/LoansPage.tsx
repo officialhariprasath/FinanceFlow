@@ -4,6 +4,7 @@ import ScrollableTable from "../../components/common/ScrollableTable";
 import MainLayout from "../../components/layout/MainLayout";
 import { PageLoading, PageError, EmptyState } from "../../components/common/PageStates";
 import NewLoanModal from "../../components/loans/NewLoanModal";
+import EditLoanModal from "../../components/loans/EditLoanModal";
 import { getLoans, searchLoans } from "../../services/loanService";
 import api from "../../api/axios";
 import { fmt } from "../../utils/fmt";
@@ -15,11 +16,13 @@ export default function LoansPage() {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const canCreateLoan = hasPermission("loans.create");
+  const canEditLoan = hasPermission("loans.edit");
   const [loans, setLoans] = useState<LoanResponse[]>([]);
   const [customerMap, setCustomerMap] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showNewLoan, setShowNewLoan] = useState(false);
+  const [editingLoan, setEditingLoan] = useState<LoanResponse | null>(null);
 
   const [mobile, setMobile] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -183,6 +186,7 @@ export default function LoansPage() {
                   <th className="text-center">Status</th>
                   <th className="text-center">Issue Date</th>
                   <th className="text-center">Due Date</th>
+                  {canEditLoan && <th className="text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -208,6 +212,24 @@ export default function LoansPage() {
                     </td>
                     <td className="px-4 py-3 text-center">{loan.issue_date}</td>
                     <td className="px-4 py-3 text-center">{loan.due_date}</td>
+                    {canEditLoan && (
+                      <td className="px-4 py-3 text-right">
+                        {loan.status === "ACTIVE" ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingLoan(loan);
+                            }}
+                            className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
+                          >
+                            Edit
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -221,6 +243,17 @@ export default function LoansPage() {
         <NewLoanModal
           onClose={() => setShowNewLoan(false)}
           onSuccess={() => { setShowNewLoan(false); loadLoans(); }}
+        />
+      )}
+
+      {editingLoan && (
+        <EditLoanModal
+          loan={editingLoan}
+          onClose={() => setEditingLoan(null)}
+          onSuccess={() => {
+            setEditingLoan(null);
+            loadLoans();
+          }}
         />
       )}
     </MainLayout>

@@ -408,7 +408,8 @@ export default function AgentsPage() {
                   Actions
                 </p>
                 <p className="mb-2 text-xs text-slate-500">
-                  Optional write permissions. Turn these on to let the agent create or edit records.
+                  Optional write permissions. Turn these on to let the agent create
+                  customers/loans or open Edit Loan / Edit Customer screens.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {permissions
