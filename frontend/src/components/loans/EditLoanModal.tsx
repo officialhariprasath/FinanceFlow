@@ -9,6 +9,7 @@ import {
   dueDateFromStart,
   FREQUENCY_COUNT_LABELS,
   FREQUENCY_LABELS,
+  installmentAmountLabel,
   type CollectionFrequency,
 } from "../../utils/loanCalc";
 
@@ -24,6 +25,13 @@ const FREQUENCIES: CollectionFrequency[] = [
   "BI_WEEKLY",
   "MONTHLY",
 ];
+
+const DEFAULT_COUNT: Record<CollectionFrequency, string> = {
+  DAILY: "100",
+  WEEKLY: "12",
+  BI_WEEKLY: "12",
+  MONTHLY: "12",
+};
 
 function interestPercentFromLoan(loan: LoanResponse): string {
   const principal = Number(loan.principal_amount) || 0;
@@ -67,27 +75,26 @@ export default function EditLoanModal({ loan, onClose, onSuccess }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState("");
 
+  const count = Number(installmentCount) || 0;
+
   const terms = useMemo(() => {
     const principal = Number(loan.principal_amount) || 0;
     const interest = Number(interestPercent) || 0;
-    const count = Number(installmentCount) || 0;
     if (principal <= 0 || interest <= 0 || count <= 0) return null;
     return calculateInstallmentLoanTerms(principal, interest, count);
-  }, [loan.principal_amount, interestPercent, installmentCount]);
+  }, [loan.principal_amount, interestPercent, count]);
 
   const computedDueDate = useMemo(() => {
     if (!isInstallment || !canRebuildTerms) return dueDate;
-    const count = Number(installmentCount) || 0;
     if (!dueStartDate || count <= 0) return dueDate;
     return dueDateFromStart(dueStartDate, frequency, count);
-  }, [
-    isInstallment,
-    canRebuildTerms,
-    dueStartDate,
-    frequency,
-    installmentCount,
-    dueDate,
-  ]);
+  }, [isInstallment, canRebuildTerms, dueStartDate, frequency, count, dueDate]);
+
+  function onFrequencyChange(next: CollectionFrequency) {
+    setFrequency(next);
+    // Same defaults as New Loan placeholders so collection amount recalculates.
+    setInstallmentCount(DEFAULT_COUNT[next]);
+  }
 
   useEffect(() => {
     setInterestMethod(loan.interest_method);
@@ -162,7 +169,7 @@ export default function EditLoanModal({ loan, onClose, onSuccess }: Props) {
         interest_rate: "0",
         due_date: computedDueDate,
         collection_frequency: frequency,
-        installment_count: Number(installmentCount),
+        installment_count: count,
         due_start_date: dueStartDate,
         daily_payment: terms.installmentAmount.toFixed(2),
         daily_principal: terms.installmentPrincipal.toFixed(2),
@@ -213,7 +220,7 @@ export default function EditLoanModal({ loan, onClose, onSuccess }: Props) {
           disbursed).{" "}
           {isInstallment
             ? canRebuildTerms
-              ? "No collections yet — you can rebuild installment terms like New Loan."
+              ? "No collections yet — change frequency/interest/count and amounts recalculate like New Loan."
               : "Collections already recorded — only due date can change."
             : "Update interest terms and due date."}
         </p>
@@ -240,9 +247,7 @@ export default function EditLoanModal({ loan, onClose, onSuccess }: Props) {
           <div>
             <p className="text-xs text-slate-500">Model (locked)</p>
             <p className="font-medium">
-              {isInstallment
-                ? (loan.collection_frequency ?? "DAILY").replace(/_/g, " ")
-                : "Standard"}
+              {isInstallment ? "Installment collection" : "Standard"}
             </p>
           </div>
         </div>
@@ -255,12 +260,12 @@ export default function EditLoanModal({ loan, onClose, onSuccess }: Props) {
               <>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                    Collection frequency
+                    Collection frequency *
                   </label>
                   <select
                     value={frequency}
                     onChange={(e) =>
-                      setFrequency(e.target.value as CollectionFrequency)
+                      onFrequencyChange(e.target.value as CollectionFrequency)
                     }
                     className={inputCls("frequency")}
                   >
@@ -270,12 +275,16 @@ export default function EditLoanModal({ loan, onClose, onSuccess }: Props) {
                       </option>
                     ))}
                   </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Changing frequency resets count to the usual default and
+                    recalculates collection amount.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                      Interest %
+                      Interest % *
                     </label>
                     <input
                       type="number"
@@ -293,7 +302,7 @@ export default function EditLoanModal({ loan, onClose, onSuccess }: Props) {
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                      {FREQUENCY_COUNT_LABELS[frequency]}
+                      {FREQUENCY_COUNT_LABELS[frequency]} *
                     </label>
                     <input
                       type="number"
@@ -302,6 +311,7 @@ export default function EditLoanModal({ loan, onClose, onSuccess }: Props) {
                       value={installmentCount}
                       onChange={(e) => setInstallmentCount(e.target.value)}
                       className={inputCls("installment_count")}
+                      placeholder={DEFAULT_COUNT[frequency]}
                     />
                     {errors.installment_count && (
                       <p className="mt-1 text-xs text-red-600">
@@ -313,7 +323,7 @@ export default function EditLoanModal({ loan, onClose, onSuccess }: Props) {
 
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                    First collection date
+                    First collection date *
                   </label>
                   <input
                     type="date"
@@ -322,6 +332,9 @@ export default function EditLoanModal({ loan, onClose, onSuccess }: Props) {
                     onChange={(e) => setDueStartDate(e.target.value)}
                     className={inputCls("due_start_date")}
                   />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Installments are scheduled from this date based on frequency
+                  </p>
                   {errors.due_start_date && (
                     <p className="mt-1 text-xs text-red-600">
                       {errors.due_start_date}
@@ -330,22 +343,31 @@ export default function EditLoanModal({ loan, onClose, onSuccess }: Props) {
                 </div>
 
                 {terms && (
-                  <div className="grid grid-cols-3 gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm dark:border-blue-900 dark:bg-blue-950/40">
-                    <div>
-                      <p className="text-xs text-slate-500">Installment</p>
-                      <p className="font-semibold">
-                        {fmt(terms.installmentAmount.toFixed(2))}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Total profit</p>
-                      <p className="font-semibold">
-                        {fmt(terms.totalProfit.toFixed(2))}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Final due</p>
-                      <p className="font-semibold">{computedDueDate}</p>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-600 dark:bg-slate-700/50">
+                    <p className="font-medium text-slate-800 dark:text-slate-100">
+                      Auto-calculated
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <span>Final due date</span>
+                      <span className="font-medium">{computedDueDate}</span>
+                      <span>{installmentAmountLabel(frequency)}</span>
+                      <span className="font-medium">
+                        {fmt(terms.installmentAmount)}
+                      </span>
+                      <span>Principal / installment</span>
+                      <span>{fmt(terms.installmentPrincipal)}</span>
+                      <span>Profit / installment</span>
+                      <span className="text-green-700">
+                        {fmt(terms.installmentProfit)}
+                      </span>
+                      <span>Total repayment</span>
+                      <span>{fmt(terms.totalRepayment)}</span>
+                      <span>Expected profit</span>
+                      <span className="text-green-700">
+                        {fmt(terms.totalProfit)}
+                      </span>
+                      <span>Installments</span>
+                      <span>{count}</span>
                     </div>
                   </div>
                 )}
