@@ -7,6 +7,7 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 import RecordPaymentModal from "../../components/loans/RecordPaymentModal";
 import RenewLoanModal from "../../components/loans/RenewLoanModal";
 import SettleLoanModal from "../../components/loans/SettleLoanModal";
+import EditLoanModal from "../../components/loans/EditLoanModal";
 import {
   getLoanById,
   getLoanStatement,
@@ -16,6 +17,7 @@ import { getLoanPayments, deletePayment } from "../../services/paymentService";
 import { getLoanRenewals } from "../../services/renewalService";
 import { fmt } from "../../utils/fmt";
 import StatusChip from "../../components/common/StatusChip";
+import { useAuth } from "../../context/AuthContext";
 import type { LoanResponse, LoanStatementResponse, InterestSummaryResponse } from "../../types/loan";
 import type { PaymentResponse } from "../../types/payment";
 import type { LoanRenewalResponse } from "../../types/renewal";
@@ -23,6 +25,8 @@ import type { LoanRenewalResponse } from "../../types/renewal";
 export default function LoanDetailPage() {
   const { loanId } = useParams();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canEditLoan = hasPermission("loans.edit");
   const id = Number(loanId);
 
   const [loan, setLoan] = useState<LoanResponse | null>(null);
@@ -37,6 +41,7 @@ export default function LoanDetailPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [showRenew, setShowRenew] = useState(false);
   const [showSettle, setShowSettle] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<PaymentResponse | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -115,28 +120,39 @@ export default function LoanDetailPage() {
                 </p>
               )}
             </div>
-            {isActive && (
-              <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
+              {canEditLoan && isActive && (
                 <button
-                  onClick={() => setShowPayment(true)}
-                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                  type="button"
+                  onClick={() => setShowEdit(true)}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
                 >
-                  Record Payment
+                  Edit Loan
                 </button>
-                <button
-                  onClick={() => setShowRenew(true)}
-                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
-                >
-                  Renew Loan
-                </button>
-                <button
-                  onClick={() => setShowSettle(true)}
-                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-                >
-                  Settle Loan
-                </button>
-              </div>
-            )}
+              )}
+              {isActive && (
+                <>
+                  <button
+                    onClick={() => setShowPayment(true)}
+                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                  >
+                    Record Payment
+                  </button>
+                  <button
+                    onClick={() => setShowRenew(true)}
+                    className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
+                  >
+                    Renew Loan
+                  </button>
+                  <button
+                    onClick={() => setShowSettle(true)}
+                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                  >
+                    Settle Loan
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -327,6 +343,17 @@ export default function LoanDetailPage() {
           </div>
         )}
       </div>
+
+      {showEdit && (
+        <EditLoanModal
+          loan={loan}
+          onClose={() => setShowEdit(false)}
+          onSuccess={() => {
+            setShowEdit(false);
+            loadAll();
+          }}
+        />
+      )}
 
       {showPayment && (
         <RecordPaymentModal

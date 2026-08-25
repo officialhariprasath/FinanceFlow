@@ -241,6 +241,12 @@ def update_loan(
     if not loan:
         return None
 
+    if loan.status != "ACTIVE":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only active loans can be edited.",
+        )
+
     loan.interest_method = loan_data.interest_method
     loan.interest_rate = loan_data.interest_rate
     loan.due_date = loan_data.due_date
