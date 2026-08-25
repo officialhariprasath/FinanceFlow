@@ -29,8 +29,8 @@ Also copied as `FinanceFlow-v1.2.0.apk` on the Desktop when you build.
 Edit `frontend/android/app/build.gradle`:
 
 ```
-versionCode 4          // must increase every release
-versionName "1.2.1"
+versionCode 7          // must increase every release
+versionName "1.2.4"
 ```
 
 ### 2. Build the APK
@@ -61,7 +61,7 @@ Example:
 ```json
 {
   "versionCode": 4,
-  "versionName": "1.2.1",
+  "versionName": "1.2.4",
   "apkUrl": "https://github.com/officialhariprasath/FinanceFlow/releases/download/v1.2.1/FinanceFlow.apk",
   "notes": "Bug fixes and improvements",
   "force": false
@@ -90,3 +90,17 @@ Open the installed FinanceFlow app → dialog should appear, or **Settings → C
 - First time Android may ask **Allow install from this source** — user enables it, taps Update again.
 - `force: true` hides the Later button.
 - Web browser users never see this dialog (native app only).
+
+
+---
+
+## Signing (required for in-app updates)
+
+All APKs must be signed with the **same** keystore. This repo uses:
+
+- File: `frontend/android/keystore/financeflow-upload.jks`
+- Alias: `financeflow`
+
+Cloud Agent and local `assembleDebug` / `assembleRelease` both use this upload key (see `app/build.gradle`).
+
+If you build with a different machine’s default `~/.android/debug.keystore`, phones will show **App not installed as package conflicts with existing package**.
