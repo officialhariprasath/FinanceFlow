@@ -219,6 +219,28 @@ def get_loans_by_customer(
     )
 
 
+def _loan_has_collections(db: Session, loan_id: int) -> bool:
+    payment_count = (
+        db.query(Payment)
+        .filter(Payment.loan_id == loan_id)
+        .count()
+    )
+    if payment_count > 0:
+        return True
+
+    from backend.app.models.loan_schedule import LoanSchedule
+
+    paid_schedule = (
+        db.query(LoanSchedule)
+        .filter(
+            LoanSchedule.loan_id == loan_id,
+            LoanSchedule.paid_amount > ZERO,
+        )
+        .first()
+    )
+    return paid_schedule is not None
+
+
 def update_loan(
     db: Session,
     loan_id: int,
@@ -226,7 +248,12 @@ def update_loan(
     finance_owner_id: int,
 ):
     """
-    Update editable loan information.
+    Update editable loan terms.
+
+    Locked always: customer, principal, issue date, collection model.
+    Standard: interest method/rate + due date.
+    Installment with no collections: full term rebuild (like create).
+    Installment after collections: due date only (schedule stays).
     """
 
     loan = (
@@ -247,13 +274,121 @@ def update_loan(
             detail="Only active loans can be edited.",
         )
 
-    loan.interest_method = loan_data.interest_method
-    loan.interest_rate = loan_data.interest_rate
-    loan.due_date = loan_data.due_date
+    is_installment = loan.collection_model == CollectionModel.DAILY_COLLECTION.value
+    has_collections = _loan_has_collections(db, loan.id)
+
+    if is_installment:
+        wants_term_rebuild = any(
+            [
+                loan_data.collection_frequency is not None,
+                loan_data.installment_count is not None,
+                loan_data.due_start_date is not None,
+                loan_data.daily_payment is not None,
+                loan_data.daily_principal is not None,
+                loan_data.daily_profit is not None,
+            ]
+        )
+
+        if wants_term_rebuild and has_collections:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "This loan already has collections. Frequency, installment "
+                    "count, first collection date, and installment amount can "
+                    "only be edited before the first payment."
+                ),
+            )
+
+        if wants_term_rebuild and not has_collections:
+            frequency = (
+                loan_data.collection_frequency
+                or loan.collection_frequency
+                or CollectionFrequency.DAILY.value
+            ).upper()
+            if frequency not in {f.value for f in CollectionFrequency}:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid collection frequency.",
+                )
+
+            installment_count = loan_data.installment_count or loan.installment_count
+            if not installment_count or installment_count <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Installment count is required.",
+                )
+
+            daily_payment = (loan_data.daily_payment or loan.daily_payment or ZERO).quantize(
+                TWOPLACES
+            )
+            daily_principal = (
+                loan_data.daily_principal or loan.daily_principal or ZERO
+            ).quantize(TWOPLACES)
+            daily_profit = (loan_data.daily_profit or loan.daily_profit or ZERO).quantize(
+                TWOPLACES
+            )
+
+            if daily_payment <= ZERO:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Installment amount must be greater than zero.",
+                )
+            if daily_principal + daily_profit != daily_payment:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Installment principal plus profit must equal installment amount.",
+                )
+
+            due_start_date = loan_data.due_start_date or loan.due_start_date or loan.issue_date
+            if due_start_date < loan.issue_date:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="First collection date cannot be before issue date.",
+                )
+
+            # Replace schedule entirely — safe because nothing collected yet.
+            from backend.app.models.loan_schedule import LoanSchedule
+
+            db.query(LoanSchedule).filter(LoanSchedule.loan_id == loan.id).delete()
+
+            loan.collection_frequency = frequency
+            loan.installment_count = installment_count
+            loan.due_start_date = due_start_date
+            loan.daily_payment = daily_payment
+            loan.daily_principal = daily_principal
+            loan.daily_profit = daily_profit
+            loan.total_expected_profit = daily_profit * installment_count
+            loan.duration_days = (
+                installment_count if frequency == CollectionFrequency.DAILY.value else None
+            )
+            loan.due_date = last_installment_date(
+                due_start_date, frequency, installment_count
+            )
+            loan.interest_method = CollectionModel.DAILY_COLLECTION.value
+            loan.interest_rate = ZERO
+
+            db.flush()
+            generate_installment_schedule(db, loan)
+        else:
+            # Collections already happened — only maturity due date.
+            if loan_data.due_date <= loan.issue_date:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Due date must be after issue date.",
+                )
+            loan.due_date = loan_data.due_date
+    else:
+        if loan_data.due_date <= loan.issue_date:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Due date must be after issue date.",
+            )
+        loan.interest_method = loan_data.interest_method
+        loan.interest_rate = loan_data.interest_rate
+        loan.due_date = loan_data.due_date
 
     db.commit()
     db.refresh(loan)
-
     return loan
 
 

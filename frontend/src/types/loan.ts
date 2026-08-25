@@ -53,6 +53,12 @@ export interface LoanUpdate {
   interest_method: string;
   interest_rate: string;
   due_date: string;
+  collection_frequency?: string;
+  installment_count?: number;
+  due_start_date?: string;
+  daily_payment?: string;
+  daily_principal?: string;
+  daily_profit?: string;
 }
 
 export interface LoanStatementPayment {

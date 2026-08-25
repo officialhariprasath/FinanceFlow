@@ -37,9 +37,31 @@ class LoanCreate(BaseModel):
 
 
 class LoanUpdate(BaseModel):
+    """
+    Editable loan terms.
+
+    Standard loans: interest_method, interest_rate, due_date.
+    Installment loans with no collections yet: frequency, count,
+    first collection date, and installment amounts (schedule rebuilt).
+    Customer, principal, issue date, and collection model stay locked.
+    """
+
     interest_method: str
     interest_rate: Decimal
     due_date: date
+    collection_frequency: Optional[str] = None
+    installment_count: Optional[int] = None
+    due_start_date: Optional[date] = None
+    daily_payment: Optional[Decimal] = None
+    daily_principal: Optional[Decimal] = None
+    daily_profit: Optional[Decimal] = None
+
+    @field_validator("collection_frequency", mode="before")
+    @classmethod
+    def normalize_collection_frequency(cls, value):
+        if value is None or value == "":
+            return None
+        return str(value).strip().upper()
 
 class LoanResponse(BaseModel):
     id: int
