@@ -1,7 +1,7 @@
 {
-  "versionCode": 7,
-  "versionName": "1.2.4",
-  "apkUrl": "https://finance-flow-rho-ten.vercel.app/releases/FinanceFlow-v1.2.4.apk",
-  "notes": "Fix: consistent APK signing so in-app updates install cleanly. Also includes collections overdue/to-collect-now and Edit Loan live calc.",
+  "versionCode": 8,
+  "versionName": "1.2.5",
+  "apkUrl": "https://finance-flow-rho-ten.vercel.app/releases/FinanceFlow-v1.2.5.apk",
+  "notes": "Fix: unassigned borrowers auto-assign to sole agent and show owner warning. New Loan requires collection agent. Settlements redesign included.",
   "force": false
 }
