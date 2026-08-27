@@ -18,6 +18,7 @@ class CollectionItemResponse(BaseModel):
     expected_principal: Decimal
     expected_profit: Decimal
     status: str
+    is_assigned_to_agent: bool = True
 
 
 class CollectionSummaryResponse(BaseModel):
@@ -28,6 +29,9 @@ class CollectionSummaryResponse(BaseModel):
     overdue_pending: Decimal = Decimal("0.00")
     collection_rate: Decimal
     overdue_count: int
+    unassigned_due_count: int = 0
+    unassigned_due_total: Decimal = Decimal("0.00")
+    unassigned_borrower_names: List[str] = []
     items: List[CollectionItemResponse]
 
     model_config = ConfigDict(from_attributes=True)

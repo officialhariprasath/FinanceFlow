@@ -11,6 +11,7 @@ export interface CollectionItem {
   expected_principal: string;
   expected_profit: string;
   status: string;
+  is_assigned_to_agent?: boolean;
 }
 
 export interface CollectionSummary {
@@ -21,5 +22,8 @@ export interface CollectionSummary {
   overdue_pending?: string;
   collection_rate: string;
   overdue_count: number;
+  unassigned_due_count?: number;
+  unassigned_due_total?: string;
+  unassigned_borrower_names?: string[];
   items: CollectionItem[];
 }

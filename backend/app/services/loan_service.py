@@ -158,6 +158,29 @@ def create_loan(
         amount=principal,
     )
 
+    # Ensure agents can see this borrower on Collections.
+    from backend.app.services.agent_assignment_service import (
+        ensure_customer_assigned,
+        list_active_agents,
+    )
+
+    assigned_agent_id = ensure_customer_assigned(
+        db,
+        finance_owner_id,
+        loan.customer_id,
+        agent_id=loan.collection_agent_id,
+        commit=False,
+    )
+    if (
+        collection_model == CollectionModel.DAILY_COLLECTION.value
+        and assigned_agent_id is None
+        and list_active_agents(db, finance_owner_id)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Select a collection agent so this borrower appears on the agent app.",
+        )
+
     db.commit()
     db.refresh(db_loan)
 

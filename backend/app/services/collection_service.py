@@ -34,6 +34,14 @@ def get_today_collections(
 
     mark_overdue_schedules(db, finance_owner_id, target_date)
 
+    # Self-heal: sole active agent gets every unassigned active-loan borrower.
+    from backend.app.services.agent_assignment_service import (
+        auto_assign_orphan_customers_to_sole_agent,
+        customer_assignment_ids,
+    )
+
+    auto_assign_orphan_customers_to_sole_agent(db, finance_owner_id)
+
     # Agents with no assignments must see nothing (not the full book).
     assigned_customer_ids: set[int] | None = None
     if agent_id is not None:
@@ -60,11 +68,17 @@ def get_today_collections(
         .all()
     )
 
+    all_customer_ids = {customer.id for _, customer in loans}
+    assigned_anywhere = customer_assignment_ids(db, finance_owner_id, all_customer_ids)
+
     items = []
     expected_total = ZERO
     collected_total = ZERO
     overdue_pending_total = ZERO
     overdue_installment_count = 0
+    unassigned_due_count = 0
+    unassigned_due_total = ZERO
+    unassigned_names: list[str] = []
 
     for loan, customer in loans:
         if assigned_customer_ids is not None and customer.id not in assigned_customer_ids:
@@ -136,6 +150,12 @@ def get_today_collections(
         if today_schedule is None and pending_amount <= ZERO:
             continue
 
+        is_assigned = customer.id in assigned_anywhere
+        if not is_assigned and pending_amount > ZERO:
+            unassigned_due_count += 1
+            unassigned_due_total += pending_amount
+            unassigned_names.append(customer.full_name)
+
         items.append(
             {
                 "loan_id": loan.id,
@@ -150,6 +170,7 @@ def get_today_collections(
                 "expected_principal": expected_principal,
                 "expected_profit": expected_profit,
                 "status": status_label,
+                "is_assigned_to_agent": is_assigned,
             }
         )
 
@@ -178,5 +199,8 @@ def get_today_collections(
         "overdue_pending": overdue_pending_total.quantize(TWOPLACES),
         "collection_rate": collection_rate,
         "overdue_count": overdue_installment_count,
+        "unassigned_due_count": unassigned_due_count,
+        "unassigned_due_total": unassigned_due_total.quantize(TWOPLACES),
+        "unassigned_borrower_names": unassigned_names,
         "items": items,
     }

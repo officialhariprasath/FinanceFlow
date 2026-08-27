@@ -47,6 +47,8 @@ export interface LoanCreate {
   daily_payment?: string;
   daily_principal?: string;
   daily_profit?: string;
+  /** Agent who should collect this borrower on the app. */
+  collection_agent_id?: number;
 }
 
 export interface LoanUpdate {

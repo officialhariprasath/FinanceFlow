@@ -4,6 +4,8 @@ import { useAuth } from "../../context/AuthContext";
 
 
 import { createLoan } from "../../services/loanService";
+import { getAgents } from "../../services/agentService";
+import type { Agent } from "../../types/agent";
 
 import { createCustomer } from "../../services/customerService";
 
@@ -151,6 +153,11 @@ export default function NewLoanModal({
 
   const [apiError, setApiError] = useState("");
 
+  const [agents, setAgents] = useState<Agent[]>([]);
+
+  const [collectionAgentId, setCollectionAgentId] = useState<number>(0);
+
+
 
 
   const count = Number(installmentCount) || 0;
@@ -190,6 +197,14 @@ export default function NewLoanModal({
       .then((r) => setCustomers(r.data))
 
       .catch(() => {});
+
+    getAgents()
+      .then((list) => {
+        const active = list.filter((a) => a.is_active);
+        setAgents(active);
+        if (active.length === 1) setCollectionAgentId(active[0].id);
+      })
+      .catch(() => setAgents([]));
 
     getCapitalSummary()
 
@@ -263,7 +278,9 @@ export default function NewLoanModal({
 
     }
 
-
+    if (agents.length > 0 && !collectionAgentId) {
+      e.collection_agent_id = "Select which agent will collect this loan.";
+    }
 
     setErrors(e);
 
@@ -340,6 +357,8 @@ export default function NewLoanModal({
         daily_principal: terms.installmentPrincipal.toFixed(2),
 
         daily_profit: terms.installmentProfit.toFixed(2),
+
+        collection_agent_id: collectionAgentId || undefined,
 
       };
 
@@ -610,6 +629,31 @@ export default function NewLoanModal({
 
 
             <div>
+
+              {agents.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium">Collection agent *</label>
+                  <select
+                    className={inputCls("collection_agent_id")}
+                    value={collectionAgentId || ""}
+                    onChange={(e) => setCollectionAgentId(Number(e.target.value) || 0)}
+                  >
+                    <option value="">Select agent</option>
+                    {agents.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.full_name}
+                        {a.assigned_area ? ` · ${a.assigned_area}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.collection_agent_id && (
+                    <p className="mt-1 text-xs text-red-600">{errors.collection_agent_id}</p>
+                  )}
+                  <p className="mt-1 text-xs text-slate-500">
+                    This borrower will show on that agent&apos;s Collections app.
+                  </p>
+                </div>
+              )}
 
               <label className="text-sm font-medium">Collection frequency *</label>
 

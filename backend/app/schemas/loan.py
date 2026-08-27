@@ -20,6 +20,8 @@ class LoanCreate(BaseModel):
     daily_payment: Optional[Decimal] = None
     daily_principal: Optional[Decimal] = None
     daily_profit: Optional[Decimal] = None
+    # Which agent should collect this borrower (required when multiple agents exist).
+    collection_agent_id: Optional[int] = None
 
     @field_validator("collection_model", mode="before")
     @classmethod
