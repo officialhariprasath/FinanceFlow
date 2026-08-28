@@ -19,6 +19,17 @@ export type LocalAppInfo = {
 };
 
 const APK_CACHE_PATH = "FinanceFlow-update.apk";
+const SNOOZE_KEY = "app_update_snooze";
+const LAST_AUTO_CHECK_KEY = "app_update_last_auto_check";
+/** Minimum time between background update checks (6 hours). */
+export const AUTO_UPDATE_CHECK_MS = 6 * 60 * 60 * 1000;
+/** How long "Later" hides the same version prompt. */
+export const UPDATE_SNOOZE_MS = 24 * 60 * 60 * 1000;
+
+export type UpdateSnooze = {
+  versionCode: number;
+  until: number;
+};
 
 /** Where the phone looks for the latest version metadata. */
 export function getUpdateManifestUrls(): string[] {
@@ -75,6 +86,62 @@ export async function checkForAppUpdate(): Promise<{
   return { update: remote, local };
 }
 
+async function prefsGet(key: string): Promise<string | null> {
+  const { Preferences } = await import("@capacitor/preferences");
+  const { value } = await Preferences.get({ key });
+  return value;
+}
+
+async function prefsSet(key: string, value: string): Promise<void> {
+  const { Preferences } = await import("@capacitor/preferences");
+  await Preferences.set({ key, value });
+}
+
+export async function getUpdateSnooze(): Promise<UpdateSnooze | null> {
+  const raw = await prefsGet(SNOOZE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as UpdateSnooze;
+    if (typeof parsed.versionCode === "number" && typeof parsed.until === "number") {
+      return parsed;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export async function snoozeAppUpdate(versionCode: number, ms = UPDATE_SNOOZE_MS): Promise<void> {
+  const payload: UpdateSnooze = { versionCode, until: Date.now() + ms };
+  await prefsSet(SNOOZE_KEY, JSON.stringify(payload));
+}
+
+export async function clearUpdateSnooze(): Promise<void> {
+  const { Preferences } = await import("@capacitor/preferences");
+  await Preferences.remove({ key: SNOOZE_KEY });
+}
+
+export async function isUpdateSnoozed(versionCode: number): Promise<boolean> {
+  const snooze = await getUpdateSnooze();
+  if (!snooze || snooze.versionCode !== versionCode) return false;
+  if (Date.now() >= snooze.until) {
+    await clearUpdateSnooze();
+    return false;
+  }
+  return true;
+}
+
+export async function shouldRunAutoUpdateCheck(): Promise<boolean> {
+  const raw = await prefsGet(LAST_AUTO_CHECK_KEY);
+  const last = raw ? Number.parseInt(raw, 10) : 0;
+  if (!last || Number.isNaN(last)) return true;
+  return Date.now() - last >= AUTO_UPDATE_CHECK_MS;
+}
+
+export async function markAutoUpdateCheck(): Promise<void> {
+  await prefsSet(LAST_AUTO_CHECK_KEY, String(Date.now()));
+}
+
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
@@ -95,8 +162,8 @@ export async function downloadAndInstallUpdate(
 
   const candidates = [
     update.apkUrl,
-    "https://finance-flow-rho-ten.vercel.app/releases/FinanceFlow-v1.2.2.apk",
-    "https://github.com/officialhariprasath/FinanceFlow/releases/download/1.2.2/FinanceFlow-v1.2.2.apk",
+    "https://finance-flow-rho-ten.vercel.app/releases/FinanceFlow-v1.2.6.apk",
+    "https://finance-flow-rho-ten.vercel.app/releases/FinanceFlow-v1.2.5.apk",
   ].filter((u, i, arr) => u && arr.indexOf(u) === i);
 
   onProgress?.(5);
@@ -116,7 +183,7 @@ export async function downloadAndInstallUpdate(
   }
   if (!res) {
     throw new Error(
-      `Download failed (${lastStatus || "network"}). Update file is missing — try again after the latest deploy, or install FinanceFlow-v1.2.2.apk manually.`
+      `Download failed (${lastStatus || "network"}). Update file is missing — try again after the latest deploy, or install FinanceFlow-v1.2.6.apk manually.`
     );
   }
 

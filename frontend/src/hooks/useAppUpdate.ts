@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { App as CapApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 
 import {
   checkForAppUpdate,
+  clearUpdateSnooze,
   downloadAndInstallUpdate,
+  isUpdateSnoozed,
+  markAutoUpdateCheck,
+  shouldRunAutoUpdateCheck,
+  snoozeAppUpdate,
   type AppUpdateInfo,
   type LocalAppInfo,
 } from "../services/appUpdateService";
@@ -16,40 +21,66 @@ export function useAppUpdate() {
   const [installing, setInstalling] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
-  const [dismissed, setDismissed] = useState(false);
+  const initialCheckDone = useRef(false);
 
-  const runCheck = useCallback(async (manual = false) => {
-    if (!Capacitor.isNativePlatform()) {
-      return { update: null as AppUpdateInfo | null, local: null as LocalAppInfo | null };
-    }
-    try {
-      setChecking(true);
-      setError("");
-      const result = await checkForAppUpdate();
+  const applyUpdateResult = useCallback(
+    async (result: { update: AppUpdateInfo | null; local: LocalAppInfo }, manual: boolean) => {
       setLocal(result.local);
-      setUpdate(result.update);
-      if (manual && !result.update) {
-        setError("You are on the latest version.");
+      if (!result.update) {
+        setUpdate(null);
+        await clearUpdateSnooze();
+        return result;
       }
-      if (result.update) setDismissed(false);
+      const snoozed = !manual && (await isUpdateSnoozed(result.update.versionCode));
+      setUpdate(snoozed ? null : result.update);
       return result;
-    } catch {
-      if (manual) setError("Could not check for updates.");
-      return { update: null, local: null };
-    } finally {
-      setChecking(false);
-    }
-  }, []);
+    },
+    []
+  );
+
+  const runCheck = useCallback(
+    async (manual = false) => {
+      if (!Capacitor.isNativePlatform()) {
+        return { update: null as AppUpdateInfo | null, local: null as LocalAppInfo | null };
+      }
+      try {
+        setChecking(true);
+        if (manual) setError("");
+        const result = await checkForAppUpdate();
+        const applied = await applyUpdateResult(result, manual);
+        if (manual && !applied.update) {
+          setError("You are on the latest version.");
+        }
+        return applied;
+      } catch {
+        if (manual) setError("Could not check for updates.");
+        return { update: null, local: null };
+      } finally {
+        setChecking(false);
+      }
+    },
+    [applyUpdateResult]
+  );
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const t = window.setTimeout(() => {
-      void runCheck(false);
+
+    const bootCheck = window.setTimeout(() => {
+      initialCheckDone.current = true;
+      void (async () => {
+        await markAutoUpdateCheck();
+        await runCheck(false);
+      })();
     }, 2500);
 
     let remove: (() => void) | undefined;
     CapApp.addListener("appStateChange", ({ isActive }) => {
-      if (isActive) void runCheck(false);
+      if (!isActive || !initialCheckDone.current) return;
+      void (async () => {
+        if (!(await shouldRunAutoUpdateCheck())) return;
+        await markAutoUpdateCheck();
+        await runCheck(false);
+      })();
     }).then((h) => {
       remove = () => {
         void h.remove();
@@ -57,7 +88,7 @@ export function useAppUpdate() {
     });
 
     return () => {
-      window.clearTimeout(t);
+      window.clearTimeout(bootCheck);
       remove?.();
     };
   }, [runCheck]);
@@ -69,6 +100,9 @@ export function useAppUpdate() {
       setProgress(0);
       setError("");
       await downloadAndInstallUpdate(update, setProgress);
+      // Installer opened — avoid immediate re-prompt if user returns without finishing.
+      await snoozeAppUpdate(update.versionCode, 60 * 60 * 1000);
+      setUpdate(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Update failed.");
     } finally {
@@ -76,8 +110,15 @@ export function useAppUpdate() {
     }
   }
 
+  async function dismissUpdate() {
+    if (update) {
+      await snoozeAppUpdate(update.versionCode);
+    }
+    setUpdate(null);
+  }
+
   return {
-    update: dismissed ? null : update,
+    update,
     pendingUpdate: update,
     local,
     checking,
@@ -85,7 +126,9 @@ export function useAppUpdate() {
     progress,
     error,
     setError,
-    dismiss: () => setDismissed(true),
+    dismiss: () => {
+      void dismissUpdate();
+    },
     checkNow: () => runCheck(true),
     installUpdate,
   };
