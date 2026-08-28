@@ -36,7 +36,7 @@ function CollectionRowActions({
           onClick={onCollect}
           className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
         >
-          Collect
+          Record Payment
         </button>
       )}
       <button
@@ -489,6 +489,7 @@ export default function CollectionsPage() {
       {collectLoanId && (
         <RecordPaymentModal
           loanId={collectLoanId}
+          collectionModel="DAILY_COLLECTION"
           defaultAmount={collectDefaults?.amount}
           defaultScheduleDate={collectDefaults?.scheduleDate}
           onClose={() => {
