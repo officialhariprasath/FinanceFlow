@@ -9,6 +9,9 @@ databases:
     databaseName: finnect
     user: finnect
 
+# After migrating Postgres to Neon, set DATABASE_URL manually on financeflow-api
+# (Render Dashboard -> Environment) and optionally remove the financeflow-db service.
+
 services:
   - type: web
     name: financeflow-api
