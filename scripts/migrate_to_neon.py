@@ -74,14 +74,24 @@ def download_export(token: str, out_path: Path) -> dict:
 
 def run_alembic(target_url: str) -> None:
     env = {**os.environ, "DATABASE_URL": target_url}
-    result = subprocess.run(
+    for cmd in (
         [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=_ROOT,
-        env=env,
-        check=False,
+        ["alembic", "upgrade", "head"],
+    ):
+        result = subprocess.run(
+            cmd,
+            cwd=_ROOT,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return
+    raise RuntimeError(
+        "alembic upgrade head failed on target database:\n"
+        f"{result.stdout}\n{result.stderr}"
     )
-    if result.returncode != 0:
-        raise RuntimeError("alembic upgrade head failed on target database")
 
 
 def _coerce(value):
@@ -103,6 +113,32 @@ def _coerce(value):
     return value
 
 
+INSERT_ORDER = [
+    "finance_owners",
+    "finance_settings",
+    "capital_accounts",
+    "profit_accounts",
+    "agents",
+    "customers",
+    "agent_wallets",
+    "agent_customer_assignments",
+    "loans",
+    "loan_schedules",
+    "loan_renewals",
+    "loan_write_offs",
+    "payments",
+    "payment_allocations",
+    "capital_transactions",
+    "profit_transactions",
+    "agent_ledger_entries",
+    "agent_settlements",
+    "expenses",
+    "audit_logs",
+    "notifications",
+    "email_otps",
+]
+
+
 def import_to_target(export: dict, target_url: str) -> None:
     import psycopg2
     from psycopg2.extras import execute_batch
@@ -113,14 +149,16 @@ def import_to_target(export: dict, target_url: str) -> None:
     cur = conn.cursor()
 
     try:
-        cur.execute("SET session_replication_role = replica")
-
         table_names = list(tables.keys())
         if table_names:
             quoted = ", ".join(f'"{t}"' for t in table_names)
             cur.execute(f"TRUNCATE TABLE {quoted} RESTART IDENTITY CASCADE")
 
-        for table, rows in tables.items():
+        ordered = [t for t in INSERT_ORDER if t in tables]
+        ordered.extend(t for t in table_names if t not in ordered)
+
+        for table in ordered:
+            rows = tables.get(table) or []
             if not rows:
                 continue
             columns = list(rows[0].keys())
@@ -133,9 +171,7 @@ def import_to_target(export: dict, target_url: str) -> None:
             ]
             execute_batch(cur, sql, values, page_size=200)
 
-        cur.execute("SET session_replication_role = DEFAULT")
-
-        for table in tables:
+        for table in ordered:
             cur.execute(
                 """
                 SELECT column_name

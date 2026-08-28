@@ -45,3 +45,6 @@ Thumbs.db
 *.aab
 frontend/android/app/build/
 
+# Database migration exports (may contain production data)
+exports/
+
