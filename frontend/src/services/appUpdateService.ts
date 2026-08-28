@@ -160,11 +160,7 @@ export async function downloadAndInstallUpdate(
     throw new Error("Updates only apply inside the Android app.");
   }
 
-  const candidates = [
-    update.apkUrl,
-    "https://finance-flow-rho-ten.vercel.app/releases/FinanceFlow-v1.2.6.apk",
-    "https://finance-flow-rho-ten.vercel.app/releases/FinanceFlow-v1.2.5.apk",
-  ].filter((u, i, arr) => u && arr.indexOf(u) === i);
+  const candidates = [update.apkUrl].filter(Boolean);
 
   onProgress?.(5);
   let res: Response | null = null;

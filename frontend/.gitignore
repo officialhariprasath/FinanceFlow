@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# APKs are hosted on GitHub Releases, not bundled in the app or git.
+public/releases/*.apk

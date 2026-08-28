@@ -11,7 +11,7 @@ router = APIRouter(tags=["App Update"])
 APP_UPDATE = {
     "versionCode": 9,
     "versionName": "1.2.6",
-    "apkUrl": "https://finance-flow-rho-ten.vercel.app/releases/FinanceFlow-v1.2.6.apk",
+    "apkUrl": "https://github.com/officialhariprasath/FinanceFlow/releases/download/v1.2.6/FinanceFlow-v1.2.6.apk",
     "notes": "Fix repeated update popup — Later snoozes for 24 hours. Update once to stop the loop.",
     "force": False,
 }
