@@ -18,6 +18,23 @@ interface Props {
   defaultScheduleDate?: string;
 }
 
+type PreviewLine = {
+  schedule_date: string;
+  expected_pending: string;
+  applied_amount: string;
+  remaining_pending: string;
+  status_after: string;
+};
+
+type Preview = {
+  principal_amount: string;
+  profit_amount: string;
+  total_amount: string;
+  installment_count?: number;
+  unapplied_amount?: string;
+  lines?: PreviewLine[];
+};
+
 function formatScheduleLabel(row: UnpaidSchedule): string {
   const date = new Date(row.schedule_date + "T00:00:00").toLocaleDateString("en-IN", {
     weekday: "short",
@@ -30,8 +47,17 @@ function formatScheduleLabel(row: UnpaidSchedule): string {
       ? " · Advance"
       : row.status === "OVERDUE"
         ? " · Overdue"
-        : "";
+        : row.status === "PARTIAL"
+          ? " · Partial"
+          : "";
   return `${date} — ${fmt(row.pending_amount)}${tag}`;
+}
+
+function formatShortDate(iso: string): string {
+  return new Date(iso + "T00:00:00").toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+  });
 }
 
 function sumPending(rows: UnpaidSchedule[], dates: string[]): number {
@@ -67,12 +93,7 @@ export default function RecordPaymentModal({
     payment_reference: "",
   });
 
-  const [preview, setPreview] = useState<{
-    principal_amount: string;
-    profit_amount: string;
-    total_amount: string;
-    installment_count?: number;
-  } | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState("");
@@ -81,6 +102,13 @@ export default function RecordPaymentModal({
     () => sumPending(unpaidSchedules, selectedDates),
     [unpaidSchedules, selectedDates]
   );
+
+  const amountNum = Number(form.amount_paid) || 0;
+  const isPartial =
+    isInstallment &&
+    selectedDates.length > 0 &&
+    amountNum > 0 &&
+    amountNum + 0.001 < selectedTotal;
 
   useEffect(() => {
     if (!isInstallment) return;
@@ -114,7 +142,7 @@ export default function RecordPaymentModal({
         setForm((prev) => ({
           ...prev,
           payment_date: initial[0],
-          amount_paid: total.toFixed(2),
+          amount_paid: defaultAmount || total.toFixed(2),
         }));
       })
       .catch(() => setUnpaidSchedules([]))
@@ -123,11 +151,11 @@ export default function RecordPaymentModal({
 
   useEffect(() => {
     if (!isInstallment || selectedDates.length === 0) return;
-    const total = selectedTotal.toFixed(2);
     setForm((prev) => ({
       ...prev,
       payment_date: selectedDates[0],
-      amount_paid: total,
+      // When dates change, default amount to full selected total (user can still edit down).
+      amount_paid: selectedTotal.toFixed(2),
       schedule_dates: selectedDates,
     }));
   }, [selectedDates, selectedTotal, isInstallment]);
@@ -166,10 +194,9 @@ export default function RecordPaymentModal({
     const picked: string[] = [];
     for (const row of unpaidSchedules) {
       const pending = Number(row.pending_amount);
-      if (running + pending > target + 0.001) break;
       picked.push(row.schedule_date);
       running += pending;
-      if (Math.abs(running - target) < 0.01) break;
+      if (running >= target - 0.001) break;
     }
     if (picked.length > 0) setSelectedDates(picked);
   }
@@ -183,8 +210,10 @@ export default function RecordPaymentModal({
         e.payment_date = "No unpaid installments on this loan.";
       else if (selectedDates.length === 0)
         e.payment_date = "Select at least one installment date.";
-      else if (Math.abs(Number(form.amount_paid) - selectedTotal) > 0.01)
-        e.amount_paid = `Amount must be ${selectedTotal.toFixed(2)} for selected installment(s).`;
+      else if (Number(form.amount_paid) > selectedTotal + 0.01)
+        e.amount_paid = `Amount cannot exceed ${selectedTotal.toFixed(
+          2
+        )} for selected installment(s). Select more dates or reduce the amount.`;
     } else if (!form.payment_date) {
       e.payment_date = "Payment date is required.";
     }
@@ -212,16 +241,16 @@ export default function RecordPaymentModal({
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string | unknown } } })
         ?.response?.data?.detail;
-      setApiError(
-        typeof detail === "string" ? detail : "Failed to record payment."
-      );
+      setApiError(typeof detail === "string" ? detail : "Failed to record payment.");
     } finally {
       setSaving(false);
     }
   }
 
   const inputCls = (k: string) =>
-    `w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors[k] ? "border-red-400" : "border-slate-300"}`;
+    `w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+      errors[k] ? "border-red-400" : "border-slate-300"
+    }`;
 
   const hasFutureSelected = selectedDates.some(
     (d) => unpaidSchedules.find((r) => r.schedule_date === d)?.is_future
@@ -230,11 +259,12 @@ export default function RecordPaymentModal({
   return (
     <div className="modal-backdrop">
       <div className="modal-panel max-h-[90vh] max-w-lg overflow-y-auto">
-        <h2 className="mb-2 text-xl font-semibold text-slate-800 dark:text-slate-100">          {isAgent ? "Confirm Collection" : "Record Payment"}
+        <h2 className="mb-2 text-xl font-semibold text-slate-800 dark:text-slate-100">
+          {isAgent ? "Confirm Collection" : "Record Payment"}
         </h2>
         <p className="mb-4 text-sm text-slate-500">
           {isInstallment
-            ? "Select one or more installment dates. Paying ₹1,200 for 10 dates? Select the next 10 installments — amount updates automatically."
+            ? "Select installment dates, then enter the cash received. If they pay less than the total, it fills oldest days first and leaves the rest pending."
             : "Interest is allocated first, then principal."}
         </p>
 
@@ -245,9 +275,11 @@ export default function RecordPaymentModal({
         )}
 
         {preview && isInstallment && (
-          <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm">
-            <p className="font-medium text-blue-800">
-              Allocation preview — {preview.installment_count ?? selectedDates.length} installment(s)
+          <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm dark:border-blue-900 dark:bg-blue-950/40">
+            <p className="font-medium text-blue-800 dark:text-blue-200">
+              Allocation preview — {preview.installment_count ?? selectedDates.length}{" "}
+              installment(s)
+              {isPartial ? " (partial)" : ""}
             </p>
             <div className="mt-2 grid grid-cols-3 gap-2">
               <div>
@@ -259,10 +291,34 @@ export default function RecordPaymentModal({
                 <p className="font-semibold text-green-700">{fmt(preview.profit_amount)}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500">Total</p>
+                <p className="text-xs text-slate-500">Applied</p>
                 <p className="font-semibold">{fmt(preview.total_amount)}</p>
               </div>
             </div>
+            {preview.lines && preview.lines.length > 0 && (
+              <ul className="mt-3 space-y-1 border-t border-blue-100 pt-2 dark:border-blue-900">
+                {preview.lines.map((line) => (
+                  <li
+                    key={line.schedule_date}
+                    className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-blue-900 dark:text-blue-100"
+                  >
+                    <span className="font-medium">{formatShortDate(line.schedule_date)}</span>
+                    <span>
+                      {fmt(line.applied_amount)} of {fmt(line.expected_pending)}
+                      {Number(line.remaining_pending) > 0.009 && (
+                        <span className="text-amber-700 dark:text-amber-300">
+                          {" "}
+                          · {fmt(line.remaining_pending)} pending
+                        </span>
+                      )}
+                      {line.status_after === "PAID" && (
+                        <span className="text-green-700 dark:text-green-300"> · paid</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 
@@ -290,7 +346,9 @@ export default function RecordPaymentModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSelectedDates(unpaidSchedules.map((r) => r.schedule_date))}
+                    onClick={() =>
+                      setSelectedDates(unpaidSchedules.map((r) => r.schedule_date))
+                    }
                     className="rounded border px-2 py-0.5 text-xs hover:bg-slate-50 dark:hover:bg-slate-700/50"
                   >
                     All
@@ -375,7 +433,10 @@ export default function RecordPaymentModal({
             />
             {isInstallment && selectedDates.length > 0 && (
               <p className="mt-1 text-xs text-slate-500">
-                Total for {selectedDates.length} selected: {fmt(selectedTotal.toFixed(2))}
+                Selected total {fmt(selectedTotal.toFixed(2))}
+                {isPartial
+                  ? " — partial OK; fills earliest dates first, rest stays pending."
+                  : " — you can enter less for a partial payment."}
               </p>
             )}
             {errors.amount_paid && (
@@ -410,9 +471,7 @@ export default function RecordPaymentModal({
               <input
                 type="text"
                 value={form.payment_reference ?? ""}
-                onChange={(e) =>
-                  setForm({ ...form, payment_reference: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, payment_reference: e.target.value })}
                 placeholder="UPI / bank txn no. (optional)"
                 className={inputCls("payment_reference")}
               />
@@ -437,7 +496,8 @@ export default function RecordPaymentModal({
               disabled={
                 saving ||
                 schedulesLoading ||
-                (isInstallment && (unpaidSchedules.length === 0 || selectedDates.length === 0))
+                (isInstallment &&
+                  (unpaidSchedules.length === 0 || selectedDates.length === 0))
               }
               className="rounded-lg bg-green-600 px-6 py-2 font-medium text-white hover:bg-green-700 disabled:opacity-50"
             >
