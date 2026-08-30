@@ -5,7 +5,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-/** APKs in public/releases must not ship inside the Android app bundle. */
+/** APKs in public/releases must not ship inside the Android/Capacitor app bundle. */
 function stripReleaseApksFromDist() {
   return {
     name: "strip-release-apks",
@@ -21,7 +21,13 @@ function stripReleaseApksFromDist() {
   };
 }
 
-export default defineConfig({
+// Only strip APKs for Capacitor agent/mobile builds.
+// Production (Vercel) must keep them so in-app update can download the APK.
+export default defineConfig(({ mode }) => ({
   base: "./",
-  plugins: [react(), tailwindcss(), stripReleaseApksFromDist()],
-});
+  plugins: [
+    react(),
+    tailwindcss(),
+    ...(mode === "agent" || mode === "mobile" ? [stripReleaseApksFromDist()] : []),
+  ],
+}));
