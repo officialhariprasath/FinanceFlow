@@ -11,7 +11,7 @@ router = APIRouter(tags=["App Update"])
 APP_UPDATE = {
     "versionCode": 11,
     "versionName": "1.2.8",
-    "apkUrl": "https://finance-flow-rho-ten.vercel.app/releases/FinanceFlow-v1.2.8.apk",
+    "apkUrl": "https://github.com/officialhariprasath/FinanceFlow/releases/download/v1.2.8/FinanceFlow-v1.2.8.apk",
     "notes": "Partial payments: pay less than selected days (e.g. ₹200 of ₹240) — fills oldest days first, leaves balance pending.",
     "force": False,
 }
