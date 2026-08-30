@@ -18,15 +18,21 @@ export async function previewPayment(
   profit_amount: string;
   total_amount: string;
   installment_count?: number;
+  unapplied_amount?: string;
+  lines?: Array<{
+    schedule_date: string;
+    expected_pending: string;
+    applied_amount: string;
+    remaining_pending: string;
+    status_after: string;
+  }>;
 }> {
   const response = await api.get("/payments/preview", {
     params: {
       loan_id: loanId,
       payment_date: paymentDate,
       amount_paid: amountPaid,
-      ...(scheduleDates?.length
-        ? { schedule_dates: scheduleDates }
-        : {}),
+      ...(scheduleDates?.length ? { schedule_dates: scheduleDates } : {}),
     },
     paramsSerializer: {
       indexes: null,

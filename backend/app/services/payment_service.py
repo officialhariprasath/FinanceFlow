@@ -154,13 +154,20 @@ def _create_daily_collection_payment(
 
     schedules = _resolve_installment_schedules(db, loan, payment)
 
-    if payment.schedule_dates:
-        expected_total = sum(schedule_pending_amount(s) for s in schedules)
-        if amount != expected_total:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Amount must be {expected_total} for the selected installment(s).",
-            )
+    expected_total = sum(
+        (schedule_pending_amount(s) for s in schedules), ZERO
+    ).quantize(TWOPLACES)
+
+    # Partial payments are allowed: apply oldest-first within the selected dates.
+    # Reject only when amount exceeds what the selected installments still owe.
+    if amount > expected_total:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Amount ₹{amount} is more than ₹{expected_total} pending "
+                f"on the selected installment(s). Reduce the amount or select more dates."
+            ),
+        )
 
     total_principal, total_profit, breakdown = _allocate_across_schedules(amount, schedules)
 
@@ -170,19 +177,26 @@ def _create_daily_collection_payment(
             detail="Payment does not match any outstanding schedule amount.",
         )
 
-    if payment.schedule_dates and len(breakdown) != len(schedules):
+    applied = (total_principal + total_profit).quantize(TWOPLACES)
+    if applied != amount:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Payment amount does not fully cover all selected installments.",
+            detail="Could not fully apply the payment amount to selected installments.",
         )
 
     first_date = breakdown[0][0].schedule_date
     last_date = breakdown[-1][0].schedule_date
-    coverage_note = (
-        f"Covers {len(breakdown)} installment(s) from {first_date} to {last_date}"
-        if len(breakdown) > 1
-        else None
-    )
+    if len(breakdown) > 1:
+        coverage_note = (
+            f"Covers {len(breakdown)} installment(s) from {first_date} to {last_date}"
+        )
+    elif applied < expected_total:
+        pending_left = (expected_total - applied).quantize(TWOPLACES)
+        coverage_note = (
+            f"Partial on {first_date}: paid ₹{applied}, ₹{pending_left} still pending"
+        )
+    else:
+        coverage_note = None
     remarks = payment.remarks
     if coverage_note:
         remarks = f"{coverage_note}. {remarks}".strip() if remarks else coverage_note
@@ -410,11 +424,14 @@ def get_payment_preview(
         interest_due = due["interest_due"]
         interest_paid = min(amount, interest_due)
         principal_paid = min(amount - interest_paid, loan.remaining_principal)
+        total = (principal_paid + interest_paid).quantize(TWOPLACES)
         return {
             "principal_amount": principal_paid.quantize(TWOPLACES),
             "profit_amount": interest_paid.quantize(TWOPLACES),
-            "total_amount": (principal_paid + interest_paid).quantize(TWOPLACES),
+            "total_amount": total,
             "installment_count": 1,
+            "unapplied_amount": (amount - total).quantize(TWOPLACES),
+            "lines": [],
         }
 
     preview_payment = PaymentCreate(
@@ -426,12 +443,40 @@ def get_payment_preview(
     )
     schedules = _resolve_installment_schedules(db, loan, preview_payment)
     total_principal, total_profit, breakdown = _allocate_across_schedules(amount, schedules)
+    applied = (total_principal + total_profit).quantize(TWOPLACES)
+
+    applied_by_schedule = {s.id: paid_total for s, _, _, paid_total in breakdown}
+
+    lines = []
+    for schedule in schedules:
+        pending = schedule_pending_amount(schedule)
+        applied_amt = applied_by_schedule.get(schedule.id, ZERO).quantize(TWOPLACES)
+        remaining = (pending - applied_amt).quantize(TWOPLACES)
+        if applied_amt <= ZERO and remaining <= ZERO:
+            continue
+        if remaining <= ZERO and applied_amt > ZERO:
+            status_after = "PAID"
+        elif applied_amt > ZERO:
+            status_after = "PARTIAL"
+        else:
+            status_after = schedule.status
+        lines.append(
+            {
+                "schedule_date": schedule.schedule_date,
+                "expected_pending": pending,
+                "applied_amount": applied_amt,
+                "remaining_pending": max(remaining, ZERO),
+                "status_after": status_after,
+            }
+        )
 
     return {
         "principal_amount": total_principal,
         "profit_amount": total_profit,
-        "total_amount": (total_principal + total_profit).quantize(TWOPLACES),
+        "total_amount": applied,
         "installment_count": len(breakdown),
+        "unapplied_amount": (amount - applied).quantize(TWOPLACES),
+        "lines": lines,
     }
 
 
