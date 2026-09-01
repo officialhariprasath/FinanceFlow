@@ -12,13 +12,14 @@ import {
   getLoanById,
   getLoanStatement,
   getInterestSummary,
+  getLoanSchedules,
 } from "../../services/loanService";
 import { getLoanPayments, deletePayment } from "../../services/paymentService";
 import { getLoanRenewals } from "../../services/renewalService";
 import { fmt } from "../../utils/fmt";
 import StatusChip from "../../components/common/StatusChip";
 import { useAuth } from "../../context/AuthContext";
-import type { LoanResponse, LoanStatementResponse, InterestSummaryResponse } from "../../types/loan";
+import type { LoanResponse, LoanStatementResponse, InterestSummaryResponse, LoanScheduleRow } from "../../types/loan";
 import type { PaymentResponse } from "../../types/payment";
 import type { LoanRenewalResponse } from "../../types/renewal";
 
@@ -33,6 +34,7 @@ export default function LoanDetailPage() {
   const [statement, setStatement] = useState<LoanStatementResponse | null>(null);
   const [interest, setInterest] = useState<InterestSummaryResponse | null>(null);
   const [payments, setPayments] = useState<PaymentResponse[]>([]);
+  const [schedules, setSchedules] = useState<LoanScheduleRow[]>([]);
   const [renewals, setRenewals] = useState<LoanRenewalResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -50,18 +52,22 @@ export default function LoanDetailPage() {
     try {
       setLoading(true);
       setError("");
-      const [loanData, stmtData, intData, pmtData, rnwData] = await Promise.all([
-        getLoanById(id),
+      const loanData = await getLoanById(id);
+      const [stmtData, intData, pmtData, rnwData, schedData] = await Promise.all([
         getLoanStatement(id),
         getInterestSummary(id),
         getLoanPayments(id),
         getLoanRenewals(id),
+        loanData.collection_model === "DAILY_COLLECTION"
+          ? getLoanSchedules(id)
+          : Promise.resolve([] as LoanScheduleRow[]),
       ]);
       setLoan(loanData);
       setStatement(stmtData);
       setInterest(intData);
       setPayments(pmtData);
       setRenewals(rnwData);
+      setSchedules(schedData);
     } catch {
       setError("Failed to load loan details.");
     } finally {
@@ -240,6 +246,65 @@ export default function LoanDetailPage() {
               <div><p className="text-xs text-blue-600">Waived Amount</p><p className="font-bold">{fmt(loan.waived_amount)}</p></div>
               <div><p className="text-xs text-blue-600">Settlement Date</p><p className="font-bold">{loan.settlement_date || "—"}</p></div>
               <div><p className="text-xs text-blue-600">Reason</p><p className="font-bold">{loan.settlement_reason || "—"}</p></div>
+            </div>
+          </div>
+        )}
+
+        {/* Installment schedule (daily collection) */}
+        {loan.collection_model === "DAILY_COLLECTION" && (
+          <div className="surface-card">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h2 className="font-semibold text-slate-800">Installment Schedule</h2>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
+                {schedules.filter((s) => s.status !== "PAID").length} open ·{" "}
+                {schedules.filter((s) => s.status === "PAID").length} paid
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="table-head">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-slate-600">Date</th>
+                    <th className="px-4 py-3 text-right text-slate-600">Expected</th>
+                    <th className="px-4 py-3 text-right text-slate-600">Paid</th>
+                    <th className="px-4 py-3 text-right text-slate-600">Pending</th>
+                    <th className="px-4 py-3 text-left text-slate-600">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schedules.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                        No installments on this loan.
+                      </td>
+                    </tr>
+                  ) : (
+                    schedules.map((row) => (
+                      <tr
+                        key={row.schedule_date}
+                        className={`border-t hover:bg-slate-50 dark:hover:bg-slate-700/50 ${
+                          row.is_today ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
+                        }`}
+                      >
+                        <td className="px-4 py-3">
+                          {row.schedule_date}
+                          {row.is_today && (
+                            <span className="ml-2 text-xs font-medium text-blue-600">Today</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">{fmt(row.expected_amount)}</td>
+                        <td className="px-4 py-3 text-right">{fmt(row.paid_amount)}</td>
+                        <td className="px-4 py-3 text-right font-medium">
+                          {Number(row.pending_amount) > 0 ? fmt(row.pending_amount) : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusChip status={row.status} />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

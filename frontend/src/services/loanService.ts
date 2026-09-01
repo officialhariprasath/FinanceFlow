@@ -68,6 +68,11 @@ export async function getUnpaidSchedules(loanId: number): Promise<UnpaidSchedule
   return response.data;
 }
 
+export async function getLoanSchedules(loanId: number): Promise<UnpaidSchedule[]> {
+  const response = await api.get<UnpaidSchedule[]>(`/loans/${loanId}/schedules`);
+  return response.data;
+}
+
 export async function getInterestSummary(
   loanId: number
 ): Promise<InterestSummaryResponse> {

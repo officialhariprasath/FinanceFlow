@@ -142,6 +142,70 @@ def list_unpaid_schedules(
     return result
 
 
+def list_loan_schedules(
+    db: Session,
+    loan_id: int,
+    finance_owner_id: int,
+) -> list[dict]:
+    """Full installment schedule for a loan (paid, partial, pending, overdue)."""
+    loan = (
+        db.query(Loan)
+        .filter(Loan.id == loan_id, Loan.finance_owner_id == finance_owner_id)
+        .first()
+    )
+    if loan is None:
+        return []
+
+    rows = (
+        db.query(LoanSchedule)
+        .filter(LoanSchedule.loan_id == loan_id)
+        .order_by(LoanSchedule.schedule_date.asc())
+        .all()
+    )
+
+    today = date.today()
+    result = []
+    for schedule in rows:
+        expected = Decimal(schedule.expected_amount)
+        paid = Decimal(schedule.paid_amount)
+        pending = max(expected - paid, ZERO).quantize(TWOPLACES)
+        result.append(
+            {
+                "schedule_date": schedule.schedule_date,
+                "expected_amount": expected,
+                "paid_amount": paid,
+                "pending_amount": pending,
+                "status": schedule.status,
+                "is_today": schedule.schedule_date == today,
+                "is_future": schedule.schedule_date > today,
+            }
+        )
+    return result
+
+
+def get_open_schedules_for_loan(
+    db: Session,
+    loan_id: int,
+    after_date: date | None = None,
+) -> list[LoanSchedule]:
+    open_statuses = [
+        ScheduleStatus.PENDING.value,
+        ScheduleStatus.PARTIAL.value,
+        ScheduleStatus.OVERDUE.value,
+    ]
+    q = (
+        db.query(LoanSchedule)
+        .filter(
+            LoanSchedule.loan_id == loan_id,
+            LoanSchedule.status.in_(open_statuses),
+        )
+        .order_by(LoanSchedule.schedule_date.asc())
+    )
+    if after_date is not None:
+        q = q.filter(LoanSchedule.schedule_date > after_date)
+    return q.all()
+
+
 def get_schedules_for_dates(
     db: Session,
     loan_id: int,

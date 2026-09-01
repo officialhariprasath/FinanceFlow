@@ -17,6 +17,7 @@ from backend.app.services.capital_service import (
 from backend.app.services.payment_allocation_service import allocate_payment_amount
 from backend.app.services.profit_service import record_profit_recognition
 from backend.app.services.schedule_service import (
+    get_open_schedules_for_loan,
     get_schedule_for_payment,
     get_schedules_for_dates,
     mark_overdue_schedules,
@@ -89,6 +90,109 @@ def _resolve_installment_schedules(
     return schedules
 
 
+def _expand_schedules_for_amount(
+    db: Session,
+    loan_id: int,
+    schedules: list[LoanSchedule],
+    amount: Decimal,
+) -> list[LoanSchedule]:
+    """
+    When the customer pays more than the selected days owe, include the next
+    unpaid installments in date order (advance / spill-forward).
+    """
+    if not schedules:
+        return schedules
+
+    expanded = list(schedules)
+    known_ids = {s.id for s in expanded}
+    pending_total = sum(schedule_pending_amount(s) for s in expanded).quantize(TWOPLACES)
+
+    while amount > pending_total + Decimal("0.001"):
+        last_date = max(s.schedule_date for s in expanded)
+        candidates = get_open_schedules_for_loan(db, loan_id, after_date=last_date)
+        nxt = next((s for s in candidates if s.id not in known_ids), None)
+        if nxt is None:
+            break
+        expanded.append(nxt)
+        known_ids.add(nxt.id)
+        pending_total += schedule_pending_amount(nxt)
+
+    return expanded
+
+
+def _max_open_schedule_pending(db: Session, loan_id: int) -> Decimal:
+    rows = get_open_schedules_for_loan(db, loan_id)
+    return sum((schedule_pending_amount(s) for s in rows), ZERO).quantize(TWOPLACES)
+
+
+def _prepare_schedules_for_payment(
+    db: Session,
+    loan: Loan,
+    payment: PaymentCreate,
+    amount: Decimal,
+) -> list[LoanSchedule]:
+    schedules = _resolve_installment_schedules(db, loan, payment)
+    schedules = _expand_schedules_for_amount(db, loan.id, schedules, amount)
+
+    max_payable = _max_open_schedule_pending(db, loan.id)
+    if amount > max_payable:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Amount ₹{amount} exceeds ₹{max_payable} total pending on this loan."
+            ),
+        )
+
+    expected_total = sum(
+        (schedule_pending_amount(s) for s in schedules), ZERO
+    ).quantize(TWOPLACES)
+    if amount > expected_total:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Amount ₹{amount} is more than ₹{expected_total} pending "
+                f"on the selected installment(s). Reduce the amount or select more dates."
+            ),
+        )
+
+    return schedules
+
+
+def _payment_coverage_note(
+    breakdown: list[tuple[LoanSchedule, Decimal, Decimal, Decimal]],
+    expected_total: Decimal,
+    applied: Decimal,
+) -> str | None:
+    if not breakdown:
+        return None
+
+    first_date = breakdown[0][0].schedule_date
+    last_date = breakdown[-1][0].schedule_date
+
+    if len(breakdown) > 1:
+        parts = []
+        for schedule, _, _, paid_total in breakdown:
+            pending_before = schedule_pending_amount(schedule)
+            if paid_total >= pending_before - Decimal("0.001"):
+                parts.append(f"{schedule.schedule_date} ₹{paid_total} paid")
+            else:
+                left = (pending_before - paid_total).quantize(TWOPLACES)
+                parts.append(
+                    f"{schedule.schedule_date} ₹{paid_total} paid, ₹{left} pending"
+                )
+        return f"Covers {len(breakdown)} day(s): " + "; ".join(parts)
+
+    if applied < expected_total:
+        pending_left = (expected_total - applied).quantize(TWOPLACES)
+        return (
+            f"Partial on {first_date}: paid ₹{applied}, ₹{pending_left} still pending"
+        )
+
+    if first_date != last_date:
+        return f"Covers installment on {first_date}"
+    return None
+
+
 def _allocate_across_schedules(
     amount: Decimal,
     schedules: list[LoanSchedule],
@@ -152,22 +256,10 @@ def _create_daily_collection_payment(
 
     mark_overdue_schedules(db, finance_owner_id, date.today())
 
-    schedules = _resolve_installment_schedules(db, loan, payment)
-
+    schedules = _prepare_schedules_for_payment(db, loan, payment, amount)
     expected_total = sum(
         (schedule_pending_amount(s) for s in schedules), ZERO
     ).quantize(TWOPLACES)
-
-    # Partial payments are allowed: apply oldest-first within the selected dates.
-    # Reject only when amount exceeds what the selected installments still owe.
-    if amount > expected_total:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Amount ₹{amount} is more than ₹{expected_total} pending "
-                f"on the selected installment(s). Reduce the amount or select more dates."
-            ),
-        )
 
     total_principal, total_profit, breakdown = _allocate_across_schedules(amount, schedules)
 
@@ -186,17 +278,8 @@ def _create_daily_collection_payment(
 
     first_date = breakdown[0][0].schedule_date
     last_date = breakdown[-1][0].schedule_date
-    if len(breakdown) > 1:
-        coverage_note = (
-            f"Covers {len(breakdown)} installment(s) from {first_date} to {last_date}"
-        )
-    elif applied < expected_total:
-        pending_left = (expected_total - applied).quantize(TWOPLACES)
-        coverage_note = (
-            f"Partial on {first_date}: paid ₹{applied}, ₹{pending_left} still pending"
-        )
-    else:
-        coverage_note = None
+
+    coverage_note = _payment_coverage_note(breakdown, expected_total, applied)
     remarks = payment.remarks
     if coverage_note:
         remarks = f"{coverage_note}. {remarks}".strip() if remarks else coverage_note
@@ -441,7 +524,8 @@ def get_payment_preview(
         payment_mode="Cash",
         schedule_dates=schedule_dates,
     )
-    schedules = _resolve_installment_schedules(db, loan, preview_payment)
+    mark_overdue_schedules(db, finance_owner_id, date.today())
+    schedules = _prepare_schedules_for_payment(db, loan, preview_payment, amount)
     total_principal, total_profit, breakdown = _allocate_across_schedules(amount, schedules)
     applied = (total_principal + total_profit).quantize(TWOPLACES)
 
@@ -449,11 +533,11 @@ def get_payment_preview(
 
     lines = []
     for schedule in schedules:
-        pending = schedule_pending_amount(schedule)
+        pending_before = schedule_pending_amount(schedule)
         applied_amt = applied_by_schedule.get(schedule.id, ZERO).quantize(TWOPLACES)
-        remaining = (pending - applied_amt).quantize(TWOPLACES)
-        if applied_amt <= ZERO and remaining <= ZERO:
+        if applied_amt <= ZERO:
             continue
+        remaining = (pending_before - applied_amt).quantize(TWOPLACES)
         if remaining <= ZERO and applied_amt > ZERO:
             status_after = "PAID"
         elif applied_amt > ZERO:
@@ -463,7 +547,7 @@ def get_payment_preview(
         lines.append(
             {
                 "schedule_date": schedule.schedule_date,
-                "expected_pending": pending,
+                "expected_pending": pending_before,
                 "applied_amount": applied_amt,
                 "remaining_pending": max(remaining, ZERO),
                 "status_after": status_after,

@@ -116,3 +116,5 @@ export interface UnpaidSchedule {
   is_today: boolean;
   is_future: boolean;
 }
+
+export type LoanScheduleRow = UnpaidSchedule;

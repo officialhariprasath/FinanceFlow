@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPayment, previewPayment } from "../../services/paymentService";
 import { getUnpaidSchedules } from "../../services/loanService";
 import { useAuth } from "../../context/AuthContext";
@@ -109,6 +109,12 @@ export default function RecordPaymentModal({
     selectedDates.length > 0 &&
     amountNum > 0 &&
     amountNum + 0.001 < selectedTotal;
+  const isAdvance =
+    isInstallment &&
+    selectedDates.length > 0 &&
+    amountNum > selectedTotal + 0.01;
+
+  const prevSelectedTotal = useRef(0);
 
   useEffect(() => {
     if (!isInstallment) return;
@@ -151,14 +157,43 @@ export default function RecordPaymentModal({
 
   useEffect(() => {
     if (!isInstallment || selectedDates.length === 0) return;
-    setForm((prev) => ({
-      ...prev,
-      payment_date: selectedDates[0],
-      // When dates change, default amount to full selected total (user can still edit down).
-      amount_paid: selectedTotal.toFixed(2),
-      schedule_dates: selectedDates,
-    }));
+    setForm((prev) => {
+      const amt = Number(prev.amount_paid) || 0;
+      const wasSynced =
+        !prev.amount_paid || Math.abs(amt - prevSelectedTotal.current) < 0.01;
+      prevSelectedTotal.current = selectedTotal;
+      return {
+        ...prev,
+        payment_date: selectedDates[0],
+        amount_paid: wasSynced ? selectedTotal.toFixed(2) : prev.amount_paid,
+        schedule_dates: selectedDates,
+      };
+    });
   }, [selectedDates, selectedTotal, isInstallment]);
+
+  // Overpay spills to the next installment(s) automatically.
+  useEffect(() => {
+    if (!isInstallment || unpaidSchedules.length === 0 || selectedDates.length === 0) return;
+    const target = Number(form.amount_paid);
+    if (!target || target <= selectedTotal + 0.01) return;
+
+    const anchor = selectedDates[0];
+    const startIdx = unpaidSchedules.findIndex((r) => r.schedule_date >= anchor);
+    if (startIdx < 0) return;
+
+    let running = 0;
+    const picked: string[] = [];
+    for (let i = startIdx; i < unpaidSchedules.length; i++) {
+      picked.push(unpaidSchedules[i].schedule_date);
+      running += Number(unpaidSchedules[i].pending_amount);
+      if (running >= target - 0.001) break;
+    }
+
+    const same =
+      picked.length === selectedDates.length &&
+      picked.every((d, i) => d === selectedDates[i]);
+    if (!same) setSelectedDates(picked);
+  }, [form.amount_paid, selectedTotal, unpaidSchedules, selectedDates, isInstallment]);
 
   useEffect(() => {
     if (!isInstallment || !form.amount_paid || Number(form.amount_paid) <= 0) {
@@ -210,10 +245,6 @@ export default function RecordPaymentModal({
         e.payment_date = "No unpaid installments on this loan.";
       else if (selectedDates.length === 0)
         e.payment_date = "Select at least one installment date.";
-      else if (Number(form.amount_paid) > selectedTotal + 0.01)
-        e.amount_paid = `Amount cannot exceed ${selectedTotal.toFixed(
-          2
-        )} for selected installment(s). Select more dates or reduce the amount.`;
     } else if (!form.payment_date) {
       e.payment_date = "Payment date is required.";
     }
@@ -264,7 +295,7 @@ export default function RecordPaymentModal({
         </h2>
         <p className="mb-4 text-sm text-slate-500">
           {isInstallment
-            ? "Select installment dates, then enter the cash received. If they pay less than the total, it fills oldest days first and leaves the rest pending."
+            ? "Enter cash received. Less than due fills oldest days and leaves the rest pending. More than today spills to the next day(s) as advance."
             : "Interest is allocated first, then principal."}
         </p>
 
@@ -279,7 +310,7 @@ export default function RecordPaymentModal({
             <p className="font-medium text-blue-800 dark:text-blue-200">
               Allocation preview — {preview.installment_count ?? selectedDates.length}{" "}
               installment(s)
-              {isPartial ? " (partial)" : ""}
+              {isPartial ? " (partial)" : isAdvance ? " (advance)" : ""}
             </p>
             <div className="mt-2 grid grid-cols-3 gap-2">
               <div>
@@ -435,8 +466,10 @@ export default function RecordPaymentModal({
               <p className="mt-1 text-xs text-slate-500">
                 Selected total {fmt(selectedTotal.toFixed(2))}
                 {isPartial
-                  ? " — partial OK; fills earliest dates first, rest stays pending."
-                  : " — you can enter less for a partial payment."}
+                  ? " — partial: fills earliest dates first, rest stays pending."
+                  : isAdvance
+                    ? " — advance: extra applies to the next day(s); preview shows split."
+                    : " — you can pay less (partial) or more (advance)."}
               </p>
             )}
             {errors.amount_paid && (
