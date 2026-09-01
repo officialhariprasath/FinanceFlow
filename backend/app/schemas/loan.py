@@ -124,6 +124,16 @@ class UnpaidScheduleResponse(BaseModel):
     is_future: bool
 
 
+class LoanScheduleResponse(BaseModel):
+    schedule_date: date
+    expected_amount: Decimal
+    paid_amount: Decimal
+    pending_amount: Decimal
+    status: str
+    is_today: bool
+    is_future: bool
+
+
 class LoanStatementResponse(BaseModel):
     """
     Complete statement for a single loan.

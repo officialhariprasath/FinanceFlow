@@ -14,6 +14,7 @@ from backend.app.schemas.loan import (
     LoanResponse,
     LoanStatementResponse,
     UnpaidScheduleResponse,
+    LoanScheduleResponse,
 )
 from backend.app.services.loan_service import (
     create_loan,
@@ -36,7 +37,7 @@ from backend.app.services.loan_service import (
     get_settlement_preview,
     settle_loan,
 )
-from backend.app.services.schedule_service import list_unpaid_schedules
+from backend.app.services.schedule_service import list_unpaid_schedules, list_loan_schedules
 
 
 router = APIRouter(
@@ -208,6 +209,19 @@ def get_loan_statement_endpoint(
         loan_id=loan_id,
         finance_owner_id=ctx.finance_owner_id,
     )
+
+
+@router.get(
+    "/{loan_id}/schedules",
+    response_model=list[LoanScheduleResponse],
+    summary="Full installment schedule",
+)
+def loan_schedules_endpoint(
+    loan_id: int,
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_permissions(["loans"])),
+):
+    return list_loan_schedules(db, loan_id, ctx.finance_owner_id)
 
 
 @router.get(
