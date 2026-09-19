@@ -158,6 +158,10 @@ def _prepare_schedules_for_payment(
     return schedules
 
 
+# payments.remarks is String(255) — keep auto notes well under that.
+_REMARKS_MAX_LEN = 255
+
+
 def _payment_coverage_note(
     breakdown: list[tuple[LoanSchedule, Decimal, Decimal, Decimal]],
     expected_total: Decimal,
@@ -170,17 +174,35 @@ def _payment_coverage_note(
     last_date = breakdown[-1][0].schedule_date
 
     if len(breakdown) > 1:
-        parts = []
+        # Detailed per-day split for a few days (advance/partial).
+        # For settling many days at once, use a compact summary — a long
+        # "day1 ₹120; day2 ₹120; ..." string exceeds the 255-char remarks column
+        # and the whole payment insert fails (e.g. ~38 days × ₹120 = ₹4560).
+        if len(breakdown) <= 5:
+            parts = []
+            for schedule, _, _, paid_total in breakdown:
+                pending_before = schedule_pending_amount(schedule)
+                if paid_total >= pending_before - Decimal("0.001"):
+                    parts.append(f"{schedule.schedule_date} ₹{paid_total} paid")
+                else:
+                    left = (pending_before - paid_total).quantize(TWOPLACES)
+                    parts.append(
+                        f"{schedule.schedule_date} ₹{paid_total} paid, ₹{left} pending"
+                    )
+            return f"Covers {len(breakdown)} day(s): " + "; ".join(parts)
+
+        partial_days = 0
         for schedule, _, _, paid_total in breakdown:
             pending_before = schedule_pending_amount(schedule)
-            if paid_total >= pending_before - Decimal("0.001"):
-                parts.append(f"{schedule.schedule_date} ₹{paid_total} paid")
-            else:
-                left = (pending_before - paid_total).quantize(TWOPLACES)
-                parts.append(
-                    f"{schedule.schedule_date} ₹{paid_total} paid, ₹{left} pending"
-                )
-        return f"Covers {len(breakdown)} day(s): " + "; ".join(parts)
+            if paid_total < pending_before - Decimal("0.001"):
+                partial_days += 1
+        note = (
+            f"Covers {len(breakdown)} day(s) from {first_date} to {last_date}"
+            f" · ₹{applied} applied"
+        )
+        if partial_days:
+            note += f" ({partial_days} partial)"
+        return note
 
     if applied < expected_total:
         pending_left = (expected_total - applied).quantize(TWOPLACES)
@@ -191,6 +213,17 @@ def _payment_coverage_note(
     if first_date != last_date:
         return f"Covers installment on {first_date}"
     return None
+
+
+def _combine_remarks(coverage_note: str | None, user_remarks: str | None) -> str | None:
+    user = (user_remarks or "").strip() or None
+    if coverage_note and user:
+        combined = f"{coverage_note}. {user}"
+    else:
+        combined = coverage_note or user
+    if combined and len(combined) > _REMARKS_MAX_LEN:
+        return combined[: _REMARKS_MAX_LEN - 1].rstrip() + "…"
+    return combined
 
 
 def _allocate_across_schedules(
@@ -280,9 +313,7 @@ def _create_daily_collection_payment(
     last_date = breakdown[-1][0].schedule_date
 
     coverage_note = _payment_coverage_note(breakdown, expected_total, applied)
-    remarks = payment.remarks
-    if coverage_note:
-        remarks = f"{coverage_note}. {remarks}".strip() if remarks else coverage_note
+    remarks = _combine_remarks(coverage_note, payment.remarks)
 
     loan.remaining_principal -= total_principal
     loan.total_principal_paid += total_principal
