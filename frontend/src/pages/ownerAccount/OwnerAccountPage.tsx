@@ -50,14 +50,32 @@ export default function OwnerAccountPage() {
     try {
       setLoading(true);
       setError("");
-      const [s, txs] = await Promise.all([
-        getOwnerAccountSummary(),
-        getOwnerAccountTransactions(),
-      ]);
+      // Summary first so Owner Account bootstrap commits before ledger fetch.
+      const s = await getOwnerAccountSummary();
+      const txs = await getOwnerAccountTransactions();
       setSummary(s);
       setTransactions(txs);
-    } catch {
-      setError("Failed to load Owner Account.");
+    } catch (err: unknown) {
+      const ax = err as {
+        response?: { status?: number; data?: { detail?: string } };
+        code?: string;
+        message?: string;
+      };
+      const status = ax.response?.status;
+      const detail = ax.response?.data?.detail;
+      if (status === 404) {
+        setError(
+          "Owner Account API is not available on the server yet. Pull to refresh or try again in a minute."
+        );
+      } else if (status === 401) {
+        setError("Session expired. Please log in again.");
+      } else if (!ax.response && (ax.code === "ECONNABORTED" || /timeout/i.test(ax.message || ""))) {
+        setError("Server took too long to respond. Tap Retry (cold start can be slow).");
+      } else if (typeof detail === "string" && detail.trim()) {
+        setError(detail);
+      } else {
+        setError("Failed to load Owner Account. Check your connection and tap Retry.");
+      }
     } finally {
       setLoading(false);
     }
