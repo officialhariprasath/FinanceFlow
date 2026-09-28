@@ -33,23 +33,40 @@ def get_or_create_owner_cash_account(
     db: Session,
     finance_owner_id: int,
 ) -> OwnerCashAccount:
+    from sqlalchemy.exc import IntegrityError
+
     account = (
         db.query(OwnerCashAccount)
         .filter(OwnerCashAccount.finance_owner_id == finance_owner_id)
         .first()
     )
-    if account is None:
-        account = OwnerCashAccount(
-            finance_owner_id=finance_owner_id,
-            principal_balance=ZERO,
-            profit_balance=ZERO,
-            currency="INR",
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+    if account is not None:
+        return account
+
+    account = OwnerCashAccount(
+        finance_owner_id=finance_owner_id,
+        principal_balance=ZERO,
+        profit_balance=ZERO,
+        currency="INR",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    try:
+        # Savepoint so a concurrent first-open insert does not poison the session.
+        with db.begin_nested():
+            db.add(account)
+            db.flush()
+    except IntegrityError:
+        account = (
+            db.query(OwnerCashAccount)
+            .filter(OwnerCashAccount.finance_owner_id == finance_owner_id)
+            .first()
         )
-        db.add(account)
-        db.flush()
-        _bootstrap_opening_profit(db, account, finance_owner_id)
+        if account is None:
+            raise
+        return account
+
+    _bootstrap_opening_profit(db, account, finance_owner_id)
     return account
 
 
