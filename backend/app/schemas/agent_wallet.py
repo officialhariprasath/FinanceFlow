@@ -54,6 +54,20 @@ class AgentSettlementReject(BaseModel):
     reason: str
 
 
+class AgentSettlementApproveRequest(BaseModel):
+    reinvest_profit: bool = False
+
+
+class AgentSettlementApprovalPreview(BaseModel):
+    settlement_id: int
+    agent_id: int
+    total_amount: Decimal
+    principal_amount: Decimal
+    profit_amount: Decimal
+    status: str
+    message: str
+
+
 class AgentSettlementResponse(BaseModel):
     id: int
     agent_id: int
@@ -74,6 +88,10 @@ class AgentSettlementResponse(BaseModel):
     reconciliation_note: Optional[str] = None
     submitted_at: datetime
     reviewed_at: Optional[datetime] = None
+    principal_unlocked: Optional[Decimal] = None
+    profit_amount: Optional[Decimal] = None
+    profit_reinvested: Optional[Decimal] = None
+    reinvest_profit: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
 

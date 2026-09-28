@@ -196,11 +196,16 @@ export default function DashboardPage() {
 
             <div>
               <h2 className="mb-3 text-lg font-semibold text-slate-800">Capital</h2>
+              {ffDashboard.over_lent_against_unsettled && (
+                <p className="mb-2 text-sm text-amber-700 dark:text-amber-300">
+                  Available to lend is reduced by principal still with agents — settle before new loans.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <DashboardCard title="Capital Added" value={fmt(ffDashboard.capital_added)} onClick={() => navigate("/capital")} />
-                <DashboardCard title="Available Capital" value={fmt(ffDashboard.available_capital)} onClick={() => navigate("/capital")} />
+                <DashboardCard title="Available to lend" value={fmt(ffDashboard.available_to_lend ?? ffDashboard.available_capital)} onClick={() => navigate("/capital")} />
+                <DashboardCard title="Capital with agents" value={fmt(ffDashboard.capital_with_agents ?? "0")} onClick={() => navigate("/agent-settlements")} />
                 <DashboardCard title="Capital Lent" value={fmt(ffDashboard.capital_currently_lent)} />
-                <DashboardCard title="Principal Outstanding" value={fmt(ffDashboard.principal_outstanding)} />
               </div>
             </div>
 
@@ -220,6 +225,11 @@ export default function DashboardPage() {
                 <DashboardCard
                   title="Unsettled with agents"
                   value={fmt(ffDashboard.unsettled_with_agents)}
+                  onClick={() => navigate("/agent-settlements")}
+                />
+                <DashboardCard
+                  title="Profit with agents"
+                  value={fmt(ffDashboard.profit_with_agents ?? "0")}
                   onClick={() => navigate("/agent-settlements")}
                 />
                 <DashboardCard

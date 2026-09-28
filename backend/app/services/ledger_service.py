@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.models.capital_transaction import CapitalTransaction
 from backend.app.models.profit_transaction import ProfitTransaction
-from backend.app.services.capital_service import get_or_create_capital_account, get_available_capital
+from backend.app.services.capital_service import get_or_create_capital_account
 from backend.app.services.profit_service import get_or_create_profit_account, get_available_profit
 from backend.app.services.expense_service import get_expense_totals, list_expenses
 
@@ -66,11 +66,12 @@ def get_business_ledger(db: Session, finance_owner_id: int, limit: int = 500):
 
 def get_reconciliation(db: Session, finance_owner_id: int):
     from backend.app.services.agent_wallet_service import list_all_agent_wallets
+    from backend.app.services.capital_location_service import get_capital_location_summary
     from backend.app.services.capital_service import get_capital_lent, get_total_capital_added
     from backend.app.services.profit_service import get_total_profit_earned
     from backend.app.services.expense_service import get_net_profit_summary
 
-    capital_available = get_available_capital(db, finance_owner_id)
+    location = get_capital_location_summary(db, finance_owner_id)
     profit_available = get_available_profit(db, finance_owner_id)
     net = get_net_profit_summary(db, finance_owner_id)
     agent_wallets = list_all_agent_wallets(db, finance_owner_id)
@@ -87,14 +88,33 @@ def get_reconciliation(db: Session, finance_owner_id: int):
     pending_count = count_pending_settlements(db, finance_owner_id)
 
     cap_account = get_or_create_capital_account(db, finance_owner_id)
-    notes = "Unsettled agent cash should be settled or reconciled with owner."
+    notes = (
+        "Available to lend excludes principal still with agents. "
+        "Approve settlements to unlock lending capacity — do not Add Capital for the same money."
+    )
     if pending_count > 0:
         notes = (
             f"{pending_count} settlement(s) pending approval (₹{pending_total}). "
             "Unsettled wallet balances remain until approved."
         )
+    elif unsettled_agents > Decimal("0.00"):
+        notes = (
+            f"₹{unsettled_agents} still with agents "
+            f"(principal ₹{location['capital_with_agents']}, "
+            f"profit ₹{location['profit_with_agents']}). "
+            "Settle to unlock Available to lend."
+        )
+    if location["over_lent_against_unsettled"]:
+        notes = (
+            "Warning: books show lending against unsettled agent principal. "
+            "Approve settlements before creating new loans. " + notes
+        )
     return {
-        "capital_available": capital_available,
+        "capital_available": location["available_to_lend"],
+        "available_to_lend": location["available_to_lend"],
+        "ledger_capital": location["ledger_capital"],
+        "capital_with_agents": location["capital_with_agents"],
+        "profit_with_agents": location["profit_with_agents"],
         "capital_lent": get_capital_lent(db, finance_owner_id),
         "total_capital_added": get_total_capital_added(db, cap_account.id),
         "profit_available": profit_available,
@@ -105,5 +125,6 @@ def get_reconciliation(db: Session, finance_owner_id: int):
         "pending_settlement_total": pending_total,
         "pending_settlement_count": pending_count,
         "is_balanced": unsettled_agents == Decimal("0.00") and pending_count == 0,
+        "over_lent_against_unsettled": location["over_lent_against_unsettled"],
         "notes": notes,
     }

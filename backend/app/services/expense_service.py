@@ -8,7 +8,8 @@ from backend.app.models.enums import ExpenseFundingSource, LedgerDirection, Prof
 from backend.app.models.financeflow_extended import Expense
 from backend.app.models.profit_transaction import ProfitTransaction
 from backend.app.services.audit_service import log_audit
-from backend.app.services.capital_service import get_available_capital, record_capital_expense
+from backend.app.services.capital_location_service import get_available_to_lend
+from backend.app.services.capital_service import record_capital_expense
 from backend.app.services.profit_service import (
     get_available_profit,
     get_or_create_profit_account,
@@ -59,11 +60,11 @@ def create_expense(
     db.flush()
 
     if source == ExpenseFundingSource.CAPITAL.value:
-        available = get_available_capital(db, finance_owner_id)
+        available = get_available_to_lend(db, finance_owner_id)
         if amount > available:
             raise HTTPException(
                 status_code=400,
-                detail=f"Expense exceeds available capital. Available: {available}",
+                detail=f"Expense exceeds available capital to lend. Available: {available}",
             )
         capital_tx = record_capital_expense(
             db,

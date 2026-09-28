@@ -6,6 +6,10 @@ from pydantic import BaseModel
 class FinanceFlowDashboardResponse(BaseModel):
     capital_added: Decimal
     available_capital: Decimal
+    ledger_capital: Decimal = Decimal("0")
+    available_to_lend: Decimal = Decimal("0")
+    capital_with_agents: Decimal = Decimal("0")
+    profit_with_agents: Decimal = Decimal("0")
     capital_currently_lent: Decimal
     principal_outstanding: Decimal
     profit_today: Decimal
@@ -23,3 +27,4 @@ class FinanceFlowDashboardResponse(BaseModel):
     unsettled_with_agents: Decimal = Decimal("0")
     pending_settlement_count: int = 0
     pending_settlement_total: Decimal = Decimal("0")
+    over_lent_against_unsettled: bool = False

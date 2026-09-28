@@ -85,6 +85,8 @@ def reinvest_profit(
     finance_owner_id: int,
     amount: Decimal,
     description: str | None = None,
+    *,
+    commit: bool = True,
 ):
     from backend.app.services.capital_service import record_profit_reinvestment
 
@@ -117,8 +119,11 @@ def reinvest_profit(
         profit_tx.id,
         f"Amount: {amount}, capital_tx: {capital_tx.id}",
     )
-    db.commit()
-    db.refresh(profit_tx)
+    if commit:
+        db.commit()
+        db.refresh(profit_tx)
+    else:
+        db.flush()
     return {"profit_transaction": profit_tx, "capital_transaction": capital_tx}
 
 

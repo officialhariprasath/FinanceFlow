@@ -48,14 +48,32 @@ export default function ReconciliationPage() {
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Reconciliation</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400">Owner admin view — capital, profit, and agent cash</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">
+            Reconciliation
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-slate-400">
+            Available to lend vs cash still with agents
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <DashboardCard title="Capital available" value={fmt(data?.capital_available)} />
+          <DashboardCard
+            title="Available to lend"
+            value={fmt(data?.available_to_lend ?? data?.capital_available)}
+          />
+          <DashboardCard
+            title="Capital with agents"
+            value={fmt(data?.capital_with_agents ?? "0")}
+          />
+          <DashboardCard
+            title="Profit with agents"
+            value={fmt(data?.profit_with_agents ?? "0")}
+          />
           <DashboardCard title="Capital lent" value={fmt(data?.capital_lent)} />
-          <DashboardCard title="Profit available" value={fmt(data?.profit_available)} />
+          <DashboardCard
+            title="Profit available"
+            value={fmt(data?.profit_available)}
+          />
           <DashboardCard
             title="Unsettled with agents"
             value={fmt(data?.unsettled_with_agents)}
@@ -74,22 +92,36 @@ export default function ReconciliationPage() {
           <div className="flex items-center gap-3">
             <span
               className={`inline-block h-3 w-3 rounded-full ${
-                data?.is_balanced ? "bg-green-500" : "bg-amber-500"
+                data?.is_balanced
+                  ? "bg-green-500"
+                  : data?.over_lent_against_unsettled
+                    ? "bg-red-500"
+                    : "bg-amber-500"
               }`}
             />
             <p className="font-medium">
               {data?.is_balanced
                 ? "Agent wallets are settled — no unsettled cash or pending settlements"
-                : data?.pending_settlement_count
-                  ? `${data.pending_settlement_count} settlement(s) awaiting approval — review Agent Settlements`
-                  : "Unsettled agent cash detected — review settlements"}
+                : data?.over_lent_against_unsettled
+                  ? "Over-lent against unsettled agent principal — settle before new loans"
+                  : data?.pending_settlement_count
+                    ? `${data.pending_settlement_count} settlement(s) awaiting approval — review Agent Settlements`
+                    : "Unsettled agent cash detected — review settlements"}
             </p>
           </div>
-          <p className="mt-3 text-sm text-gray-600 dark:text-slate-400">{data?.notes}</p>
+          <p className="mt-3 text-sm text-gray-600 dark:text-slate-400">
+            {data?.notes}
+          </p>
           <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-gray-500 dark:text-slate-400">Total capital added</dt>
+              <dt className="text-gray-500 dark:text-slate-400">
+                Total capital added
+              </dt>
               <dd className="font-medium">{fmt(data?.total_capital_added)}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 dark:text-slate-400">Ledger capital</dt>
+              <dd className="font-medium">{fmt(data?.ledger_capital ?? "0")}</dd>
             </div>
             <div>
               <dt className="text-gray-500 dark:text-slate-400">Gross profit</dt>

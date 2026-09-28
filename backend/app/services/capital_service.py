@@ -72,7 +72,21 @@ def get_total_capital_added(
     for row in rows:
         total += row.amount
 
-    return total
+    # Subtract explicit reversals of mistaken Add Capital (settlement recycle repair)
+    reversals = (
+        db.query(CapitalTransaction)
+        .filter(
+            CapitalTransaction.capital_account_id == capital_account_id,
+            CapitalTransaction.type == CapitalTransactionType.CAPITAL_ADJUSTMENT.value,
+            CapitalTransaction.direction == LedgerDirection.DEBIT.value,
+            CapitalTransaction.reference_type == "REVERSE_CAPITAL_ADDED",
+        )
+        .all()
+    )
+    for row in reversals:
+        total -= row.amount
+
+    return total.quantize(TWOPLACES)
 
 
 def get_capital_lent(
@@ -121,15 +135,24 @@ def get_capital_summary(
     db: Session,
     finance_owner_id: int,
 ):
+    from backend.app.services.capital_location_service import get_capital_location_summary
+
     account, transactions = list_capital_transactions(db, finance_owner_id)
-    available = get_available_capital(db, finance_owner_id)
+    location = get_capital_location_summary(db, finance_owner_id)
 
     return {
-        "available_capital": available,
+        "available_capital": location["available_to_lend"],
+        "ledger_capital": location["ledger_capital"],
+        "available_to_lend": location["available_to_lend"],
+        "capital_with_agents": location["capital_with_agents"],
+        "profit_with_agents": location["profit_with_agents"],
+        "unsettled_with_agents": location["unsettled_with_agents"],
+        "capital_with_owner": location["capital_with_owner"],
         "total_capital_added": get_total_capital_added(db, account.id),
         "capital_currently_lent": get_capital_lent(db, finance_owner_id),
         "currency": account.currency,
         "transaction_count": len(transactions),
+        "over_lent_against_unsettled": location["over_lent_against_unsettled"],
     }
 
 
@@ -173,6 +196,48 @@ def _create_capital_transaction(
     return transaction
 
 
+def _recent_settlement_recycle_warning(
+    db: Session,
+    finance_owner_id: int,
+    amount: Decimal,
+) -> str | None:
+    """Warn when Add Capital looks like recycling a just-approved settlement."""
+    from datetime import datetime, timedelta
+
+    from backend.app.models.agent_settlement import AgentSettlement
+    from backend.app.models.enums import SettlementStatus
+
+    since = datetime.utcnow() - timedelta(hours=48)
+    rows = (
+        db.query(AgentSettlement)
+        .filter(
+            AgentSettlement.finance_owner_id == finance_owner_id,
+            AgentSettlement.status.in_(
+                [
+                    SettlementStatus.COMPLETED.value,
+                    SettlementStatus.APPROVED.value,
+                ]
+            ),
+            AgentSettlement.reviewed_at.isnot(None),
+            AgentSettlement.reviewed_at >= since,
+        )
+        .order_by(AgentSettlement.reviewed_at.desc())
+        .all()
+    )
+    for row in rows:
+        settled = Decimal(row.total_amount or ZERO).quantize(TWOPLACES)
+        if settled == amount:
+            return (
+                f"Settlement #{row.id} for ₹{settled} was approved recently. "
+                "Agent collections already credit principal into capital — "
+                "approving a settlement unlocks Available to lend automatically. "
+                "Do not Add Capital again for the same money unless this is "
+                "brand-new external funds. Resubmit with confirm_settlement_recycle=true "
+                "only if you intentionally want to add external capital of this amount."
+            )
+    return None
+
+
 def add_capital(
     db: Session,
     finance_owner_id: int,
@@ -184,6 +249,14 @@ def add_capital(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Capital amount must be greater than zero.",
+        )
+
+    confirm_recycle = bool(getattr(payload, "confirm_settlement_recycle", False))
+    warning = _recent_settlement_recycle_warning(db, finance_owner_id, amount)
+    if warning and not confirm_recycle:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=warning,
         )
 
     account = get_or_create_capital_account(db, finance_owner_id)
@@ -201,6 +274,35 @@ def add_capital(
     db.commit()
     db.refresh(transaction)
     return transaction
+
+
+def record_capital_adjustment(
+    db: Session,
+    finance_owner_id: int,
+    amount: Decimal,
+    direction: LedgerDirection,
+    description: str,
+    reference_type: str = "CAPITAL_ADJUSTMENT",
+    reference_id: int | None = None,
+    *,
+    commit: bool = True,
+) -> CapitalTransaction:
+    account = get_or_create_capital_account(db, finance_owner_id)
+    tx = _create_capital_transaction(
+        db=db,
+        account=account,
+        finance_owner_id=finance_owner_id,
+        transaction_type=CapitalTransactionType.CAPITAL_ADJUSTMENT,
+        amount=amount.quantize(TWOPLACES),
+        direction=direction,
+        reference_type=reference_type,
+        reference_id=reference_id,
+        description=description,
+    )
+    if commit:
+        db.commit()
+        db.refresh(tx)
+    return tx
 
 
 def record_loan_disbursement(
@@ -271,11 +373,21 @@ def withdraw_capital(
     amount: Decimal,
     description: str | None = None,
 ) -> dict:
+    from backend.app.services.capital_location_service import get_available_to_lend
+
     amount = amount.quantize(TWOPLACES)
     if amount <= ZERO:
         raise HTTPException(status_code=400, detail="Amount must be positive.")
 
-    available_before = get_available_capital(db, finance_owner_id)
+    available_before = get_available_to_lend(db, finance_owner_id)
+    if amount > available_before:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Insufficient available capital to lend. Available: {available_before}. "
+                "Capital still with agents cannot be withdrawn."
+            ),
+        )
     available_after = available_before - amount
 
     account = get_or_create_capital_account(db, finance_owner_id)
@@ -322,12 +434,14 @@ def record_capital_expense(
     expense_id: int,
     description: str,
 ) -> CapitalTransaction:
+    from backend.app.services.capital_location_service import get_available_to_lend
+
     amount = amount.quantize(TWOPLACES)
-    available = get_available_capital(db, finance_owner_id)
+    available = get_available_to_lend(db, finance_owner_id)
     if amount > available:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Insufficient capital. Available: {available}",
+            detail=f"Insufficient capital to lend. Available: {available}",
         )
 
     account = get_or_create_capital_account(db, finance_owner_id)

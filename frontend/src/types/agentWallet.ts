@@ -47,6 +47,20 @@ export interface AgentSettlement {
   reconciliation_note?: string | null;
   submitted_at: string;
   reviewed_at?: string | null;
+  principal_unlocked?: string | null;
+  profit_amount?: string | null;
+  profit_reinvested?: string | null;
+  reinvest_profit?: boolean | null;
+}
+
+export interface AgentSettlementApprovalPreview {
+  settlement_id: number;
+  agent_id: number;
+  total_amount: string;
+  principal_amount: string;
+  profit_amount: string;
+  status: string;
+  message: string;
 }
 
 export interface AgentSettlementCreate {

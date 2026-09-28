@@ -46,6 +46,10 @@ export interface LedgerEntry {
 
 export interface Reconciliation {
   capital_available: string;
+  available_to_lend?: string;
+  ledger_capital?: string;
+  capital_with_agents?: string;
+  profit_with_agents?: string;
   capital_lent: string;
   total_capital_added: string;
   profit_available: string;
@@ -56,6 +60,7 @@ export interface Reconciliation {
   pending_settlement_total: string;
   pending_settlement_count: number;
   is_balanced: boolean;
+  over_lent_against_unsettled?: boolean;
   notes: string;
 }
 

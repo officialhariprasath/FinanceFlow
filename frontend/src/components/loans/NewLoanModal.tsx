@@ -207,9 +207,9 @@ export default function NewLoanModal({
       .catch(() => setAgents([]));
 
     getCapitalSummary()
-
-      .then((s) => setAvailableCapital(s.available_capital))
-
+      .then((s) =>
+        setAvailableCapital(s.available_to_lend ?? s.available_capital)
+      )
       .catch(() => {});
 
   }, []);
@@ -428,7 +428,7 @@ export default function NewLoanModal({
 
             <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm">
 
-              Available capital:{" "}
+              Available to lend:{" "}
 
               <span className="font-semibold">{fmt(availableCapital)}</span>
 

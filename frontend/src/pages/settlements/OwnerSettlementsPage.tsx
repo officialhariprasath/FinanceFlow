@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
 import DashboardCard from "../../components/dashboard/DashboardCard";
 import { PageError, PageLoading } from "../../components/common/PageStates";
-import ConfirmModal from "../../components/common/ConfirmModal";
 import PromptModal from "../../components/common/PromptModal";
 import PositiveEmptyState from "../../components/common/PositiveEmptyState";
 import StatusChip from "../../components/common/StatusChip";
@@ -13,10 +12,15 @@ import {
   approveSettlement,
   getAllSettlements,
   getPendingSettlements,
+  getSettlementApprovePreview,
   listAgentWallets,
   rejectSettlement,
 } from "../../services/agentWalletService";
-import type { AgentSettlement, AgentWalletBalance } from "../../types/agentWallet";
+import type {
+  AgentSettlement,
+  AgentSettlementApprovalPreview,
+  AgentWalletBalance,
+} from "../../types/agentWallet";
 import { fmt } from "../../utils/fmt";
 
 function num(v: string | number | null | undefined) {
@@ -144,6 +148,10 @@ export default function OwnerSettlementsPage() {
   const [error, setError] = useState("");
   const [actionId, setActionId] = useState<number | null>(null);
   const [approveId, setApproveId] = useState<number | null>(null);
+  const [approvePreview, setApprovePreview] =
+    useState<AgentSettlementApprovalPreview | null>(null);
+  const [reinvestProfit, setReinvestProfit] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [rejectId, setRejectId] = useState<number | null>(null);
 
   const [filterAgent, setFilterAgent] = useState("all");
@@ -176,12 +184,34 @@ export default function OwnerSettlementsPage() {
     load();
   }, []);
 
+  async function openApprove(id: number) {
+    setApproveId(id);
+    setReinvestProfit(false);
+    setApprovePreview(null);
+    setPreviewLoading(true);
+    try {
+      setApprovePreview(await getSettlementApprovePreview(id));
+    } catch {
+      setApprovePreview(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
   async function confirmApprove() {
     if (!approveId) return;
     setActionId(approveId);
     try {
-      await approveSettlement(approveId);
-      toast.success("Settlement approved. Agent wallet updated.");
+      const result = await approveSettlement(approveId, reinvestProfit);
+      const profitNote =
+        reinvestProfit && result.profit_reinvested
+          ? ` Profit ${fmt(result.profit_reinvested)} reinvested to capital.`
+          : " Profit kept in Available Profit.";
+      toast.success(
+        `Settlement approved. Principal unlocked${
+          result.principal_unlocked ? ` ${fmt(result.principal_unlocked)}` : ""
+        }.${profitNote}`
+      );
       await load(true);
       refreshBadges();
     } catch (err: unknown) {
@@ -191,6 +221,7 @@ export default function OwnerSettlementsPage() {
     } finally {
       setActionId(null);
       setApproveId(null);
+      setApprovePreview(null);
     }
   }
 
@@ -448,7 +479,7 @@ export default function OwnerSettlementsPage() {
                       <button
                         type="button"
                         disabled={actionId === s.id}
-                        onClick={() => setApproveId(s.id)}
+                        onClick={() => openApprove(s.id)}
                         className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
                       >
                         Approve
@@ -676,19 +707,84 @@ export default function OwnerSettlementsPage() {
       </div>
 
       {approveId && (
-        <ConfirmModal
-          title="Approve settlement?"
-          message={
-            pendingSettlement
-              ? `Approve ${pendingSettlement.agent_name}'s settlement of ${fmt(pendingSettlement.total_amount)}? Agent wallet will be debited.`
-              : "Approve this settlement?"
-          }
-          confirmLabel="Approve"
-          confirmClass="bg-green-600 hover:bg-green-700"
-          loading={actionId === approveId}
-          onConfirm={confirmApprove}
-          onCancel={() => setApproveId(null)}
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              Approve settlement?
+            </h3>
+            {previewLoading && (
+              <p className="mt-3 text-sm text-slate-500">Loading split preview…</p>
+            )}
+            {!previewLoading && (
+              <div className="mt-3 space-y-3 text-sm text-slate-700 dark:text-slate-300">
+                <p>
+                  Approve{" "}
+                  <strong>{pendingSettlement?.agent_name || "agent"}</strong>
+                  &apos;s settlement of{" "}
+                  <strong>
+                    {fmt(approvePreview?.total_amount ?? pendingSettlement?.total_amount)}
+                  </strong>
+                  . Agent wallet will be debited and principal unlocks into Available
+                  to lend.
+                </p>
+                {approvePreview && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
+                    <p>Principal unlocking: {fmt(approvePreview.principal_amount)}</p>
+                    <p>Profit in this settlement: {fmt(approvePreview.profit_amount)}</p>
+                  </div>
+                )}
+                <fieldset className="space-y-2">
+                  <legend className="font-medium">What should happen to the profit?</legend>
+                  <label className="flex items-start gap-2">
+                    <input
+                      type="radio"
+                      name="reinvest"
+                      checked={!reinvestProfit}
+                      onChange={() => setReinvestProfit(false)}
+                      className="mt-1"
+                    />
+                    <span>Keep in Available Profit (can withdraw later)</span>
+                  </label>
+                  <label className="flex items-start gap-2">
+                    <input
+                      type="radio"
+                      name="reinvest"
+                      checked={reinvestProfit}
+                      onChange={() => setReinvestProfit(true)}
+                      className="mt-1"
+                    />
+                    <span>Reinvest profit into capital now (increases Available to lend)</span>
+                  </label>
+                </fieldset>
+                <p className="text-xs text-slate-500">
+                  Do not Add Capital again for this settlement amount — that causes
+                  double-counting.
+                </p>
+              </div>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border px-4 py-2 text-sm"
+                onClick={() => {
+                  setApproveId(null);
+                  setApprovePreview(null);
+                }}
+                disabled={actionId === approveId}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
+                onClick={confirmApprove}
+                disabled={previewLoading || actionId === approveId}
+              >
+                {actionId === approveId ? "Approving…" : "Approve"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {rejectId && (

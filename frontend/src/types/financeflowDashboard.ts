@@ -1,6 +1,10 @@
 export interface FinanceFlowDashboard {
   capital_added: string;
   available_capital: string;
+  ledger_capital?: string;
+  available_to_lend?: string;
+  capital_with_agents?: string;
+  profit_with_agents?: string;
   capital_currently_lent: string;
   principal_outstanding: string;
   profit_today: string;
@@ -18,4 +22,5 @@ export interface FinanceFlowDashboard {
   unsettled_with_agents: string;
   pending_settlement_count: number;
   pending_settlement_total: string;
+  over_lent_against_unsettled?: boolean;
 }

@@ -10,11 +10,7 @@ from backend.app.models.loan import Loan
 from backend.app.models.loan_schedule import LoanSchedule
 from backend.app.models.payment import Payment
 from backend.app.models.payment_allocation import PaymentAllocation
-from backend.app.services.capital_service import (
-    get_available_capital,
-    get_capital_lent,
-    get_total_capital_added,
-)
+from backend.app.services.capital_location_service import get_capital_location_summary
 from backend.app.services.collection_service import get_today_collections
 from backend.app.services.profit_service import (
     get_available_profit,
@@ -32,12 +28,10 @@ def get_financeflow_dashboard(
     start_of_day = datetime.combine(today, time.min)
     end_of_day = datetime.combine(today, time.max)
 
-    available_capital = get_available_capital(db, finance_owner_id)
-    total_capital_added = get_total_capital_added(
-        db,
-        __capital_account_id(db, finance_owner_id),
-    )
-    capital_lent = get_capital_lent(db, finance_owner_id)
+    location = get_capital_location_summary(db, finance_owner_id)
+    available_capital = location["available_to_lend"]
+    total_capital_added = location["total_capital_added"]
+    capital_lent = location["capital_currently_lent"]
     principal_outstanding = capital_lent
 
     available_profit = get_available_profit(db, finance_owner_id)
@@ -119,6 +113,10 @@ def get_financeflow_dashboard(
     return {
         "capital_added": total_capital_added,
         "available_capital": available_capital,
+        "ledger_capital": location["ledger_capital"],
+        "available_to_lend": location["available_to_lend"],
+        "capital_with_agents": location["capital_with_agents"],
+        "profit_with_agents": location["profit_with_agents"],
         "capital_currently_lent": capital_lent,
         "principal_outstanding": principal_outstanding,
         "profit_today": profit_today or ZERO,
@@ -136,11 +134,5 @@ def get_financeflow_dashboard(
         "unsettled_with_agents": unsettled_with_agents,
         "pending_settlement_count": pending_count,
         "pending_settlement_total": pending_total,
+        "over_lent_against_unsettled": location["over_lent_against_unsettled"],
     }
-
-
-def __capital_account_id(db: Session, finance_owner_id: int) -> int:
-    from backend.app.services.capital_service import get_or_create_capital_account
-
-    account = get_or_create_capital_account(db, finance_owner_id)
-    return account.id
