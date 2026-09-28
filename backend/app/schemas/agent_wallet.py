@@ -89,9 +89,11 @@ class AgentSettlementResponse(BaseModel):
     submitted_at: datetime
     reviewed_at: Optional[datetime] = None
     principal_unlocked: Optional[Decimal] = None
+    owner_account_principal: Optional[Decimal] = None
     profit_amount: Optional[Decimal] = None
     profit_reinvested: Optional[Decimal] = None
     reinvest_profit: Optional[bool] = None
+    landed_in_owner_account: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
 

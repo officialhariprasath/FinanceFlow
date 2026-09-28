@@ -33,6 +33,7 @@ class CapitalSummaryResponse(BaseModel):
     capital_with_agents: Decimal = Decimal("0.00")
     profit_with_agents: Decimal = Decimal("0.00")
     unsettled_with_agents: Decimal = Decimal("0.00")
+    owner_account_principal: Decimal = Decimal("0.00")
     capital_with_owner: Decimal = Decimal("0.00")
     total_capital_added: Decimal
     capital_currently_lent: Decimal = Decimal("0.00")

@@ -201,16 +201,24 @@ def split_settlement_amount(
 
 
 def get_available_to_lend(db: Session, finance_owner_id: int) -> Decimal:
+    from backend.app.services.owner_cash_service import get_owner_account_principal_reserved
+
     ledger = get_available_capital(db, finance_owner_id)
     split = unsettled_collection_split(db, finance_owner_id)
-    return (ledger - split["capital_with_agents"]).quantize(TWOPLACES)
+    owner_reserved = get_owner_account_principal_reserved(db, finance_owner_id)
+    return (ledger - split["capital_with_agents"] - owner_reserved).quantize(TWOPLACES)
 
 
 def get_capital_location_summary(db: Session, finance_owner_id: int) -> dict:
+    from backend.app.services.owner_cash_service import get_owner_account_principal_reserved
+
     account = get_or_create_capital_account(db, finance_owner_id)
     ledger_available = get_available_capital(db, finance_owner_id)
     split = unsettled_collection_split(db, finance_owner_id)
-    available_to_lend = (ledger_available - split["capital_with_agents"]).quantize(TWOPLACES)
+    owner_reserved = get_owner_account_principal_reserved(db, finance_owner_id)
+    available_to_lend = (
+        ledger_available - split["capital_with_agents"] - owner_reserved
+    ).quantize(TWOPLACES)
     capital_lent = get_capital_lent(db, finance_owner_id)
     total_added = get_total_capital_added(db, account.id)
 
@@ -221,6 +229,7 @@ def get_capital_location_summary(db: Session, finance_owner_id: int) -> dict:
         "capital_with_agents": split["capital_with_agents"],
         "profit_with_agents": split["profit_with_agents"],
         "unsettled_with_agents": split["unsettled_total"],
+        "owner_account_principal": owner_reserved,
         "capital_with_owner": available_to_lend,
         "total_capital_added": total_added,
         "capital_currently_lent": capital_lent,
