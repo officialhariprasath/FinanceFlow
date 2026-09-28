@@ -26,6 +26,7 @@ import CollectionsPage from "../pages/collections/CollectionsPage";
 import AgentsPage from "../pages/agents/AgentsPage";
 import AgentSettlementPage from "../pages/settlements/AgentSettlementPage";
 import OwnerSettlementsPage from "../pages/settlements/OwnerSettlementsPage";
+import OwnerAccountPage from "../pages/ownerAccount/OwnerAccountPage";
 
 export default function AppRouter() {
   return (
@@ -103,6 +104,16 @@ export default function AppRouter() {
         <Route
           path="/collections"
           element={<ProtectedRoute><CollectionsPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/owner-account"
+          element={
+            <ProtectedRoute>
+              <OwnerRoute>
+                <OwnerAccountPage />
+              </OwnerRoute>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/settlements"

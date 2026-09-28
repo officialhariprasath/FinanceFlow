@@ -19,6 +19,12 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/dashboard", label: "Dashboard", permission: "dashboard" },
       { to: "/collections", label: "Collections", permission: "collections" },
+      {
+        to: "/owner-account",
+        label: "Owner Account",
+        permission: "capital",
+        ownerOnly: true,
+      },
     ],
   },
   {
@@ -88,6 +94,7 @@ export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 export const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/collections": "Collections",
+  "/owner-account": "Owner Account",
   "/settlements": "My Settlement",
   "/customers": "Customers",
   "/loans": "Loans",

@@ -203,15 +203,12 @@ export default function OwnerSettlementsPage() {
     setActionId(approveId);
     try {
       const result = await approveSettlement(approveId, reinvestProfit);
-      const profitNote =
-        reinvestProfit && result.profit_reinvested
-          ? ` Profit ${fmt(result.profit_reinvested)} reinvested to capital.`
-          : " Profit kept in Available Profit.";
-      toast.success(
-        `Settlement approved. Principal unlocked${
-          result.principal_unlocked ? ` ${fmt(result.principal_unlocked)}` : ""
-        }.${profitNote}`
-      );
+      const note = reinvestProfit
+        ? ` Moved to Available Capital (principal ${fmt(
+            result.principal_unlocked || "0"
+          )}, profit reinvested ${fmt(result.profit_reinvested || "0")}).`
+        : " Credited to Owner Account — open Owner Account to move or withdraw.";
+      toast.success(`Settlement approved.${note}`);
       await load(true);
       refreshBadges();
     } catch (err: unknown) {
@@ -724,17 +721,17 @@ export default function OwnerSettlementsPage() {
                   <strong>
                     {fmt(approvePreview?.total_amount ?? pendingSettlement?.total_amount)}
                   </strong>
-                  . Agent wallet will be debited and principal unlocks into Available
-                  to lend.
+                  . Agent wallet will be debited and the money will enter your{" "}
+                  <strong>Owner Account</strong> (not Available Capital yet).
                 </p>
                 {approvePreview && (
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
-                    <p>Principal unlocking: {fmt(approvePreview.principal_amount)}</p>
-                    <p>Profit in this settlement: {fmt(approvePreview.profit_amount)}</p>
+                    <p>Principal to Owner Account: {fmt(approvePreview.principal_amount)}</p>
+                    <p>Profit to Owner Account: {fmt(approvePreview.profit_amount)}</p>
                   </div>
                 )}
                 <fieldset className="space-y-2">
-                  <legend className="font-medium">What should happen to the profit?</legend>
+                  <legend className="font-medium">After it lands in Owner Account?</legend>
                   <label className="flex items-start gap-2">
                     <input
                       type="radio"
@@ -743,7 +740,10 @@ export default function OwnerSettlementsPage() {
                       onChange={() => setReinvestProfit(false)}
                       className="mt-1"
                     />
-                    <span>Keep in Available Profit (can withdraw later)</span>
+                    <span>
+                      Leave in Owner Account (recommended) — allocate later from
+                      Owner Account page
+                    </span>
                   </label>
                   <label className="flex items-start gap-2">
                     <input
@@ -753,12 +753,14 @@ export default function OwnerSettlementsPage() {
                       onChange={() => setReinvestProfit(true)}
                       className="mt-1"
                     />
-                    <span>Reinvest profit into capital now (increases Available to lend)</span>
+                    <span>
+                      Auto-move to Available Capital now (principal + reinvest profit)
+                    </span>
                   </label>
                 </fieldset>
                 <p className="text-xs text-slate-500">
-                  Do not Add Capital again for this settlement amount — that causes
-                  double-counting.
+                  Do not use Add Capital for this settlement — use Owner Account
+                  actions instead.
                 </p>
               </div>
             )}

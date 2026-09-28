@@ -207,6 +207,13 @@ export default function DashboardPage() {
                 <DashboardCard title="Capital with agents" value={fmt(ffDashboard.capital_with_agents ?? "0")} onClick={() => navigate("/agent-settlements")} />
                 <DashboardCard title="Capital Lent" value={fmt(ffDashboard.capital_currently_lent)} />
               </div>
+              <button
+                type="button"
+                onClick={() => navigate("/owner-account")}
+                className="mt-3 text-sm font-medium text-blue-700 hover:underline dark:text-blue-300"
+              >
+                Open Owner Account → manage settlement cash, move to capital, withdraw
+              </button>
             </div>
 
             <div>

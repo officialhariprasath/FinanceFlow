@@ -25,6 +25,10 @@ from backend.app.models.agent_ledger_entry import AgentLedgerEntry
 from backend.app.models.agent_settlement import AgentSettlement
 from backend.app.models.agent_customer_assignment import AgentCustomerAssignment
 from backend.app.models.financeflow_extended import Expense, AuditLog, Notification, LoanWriteOff
+from backend.app.models.owner_cash_account import OwnerCashAccount, OwnerCashTransaction
+from backend.app.models.email_otp import EmailOtp
+from backend.app.models.loan_renewal import LoanRenewal
+from backend.app.models.finance_settings import FinanceSettings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

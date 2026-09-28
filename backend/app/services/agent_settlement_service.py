@@ -262,9 +262,9 @@ def preview_settlement_approval(
         "profit_amount": split["profit_amount"],
         "status": settlement.status,
         "message": (
-            "Approving unlocks the principal into Available to lend. "
-            "Choose whether to reinvest the profit portion into capital now, "
-            "or leave it in Available Profit."
+            "Approving credits this amount to your Owner Account "
+            "(separate from Available Capital). "
+            "Leave it there to allocate later, or auto-move to Available Capital now."
         ),
     }
 
@@ -309,6 +309,10 @@ def approve_settlement(
     split = split_settlement_amount(
         db, finance_owner_id, Decimal(settlement.total_amount)
     )
+    # Capture split BEFORE wallet debit / settlement completion so FIFO still
+    # treats this amount as unsettled while we attribute principal/profit.
+    principal_in = split["principal_amount"]
+    profit_in = split["profit_amount"]
 
     received_note = delivery_summary(
         settlement.delivery_method,
@@ -349,24 +353,100 @@ def approve_settlement(
             notes=f"Settlement approved. {received_note}",
         )
 
-    profit_reinvested = ZERO
-    if reinvest_profit and split["profit_amount"] > ZERO:
-        from backend.app.services.profit_operations_service import reinvest_profit
-        from backend.app.services.profit_service import get_available_profit
+    from backend.app.services.owner_cash_service import credit_settlement_to_owner_account
 
-        available_profit = get_available_profit(db, finance_owner_id)
-        to_reinvest = min(split["profit_amount"], available_profit)
-        if to_reinvest > ZERO:
-            reinvest_profit(
-                db,
-                finance_owner_id,
-                to_reinvest,
-                description=(
-                    f"Reinvest profit from settlement #{settlement.id} approval"
-                ),
-                commit=False,
+    # Land settlement into Owner Account (does not auto-increase Available to lend).
+    credit_settlement_to_owner_account(
+        db,
+        finance_owner_id,
+        owner_id,
+        settlement.id,
+        principal_in,
+        profit_in,
+        description=(
+            f"Settlement #{settlement.id} received — principal ₹{principal_in}, "
+            f"profit ₹{profit_in}. {received_note}"
+        ),
+    )
+
+    moved_to_capital = ZERO
+    profit_reinvested = ZERO
+    # Optional quick allocate on approve:
+    # reinvest_profit=True → move principal + profit into Available Capital now
+    # (profit path: Owner Account profit debit is not used; we move principal
+    # and call profit reinvest for the profit portion).
+    if reinvest_profit:
+        if principal_in > ZERO:
+            # move_to_available_capital commits — avoid that; inline reservation release
+            from backend.app.services.owner_cash_service import (
+                get_or_create_owner_cash_account,
+                _append_tx,
             )
-            profit_reinvested = to_reinvest
+            from backend.app.models.enums import (
+                LedgerDirection,
+                OwnerCashTransactionType,
+            )
+
+            account = get_or_create_owner_cash_account(db, finance_owner_id)
+            _append_tx(
+                db,
+                account,
+                finance_owner_id,
+                OwnerCashTransactionType.MOVE_TO_CAPITAL,
+                LedgerDirection.DEBIT,
+                principal_amount=principal_in,
+                profit_amount=ZERO,
+                description=(
+                    f"Auto-moved principal from settlement #{settlement.id} "
+                    "to Available Capital on approve"
+                ),
+                created_by=owner_id,
+                reference_type="AGENT_SETTLEMENT",
+                reference_id=settlement.id,
+            )
+            moved_to_capital = principal_in
+        if profit_in > ZERO:
+            from backend.app.services.profit_operations_service import reinvest_profit
+            from backend.app.services.profit_service import get_available_profit
+            from backend.app.services.owner_cash_service import (
+                get_or_create_owner_cash_account,
+                _append_tx,
+            )
+            from backend.app.models.enums import (
+                LedgerDirection,
+                OwnerCashTransactionType,
+            )
+
+            available_profit = get_available_profit(db, finance_owner_id)
+            to_reinvest = min(profit_in, available_profit)
+            if to_reinvest > ZERO:
+                account = get_or_create_owner_cash_account(db, finance_owner_id)
+                _append_tx(
+                    db,
+                    account,
+                    finance_owner_id,
+                    OwnerCashTransactionType.MOVE_TO_CAPITAL,
+                    LedgerDirection.DEBIT,
+                    principal_amount=ZERO,
+                    profit_amount=to_reinvest,
+                    description=(
+                        f"Auto-moved profit from settlement #{settlement.id} "
+                        "into capital (reinvest) on approve"
+                    ),
+                    created_by=owner_id,
+                    reference_type="AGENT_SETTLEMENT",
+                    reference_id=settlement.id,
+                )
+                reinvest_profit(
+                    db,
+                    finance_owner_id,
+                    to_reinvest,
+                    description=(
+                        f"Reinvest profit from settlement #{settlement.id} approval"
+                    ),
+                    commit=False,
+                )
+                profit_reinvested = to_reinvest
 
     from datetime import datetime
 
@@ -377,11 +457,16 @@ def approve_settlement(
     from backend.app.services.audit_service import log_audit
     from backend.app.services.notification_service import create_notification
 
-    reinvest_note = (
-        f" Profit ₹{profit_reinvested} reinvested to capital."
-        if profit_reinvested > ZERO
-        else " Profit kept in Available Profit."
-    )
+    if reinvest_profit:
+        allocate_note = (
+            f" Auto-allocated to Available Capital "
+            f"(principal ₹{moved_to_capital}, profit reinvested ₹{profit_reinvested})."
+        )
+    else:
+        allocate_note = (
+            " Credited to Owner Account — open Owner Account to move to capital "
+            "or withdraw."
+        )
     log_audit(
         db,
         finance_owner_id,
@@ -390,7 +475,8 @@ def approve_settlement(
         entity_id=settlement.id,
         details=(
             f"Approved settlement #{settlement.id} for ₹{settlement.total_amount}. "
-            f"Principal unlocked ₹{split['principal_amount']}.{reinvest_note} {received_note}"
+            f"Owner Account + principal ₹{principal_in}, profit ₹{profit_in}."
+            f"{allocate_note} {received_note}"
         ),
         actor_type="owner",
         actor_id=owner_id,
@@ -410,10 +496,12 @@ def approve_settlement(
     payload = settlement_to_dict(settlement)
     payload.update(
         {
-            "principal_unlocked": split["principal_amount"],
-            "profit_amount": split["profit_amount"],
+            "principal_unlocked": moved_to_capital,
+            "owner_account_principal": principal_in,
+            "profit_amount": profit_in,
             "profit_reinvested": profit_reinvested,
             "reinvest_profit": reinvest_profit,
+            "landed_in_owner_account": True,
         }
     )
     return payload
