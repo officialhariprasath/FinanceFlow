@@ -16,8 +16,8 @@ from backend.app.schemas.loan import (
     LoanStatementPaymentResponse,
     LoanStatementResponse,
 )
+from backend.app.services.capital_location_service import get_available_to_lend
 from backend.app.services.capital_service import (
-    get_available_capital,
     record_loan_disbursement,
 )
 from backend.app.services.schedule_service import generate_installment_schedule
@@ -48,12 +48,15 @@ def create_loan(
         )
 
     principal = loan.principal_amount.quantize(TWOPLACES)
-    available = get_available_capital(db, finance_owner_id)
+    available = get_available_to_lend(db, finance_owner_id)
 
     if principal > available:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Insufficient available capital.",
+            detail=(
+                f"Insufficient available capital to lend. Available to lend: {available}. "
+                "Principal still with agents is not lendable until settlement is approved."
+            ),
         )
 
     collection_model = loan.collection_model or CollectionModel.STANDARD.value

@@ -4,13 +4,20 @@ import ScrollableTable from "../../components/common/ScrollableTable";
 import MainLayout from "../../components/layout/MainLayout";
 import DashboardCard from "../../components/dashboard/DashboardCard";
 import { PageError, PageLoading } from "../../components/common/PageStates";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import {
   addCapital,
+  applySettlementRecycleRepair,
   getCapitalSummary,
   getCapitalTransactions,
+  previewSettlementRecycleRepair,
 } from "../../services/capitalService";
 import { withdrawCapital } from "../../services/extendedService";
-import type { CapitalSummary, CapitalTransaction } from "../../types/capital";
+import type {
+  CapitalRepairPreview,
+  CapitalSummary,
+  CapitalTransaction,
+} from "../../types/capital";
 import { fmt } from "../../utils/fmt";
 import { useToast } from "../../context/ToastContext";
 
@@ -20,7 +27,7 @@ function formatType(type: string): string {
 
 function formatDirection(direction: string, amount: string): string {
   const prefix = direction === "CREDIT" ? "+" : "-";
-  return `${prefix}${fmt(amount).replace("₹", "₹")}`;
+  return `${prefix}${fmt(amount)}`;
 }
 
 export default function CapitalPage() {
@@ -35,17 +42,25 @@ export default function CapitalPage() {
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmRecycle, setConfirmRecycle] = useState(false);
+  const [repairPreview, setRepairPreview] = useState<CapitalRepairPreview | null>(
+    null
+  );
+  const [showRepairConfirm, setShowRepairConfirm] = useState(false);
+  const [repairing, setRepairing] = useState(false);
 
   async function loadCapital() {
     try {
       setLoading(true);
       setError("");
-      const [summaryData, transactionData] = await Promise.all([
+      const [summaryData, transactionData, repair] = await Promise.all([
         getCapitalSummary(),
         getCapitalTransactions(),
+        previewSettlementRecycleRepair().catch(() => null),
       ]);
       setSummary(summaryData);
       setTransactions(transactionData.transactions);
+      setRepairPreview(repair);
     } catch {
       setError("Failed to load capital data.");
     } finally {
@@ -98,20 +113,41 @@ export default function CapitalPage() {
       await addCapital({
         amount: parsed.toFixed(2),
         description: description.trim() || undefined,
+        confirm_settlement_recycle: confirmRecycle || undefined,
       });
       setAmount("");
       setDescription("");
+      setConfirmRecycle(false);
       setShowForm(false);
       await loadCapital();
       toast.success("Capital added successfully.");
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })
         ?.response?.data?.detail;
-      setFormError(
-        typeof detail === "string" ? detail : "Failed to add capital."
-      );
+      const message =
+        typeof detail === "string" ? detail : "Failed to add capital.";
+      setFormError(message);
+      if (message.toLowerCase().includes("settlement")) {
+        setConfirmRecycle(false);
+      }
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function runRepair() {
+    try {
+      setRepairing(true);
+      const result = await applySettlementRecycleRepair();
+      setShowRepairConfirm(false);
+      await loadCapital();
+      toast.success(result.message || "Capital repair applied.");
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : "Repair failed.");
+    } finally {
+      setRepairing(false);
     }
   }
 
@@ -131,14 +167,20 @@ export default function CapitalPage() {
     );
   }
 
+  const availableToLend =
+    summary?.available_to_lend ?? summary?.available_capital ?? "0";
+
   return (
     <MainLayout>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Capital</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">
+              Capital
+            </h1>
             <p className="text-sm text-gray-500 dark:text-slate-400">
-              Ledger-backed money available for lending
+              Available to lend excludes principal still with agents. Approve
+              settlements to unlock — do not Add Capital for the same money.
             </p>
           </div>
           <div className="flex gap-2">
@@ -156,6 +198,7 @@ export default function CapitalPage() {
               type="button"
               onClick={() => {
                 setFormError("");
+                setConfirmRecycle(false);
                 setShowForm(true);
               }}
               className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
@@ -165,26 +208,79 @@ export default function CapitalPage() {
           </div>
         </div>
 
+        {summary?.over_lent_against_unsettled && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+            Lending capacity is below unsettled agent principal. Approve agent
+            settlements before creating new loans.
+          </div>
+        )}
+
+        {repairPreview?.repair_needed && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/40">
+            <p className="font-semibold text-red-900 dark:text-red-100">
+              Double-counted capital detected
+            </p>
+            <p className="mt-1 text-sm text-red-800 dark:text-red-200">
+              {repairPreview.message}
+            </p>
+            <ul className="mt-2 list-disc pl-5 text-sm text-red-800 dark:text-red-200">
+              {repairPreview.entries.map((e) => (
+                <li key={e.capital_transaction_id}>
+                  #{e.capital_transaction_id}: {fmt(e.amount)} —{" "}
+                  {e.description || "Add Capital"}
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={() => setShowRepairConfirm(true)}
+              className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800"
+            >
+              Repair ₹{repairPreview.total_to_reverse} (safe for loans)
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <DashboardCard title="Available to lend" value={fmt(availableToLend)} />
           <DashboardCard
-            title="Available Capital"
-            value={fmt(summary?.available_capital)}
+            title="Capital with agents"
+            value={fmt(summary?.capital_with_agents ?? "0")}
           />
           <DashboardCard
-            title="Total Capital Added"
+            title="Profit with agents"
+            value={fmt(summary?.profit_with_agents ?? "0")}
+          />
+          <DashboardCard
+            title="Unsettled with agents"
+            value={fmt(summary?.unsettled_with_agents ?? "0")}
+          />
+          <DashboardCard
+            title="Total capital added"
             value={fmt(summary?.total_capital_added)}
           />
           <DashboardCard
-            title="Ledger Entries"
+            title="Currently lent"
+            value={fmt(summary?.capital_currently_lent)}
+          />
+          <DashboardCard
+            title="Ledger capital (book)"
+            value={fmt(summary?.ledger_capital ?? summary?.available_capital)}
+          />
+          <DashboardCard
+            title="Ledger entries"
             value={summary?.transaction_count ?? 0}
           />
         </div>
 
         {showWithdraw && (
           <div className="surface-card p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Withdraw Capital</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">
+              Withdraw Capital
+            </h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-              Reduces available lending capital. Cannot exceed available balance.
+              Only from Available to lend. Cannot withdraw money still with
+              agents.
             </p>
             <form onSubmit={handleWithdrawCapital} className="mt-4 space-y-4">
               <div>
@@ -235,9 +331,13 @@ export default function CapitalPage() {
 
         {showForm && (
           <div className="surface-card p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Add Capital</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">
+              Add Capital
+            </h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-              Record money the owner puts into the business.
+              Use only for <strong>new external money</strong>. Agent settlement
+              approval already unlocks collected principal — do not add the same
+              amount again.
             </p>
             <form onSubmit={handleAddCapital} className="mt-4 space-y-4">
               <div>
@@ -264,11 +364,27 @@ export default function CapitalPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  placeholder="Initial business capital"
+                  placeholder="External capital / finance approval"
                 />
               </div>
               {formError && (
-                <p className="text-sm text-red-600">{formError}</p>
+                <div className="space-y-2">
+                  <p className="text-sm text-red-600">{formError}</p>
+                  {formError.toLowerCase().includes("settlement") && (
+                    <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={confirmRecycle}
+                        onChange={(e) => setConfirmRecycle(e.target.checked)}
+                        className="mt-1"
+                      />
+                      <span>
+                        I confirm this is brand-new external capital, not the
+                        settlement I just approved. Allow Add Capital.
+                      </span>
+                    </label>
+                  )}
+                </div>
               )}
               <div className="flex gap-3">
                 <button
@@ -281,7 +397,7 @@ export default function CapitalPage() {
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="rounded-lg border px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700"
+                  className="rounded-lg border px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-300"
                 >
                   Cancel
                 </button>
@@ -290,70 +406,56 @@ export default function CapitalPage() {
           </div>
         )}
 
-        <div className="surface-card">
-          <div className="border-b px-6 py-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">
-              Capital Ledger
+        <div className="surface-card overflow-hidden">
+          <div className="border-b px-4 py-3">
+            <h2 className="font-semibold text-gray-900 dark:text-slate-100">
+              Capital ledger
             </h2>
-            <p className="text-sm text-gray-500 dark:text-slate-400">
-              Every balance is derived from these transactions.
-            </p>
           </div>
-          {transactions.length === 0 ? (
-            <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-slate-400">
-              No capital transactions yet. Add capital to start the ledger.
-            </div>
-          ) : (
-            <>
-            <p className="table-scroll-hint">Swipe sideways to see all columns</p>
-            <ScrollableTable>
-              <table className="data-table table-wide-lg text-sm">
-                <thead className="table-head">
-                  <tr>
-                    <th className="px-6 py-3 text-left font-medium text-gray-500 dark:text-slate-400">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left font-medium text-gray-500 dark:text-slate-400">
-                      Type
-                    </th>
-                    <th className="px-6 py-3 text-left font-medium text-gray-500 dark:text-slate-400">
-                      Amount
-                    </th>
-                    <th className="px-6 py-3 text-left font-medium text-gray-500 dark:text-slate-400">
-                      Balance After
-                    </th>
-                    <th className="px-6 py-3 text-left font-medium text-gray-500 dark:text-slate-400">
-                      Description
-                    </th>
+          <ScrollableTable>
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800/60">
+                <tr>
+                  <th className="px-4 py-3 text-left">Date</th>
+                  <th className="px-4 py-3 text-left">Type</th>
+                  <th className="px-4 py-3 text-left">Description</th>
+                  <th className="px-4 py-3 text-right">Amount</th>
+                  <th className="px-4 py-3 text-right">Ledger after</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                {transactions.map((tx) => (
+                  <tr key={tx.id}>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {new Date(tx.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3">{formatType(tx.type)}</td>
+                    <td className="px-4 py-3">{tx.description || "—"}</td>
+                    <td className="px-4 py-3 text-right font-medium">
+                      {formatDirection(tx.direction, tx.amount)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {fmt(tx.balance_after)}
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-800">
-                  {transactions.map((tx) => (
-                    <tr key={tx.id}>
-                      <td className="px-6 py-3 text-gray-700 dark:text-slate-300">
-                        {new Date(tx.created_at).toLocaleString("en-IN")}
-                      </td>
-                      <td className="px-6 py-3 text-gray-700 dark:text-slate-300">
-                        {formatType(tx.type)}
-                      </td>
-                      <td className="px-6 py-3 font-medium text-gray-900 dark:text-slate-100">
-                        {formatDirection(tx.direction, tx.amount)}
-                      </td>
-                      <td className="px-6 py-3 text-gray-700 dark:text-slate-300">
-                        {fmt(tx.balance_after)}
-                      </td>
-                      <td className="px-6 py-3 text-gray-600 dark:text-slate-400">
-                        {tx.description || "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </ScrollableTable>
-            </>
-          )}
+                ))}
+              </tbody>
+            </table>
+          </ScrollableTable>
         </div>
       </div>
+
+      {showRepairConfirm && repairPreview && (
+        <ConfirmModal
+          title="Repair double-counted capital?"
+          message={`This reverses ₹${repairPreview.total_to_reverse} of Add Capital that recycled approved settlements. Loans, customers, payments, and agent wallets are not changed.`}
+          confirmLabel="Apply repair"
+          confirmClass="bg-red-700 hover:bg-red-800"
+          loading={repairing}
+          onConfirm={runRepair}
+          onCancel={() => setShowRepairConfirm(false)}
+        />
+      )}
     </MainLayout>
   );
 }

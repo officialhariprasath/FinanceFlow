@@ -11,10 +11,13 @@ from backend.app.schemas.capital import (
     CapitalTransactionListResponse,
     CapitalTransactionResponse,
 )
+from backend.app.services.capital_repair_service import (
+    apply_settlement_recycle_repair,
+    preview_settlement_recycle_repair,
+)
 from backend.app.services.capital_service import (
     add_capital,
     get_capital_summary,
-    get_available_capital,
     list_capital_transactions,
 )
 
@@ -43,12 +46,14 @@ def list_capital_transactions_endpoint(
     db: Session = Depends(get_db),
     ctx: AuthContext = Depends(require_permissions(["capital"])),
 ):
-    account, transactions = list_capital_transactions(db, ctx.finance_owner_id)
-    available = get_available_capital(db, ctx.finance_owner_id)
+    summary = get_capital_summary(db, ctx.finance_owner_id)
+    _, transactions = list_capital_transactions(db, ctx.finance_owner_id)
 
     return {
         "transactions": transactions,
-        "available_capital": available,
+        "available_capital": summary["available_to_lend"],
+        "available_to_lend": summary["available_to_lend"],
+        "capital_with_agents": summary["capital_with_agents"],
     }
 
 
@@ -67,3 +72,19 @@ def add_capital_endpoint(
         finance_owner_id=current_owner.id,
         payload=payload,
     )
+
+
+@router.get("/repair/settlement-recycle")
+def preview_recycle_repair(
+    db: Session = Depends(get_db),
+    owner: FinanceOwner = Depends(get_current_finance_owner),
+):
+    return preview_settlement_recycle_repair(db, owner.id)
+
+
+@router.post("/repair/settlement-recycle")
+def apply_recycle_repair(
+    db: Session = Depends(get_db),
+    owner: FinanceOwner = Depends(get_current_finance_owner),
+):
+    return apply_settlement_recycle_repair(db, owner.id, owner.id)

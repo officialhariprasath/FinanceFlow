@@ -1,6 +1,7 @@
 import api from "../api/axios";
 import type {
   CapitalAddRequest,
+  CapitalRepairPreview,
   CapitalSummary,
   CapitalTransaction,
   CapitalTransactionList,
@@ -20,5 +21,19 @@ export async function addCapital(
   payload: CapitalAddRequest
 ): Promise<CapitalTransaction> {
   const response = await api.post<CapitalTransaction>("/capital/add", payload);
+  return response.data;
+}
+
+export async function previewSettlementRecycleRepair(): Promise<CapitalRepairPreview> {
+  const response = await api.get<CapitalRepairPreview>(
+    "/capital/repair/settlement-recycle"
+  );
+  return response.data;
+}
+
+export async function applySettlementRecycleRepair(): Promise<CapitalRepairPreview> {
+  const response = await api.post<CapitalRepairPreview>(
+    "/capital/repair/settlement-recycle"
+  );
   return response.data;
 }

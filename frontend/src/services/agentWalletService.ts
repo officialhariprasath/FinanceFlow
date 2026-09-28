@@ -3,6 +3,7 @@ import type {
   AgentDashboard,
   AgentLedgerEntry,
   AgentSettlement,
+  AgentSettlementApprovalPreview,
   AgentSettlementCreate,
   AgentWalletBalance,
 } from "../types/agentWallet";
@@ -51,8 +52,22 @@ export async function getAllSettlements(status?: string): Promise<AgentSettlemen
   return r.data;
 }
 
-export async function approveSettlement(id: number): Promise<AgentSettlement> {
-  const r = await api.post<AgentSettlement>(`/agent-settlements/${id}/approve`);
+export async function getSettlementApprovePreview(
+  id: number
+): Promise<AgentSettlementApprovalPreview> {
+  const r = await api.get<AgentSettlementApprovalPreview>(
+    `/agent-settlements/${id}/approve-preview`
+  );
+  return r.data;
+}
+
+export async function approveSettlement(
+  id: number,
+  reinvestProfit = false
+): Promise<AgentSettlement> {
+  const r = await api.post<AgentSettlement>(`/agent-settlements/${id}/approve`, {
+    reinvest_profit: reinvestProfit,
+  });
   return r.data;
 }
 

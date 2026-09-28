@@ -233,12 +233,50 @@ def list_all_settlements(db: Session, finance_owner_id: int, status_filter: str 
     return q.order_by(AgentSettlement.submitted_at.desc()).all()
 
 
+def preview_settlement_approval(
+    db: Session,
+    settlement_id: int,
+    finance_owner_id: int,
+) -> dict:
+    settlement = (
+        db.query(AgentSettlement)
+        .filter(
+            AgentSettlement.id == settlement_id,
+            AgentSettlement.finance_owner_id == finance_owner_id,
+        )
+        .first()
+    )
+    if settlement is None:
+        raise HTTPException(status_code=404, detail="Settlement not found.")
+
+    from backend.app.services.capital_location_service import split_settlement_amount
+
+    split = split_settlement_amount(
+        db, finance_owner_id, Decimal(settlement.total_amount)
+    )
+    return {
+        "settlement_id": settlement.id,
+        "agent_id": settlement.agent_id,
+        "total_amount": Decimal(settlement.total_amount).quantize(TWOPLACES),
+        "principal_amount": split["principal_amount"],
+        "profit_amount": split["profit_amount"],
+        "status": settlement.status,
+        "message": (
+            "Approving unlocks the principal into Available to lend. "
+            "Choose whether to reinvest the profit portion into capital now, "
+            "or leave it in Available Profit."
+        ),
+    }
+
+
 def approve_settlement(
     db: Session,
     settlement_id: int,
     finance_owner_id: int,
     owner_id: int,
-) -> AgentSettlement:
+    *,
+    reinvest_profit: bool = False,
+) -> dict:
     settlement = (
         db.query(AgentSettlement)
         .filter(
@@ -265,6 +303,12 @@ def approve_settlement(
         raise HTTPException(status_code=400, detail="Insufficient agent UPI balance.")
     if settlement.other_amount > balances["other_balance"]:
         raise HTTPException(status_code=400, detail="Insufficient agent other balance.")
+
+    from backend.app.services.capital_location_service import split_settlement_amount
+
+    split = split_settlement_amount(
+        db, finance_owner_id, Decimal(settlement.total_amount)
+    )
 
     received_note = delivery_summary(
         settlement.delivery_method,
@@ -305,6 +349,25 @@ def approve_settlement(
             notes=f"Settlement approved. {received_note}",
         )
 
+    profit_reinvested = ZERO
+    if reinvest_profit and split["profit_amount"] > ZERO:
+        from backend.app.services.profit_operations_service import reinvest_profit
+        from backend.app.services.profit_service import get_available_profit
+
+        available_profit = get_available_profit(db, finance_owner_id)
+        to_reinvest = min(split["profit_amount"], available_profit)
+        if to_reinvest > ZERO:
+            reinvest_profit(
+                db,
+                finance_owner_id,
+                to_reinvest,
+                description=(
+                    f"Reinvest profit from settlement #{settlement.id} approval"
+                ),
+                commit=False,
+            )
+            profit_reinvested = to_reinvest
+
     from datetime import datetime
 
     settlement.status = SettlementStatus.COMPLETED.value
@@ -314,13 +377,21 @@ def approve_settlement(
     from backend.app.services.audit_service import log_audit
     from backend.app.services.notification_service import create_notification
 
+    reinvest_note = (
+        f" Profit ₹{profit_reinvested} reinvested to capital."
+        if profit_reinvested > ZERO
+        else " Profit kept in Available Profit."
+    )
     log_audit(
         db,
         finance_owner_id,
         action="SETTLEMENT_APPROVED",
         entity_type="agent_settlement",
         entity_id=settlement.id,
-        details=f"Approved settlement #{settlement.id} for ₹{settlement.total_amount}. {received_note}",
+        details=(
+            f"Approved settlement #{settlement.id} for ₹{settlement.total_amount}. "
+            f"Principal unlocked ₹{split['principal_amount']}.{reinvest_note} {received_note}"
+        ),
         actor_type="owner",
         actor_id=owner_id,
     )
@@ -336,7 +407,16 @@ def approve_settlement(
 
     db.commit()
     db.refresh(settlement)
-    return settlement
+    payload = settlement_to_dict(settlement)
+    payload.update(
+        {
+            "principal_unlocked": split["principal_amount"],
+            "profit_amount": split["profit_amount"],
+            "profit_reinvested": profit_reinvested,
+            "reinvest_profit": reinvest_profit,
+        }
+    )
+    return payload
 
 
 def reject_settlement(

@@ -6,6 +6,8 @@ from backend.app.core.auth_context import AuthContext
 from backend.app.database.deps import get_db
 from backend.app.models.finance_owner import FinanceOwner
 from backend.app.schemas.agent_wallet import (
+    AgentSettlementApproveRequest,
+    AgentSettlementApprovalPreview,
     AgentSettlementCreate,
     AgentSettlementReject,
     AgentSettlementResponse,
@@ -16,6 +18,7 @@ from backend.app.services.agent_settlement_service import (
     list_all_settlements,
     list_pending_settlements,
     list_settlements_for_agent,
+    preview_settlement_approval,
     reject_settlement,
     settlement_to_dict,
 )
@@ -84,14 +87,32 @@ def all_settlements(
     return [settlement_to_dict(s, agent.full_name) for s, agent in rows]
 
 
-@router.post("/{settlement_id}/approve", response_model=AgentSettlementResponse)
-def approve_settlement_endpoint(
+@router.get(
+    "/{settlement_id}/approve-preview",
+    response_model=AgentSettlementApprovalPreview,
+)
+def approve_preview_endpoint(
     settlement_id: int,
     db: Session = Depends(get_db),
     owner: FinanceOwner = Depends(get_current_finance_owner),
 ):
-    settlement = approve_settlement(db, settlement_id, owner.id, owner.id)
-    return settlement_to_dict(settlement)
+    return preview_settlement_approval(db, settlement_id, owner.id)
+
+
+@router.post("/{settlement_id}/approve", response_model=AgentSettlementResponse)
+def approve_settlement_endpoint(
+    settlement_id: int,
+    payload: AgentSettlementApproveRequest = AgentSettlementApproveRequest(),
+    db: Session = Depends(get_db),
+    owner: FinanceOwner = Depends(get_current_finance_owner),
+):
+    return approve_settlement(
+        db,
+        settlement_id,
+        owner.id,
+        owner.id,
+        reinvest_profit=payload.reinvest_profit,
+    )
 
 
 @router.post("/{settlement_id}/reject", response_model=AgentSettlementResponse)
