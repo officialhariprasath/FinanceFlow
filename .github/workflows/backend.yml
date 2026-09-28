@@ -29,3 +29,11 @@ jobs:
       - name: Verify Backend
         run: |
           python -m compileall backend
+
+      - name: Verify single Alembic head
+        env:
+          DATABASE_URL: postgresql+psycopg2://u:p@localhost/db
+        run: |
+          heads=$(python -m alembic heads)
+          echo "$heads"
+          test "$(echo "$heads" | wc -l)" -eq 1

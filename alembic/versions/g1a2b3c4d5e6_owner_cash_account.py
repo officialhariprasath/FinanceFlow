@@ -1,7 +1,7 @@
 """owner cash / settlement account
 
 Revision ID: g1a2b3c4d5e6
-Revises: c3d4e5f6a7b9
+Revises: d4e5f6a7b8c0
 Create Date: 2026-09-28
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = "g1a2b3c4d5e6"
-down_revision: Union[str, None] = "c3d4e5f6a7b9"
+down_revision: Union[str, None] = "d4e5f6a7b8c0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
