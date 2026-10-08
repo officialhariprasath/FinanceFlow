@@ -393,6 +393,11 @@ export default function CollectionsPage() {
                           Includes {fmt(item.overdue_pending_amount)} overdue arrears
                         </p>
                       )}
+                      {Number(item.penalty_outstanding ?? 0) > 0.009 && (
+                        <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+                          Includes {fmt(item.penalty_outstanding)} penalty
+                        </p>
+                      )}
                       <div className="mt-3">
                         <CollectionRowActions
                           item={item}
@@ -450,6 +455,11 @@ export default function CollectionsPage() {
                               {overdueAmt > 0 && (
                                 <div className="text-xs text-red-600">
                                   incl. {fmt(item.overdue_pending_amount)} overdue
+                                </div>
+                              )}
+                              {Number(item.penalty_outstanding ?? 0) > 0.009 && (
+                                <div className="text-xs text-amber-700 dark:text-amber-300">
+                                  incl. {fmt(item.penalty_outstanding)} penalty
                                 </div>
                               )}
                             </td>

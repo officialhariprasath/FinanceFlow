@@ -5,6 +5,7 @@ export interface FinanceFlowDashboard {
   available_to_lend?: string;
   capital_with_agents?: string;
   profit_with_agents?: string;
+  penalty_with_agents?: string;
   capital_currently_lent: string;
   principal_outstanding: string;
   profit_today: string;

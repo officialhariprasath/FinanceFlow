@@ -101,7 +101,8 @@ def get_reconciliation(db: Session, finance_owner_id: int):
         notes = (
             f"₹{unsettled_agents} still with agents "
             f"(principal ₹{location['capital_with_agents']}, "
-            f"profit ₹{location['profit_with_agents']}). "
+            f"profit ₹{location['profit_with_agents']}, "
+            f"penalty ₹{location['penalty_with_agents']}). "
             "Settle to unlock Available to lend."
         )
     if location["over_lent_against_unsettled"]:
@@ -115,6 +116,7 @@ def get_reconciliation(db: Session, finance_owner_id: int):
         "ledger_capital": location["ledger_capital"],
         "capital_with_agents": location["capital_with_agents"],
         "profit_with_agents": location["profit_with_agents"],
+        "penalty_with_agents": location["penalty_with_agents"],
         "capital_lent": get_capital_lent(db, finance_owner_id),
         "total_capital_added": get_total_capital_added(db, cap_account.id),
         "profit_available": profit_available,

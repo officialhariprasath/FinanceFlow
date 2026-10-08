@@ -728,6 +728,10 @@ export default function OwnerSettlementsPage() {
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
                     <p>Principal to Owner Account: {fmt(approvePreview.principal_amount)}</p>
                     <p>Profit to Owner Account: {fmt(approvePreview.profit_amount)}</p>
+                    <p>
+                      Penalty to Owner Account:{" "}
+                      {fmt(approvePreview.penalty_amount ?? "0")}
+                    </p>
                   </div>
                 )}
                 <fieldset className="space-y-2">

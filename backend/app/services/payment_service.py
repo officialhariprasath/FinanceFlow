@@ -19,7 +19,10 @@ from backend.app.services.penalty_service import (
     compute_loan_payables_for_loan,
     ensure_loan_penalty_from_settings,
 )
-from backend.app.services.profit_service import record_profit_recognition
+from backend.app.services.profit_service import (
+    record_penalty_recognition,
+    record_profit_recognition,
+)
 from backend.app.services.schedule_service import (
     get_open_schedules_for_loan,
     get_schedule_for_payment,
@@ -491,6 +494,15 @@ def _create_daily_collection_payment(
             loan_id=loan.id,
             payment_id=db_payment.id,
             amount=total_profit,
+        )
+
+    if total_penalty > ZERO:
+        record_penalty_recognition(
+            db=db,
+            finance_owner_id=finance_owner_id,
+            loan_id=loan.id,
+            payment_id=db_payment.id,
+            amount=total_penalty,
         )
 
     if collected_by_agent_id is not None:

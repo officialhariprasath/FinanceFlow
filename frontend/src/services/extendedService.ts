@@ -50,6 +50,7 @@ export interface Reconciliation {
   ledger_capital?: string;
   capital_with_agents?: string;
   profit_with_agents?: string;
+  penalty_with_agents?: string;
   capital_lent: string;
   total_capital_added: string;
   profit_available: string;

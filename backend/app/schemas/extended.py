@@ -77,6 +77,7 @@ class ReconciliationResponse(BaseModel):
     ledger_capital: Decimal = Decimal("0")
     capital_with_agents: Decimal = Decimal("0")
     profit_with_agents: Decimal = Decimal("0")
+    penalty_with_agents: Decimal = Decimal("0")
     capital_lent: Decimal
     total_capital_added: Decimal
     profit_available: Decimal

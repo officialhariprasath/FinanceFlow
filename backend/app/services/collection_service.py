@@ -161,6 +161,16 @@ def get_today_collections(
 
         pending_amount = (today_pending + overdue_pending).quantize(TWOPLACES)
 
+        from backend.app.services.penalty_service import compute_loan_payables_for_loan
+
+        payables = compute_loan_payables_for_loan(
+            loan, all_schedules, as_of=target_date, settings=settings
+        )
+        penalty_outstanding = sum(
+            (p.penalty_outstanding for p in payables.values()),
+            ZERO,
+        ).quantize(TWOPLACES)
+
         # Skip fully settled loans with no arrears and nothing due today.
         if today_schedule is None and pending_amount <= ZERO:
             continue
@@ -184,6 +194,7 @@ def get_today_collections(
                 "overdue_pending_amount": overdue_pending,
                 "expected_principal": expected_principal,
                 "expected_profit": expected_profit,
+                "penalty_outstanding": penalty_outstanding,
                 "status": status_label,
                 "is_assigned_to_agent": is_assigned,
             }

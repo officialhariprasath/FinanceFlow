@@ -260,11 +260,14 @@ def preview_settlement_approval(
         "total_amount": Decimal(settlement.total_amount).quantize(TWOPLACES),
         "principal_amount": split["principal_amount"],
         "profit_amount": split["profit_amount"],
+        "penalty_amount": split["penalty_amount"],
         "status": settlement.status,
         "message": (
             "Approving credits this amount to your Owner Account "
             "(separate from Available Capital). "
-            "Leave it there to allocate later, or auto-move to Available Capital now."
+            "Principal, profit, and penalty land in separate buckets. "
+            "Leave them there to allocate later, or auto-move principal/profit "
+            "to Available Capital now (penalty stays until you withdraw/reinvest it)."
         ),
     }
 
@@ -310,9 +313,10 @@ def approve_settlement(
         db, finance_owner_id, Decimal(settlement.total_amount)
     )
     # Capture split BEFORE wallet debit / settlement completion so FIFO still
-    # treats this amount as unsettled while we attribute principal/profit.
+    # treats this amount as unsettled while we attribute principal/profit/penalty.
     principal_in = split["principal_amount"]
     profit_in = split["profit_amount"]
+    penalty_in = split["penalty_amount"]
 
     received_note = delivery_summary(
         settlement.delivery_method,
@@ -365,8 +369,9 @@ def approve_settlement(
         profit_in,
         description=(
             f"Settlement #{settlement.id} received — principal ₹{principal_in}, "
-            f"profit ₹{profit_in}. {received_note}"
+            f"profit ₹{profit_in}, penalty ₹{penalty_in}. {received_note}"
         ),
+        penalty_amount=penalty_in,
     )
 
     moved_to_capital = ZERO
@@ -475,7 +480,8 @@ def approve_settlement(
         entity_id=settlement.id,
         details=(
             f"Approved settlement #{settlement.id} for ₹{settlement.total_amount}. "
-            f"Owner Account + principal ₹{principal_in}, profit ₹{profit_in}."
+            f"Owner Account + principal ₹{principal_in}, profit ₹{profit_in}, "
+            f"penalty ₹{penalty_in}."
             f"{allocate_note} {received_note}"
         ),
         actor_type="owner",
@@ -499,6 +505,7 @@ def approve_settlement(
             "principal_unlocked": moved_to_capital,
             "owner_account_principal": principal_in,
             "profit_amount": profit_in,
+            "penalty_amount": penalty_in,
             "profit_reinvested": profit_reinvested,
             "reinvest_profit": reinvest_profit,
             "landed_in_owner_account": True,

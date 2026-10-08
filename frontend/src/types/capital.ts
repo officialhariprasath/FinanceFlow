@@ -4,6 +4,7 @@ export interface CapitalSummary {
   available_to_lend?: string;
   capital_with_agents?: string;
   profit_with_agents?: string;
+  penalty_with_agents?: string;
   unsettled_with_agents?: string;
   capital_with_owner?: string;
   total_capital_added: string;

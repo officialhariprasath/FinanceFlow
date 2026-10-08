@@ -117,6 +117,7 @@ def get_financeflow_dashboard(
         "available_to_lend": location["available_to_lend"],
         "capital_with_agents": location["capital_with_agents"],
         "profit_with_agents": location["profit_with_agents"],
+        "penalty_with_agents": location["penalty_with_agents"],
         "capital_currently_lent": capital_lent,
         "principal_outstanding": principal_outstanding,
         "profit_today": profit_today or ZERO,

@@ -49,6 +49,7 @@ export interface AgentSettlement {
   reviewed_at?: string | null;
   principal_unlocked?: string | null;
   profit_amount?: string | null;
+  penalty_amount?: string | null;
   profit_reinvested?: string | null;
   reinvest_profit?: boolean | null;
 }
@@ -59,6 +60,7 @@ export interface AgentSettlementApprovalPreview {
   total_amount: string;
   principal_amount: string;
   profit_amount: string;
+  penalty_amount?: string;
   status: string;
   message: string;
 }

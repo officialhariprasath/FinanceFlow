@@ -4,6 +4,9 @@ Ledger `available_capital` still includes principal recovered at collection time
 `capital_with_agents` is the principal portion still sitting in agent wallets
 (FIFO against completed settlements). Available to lend is ledger capital minus
 that in-transit principal.
+
+Penalty collected with installments is tracked separately from profit so
+settlement into Owner Account does not mislabel late fees as installment profit.
 """
 
 from __future__ import annotations
@@ -29,6 +32,24 @@ COMPLETED = {
     SettlementStatus.COMPLETED.value,
     SettlementStatus.APPROVED.value,
 }
+
+
+def _payment_components(payment: Payment) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+    """Return (amount, principal, profit, penalty) for an agent collection."""
+    amount = Decimal(payment.amount_paid or ZERO).quantize(TWOPLACES)
+    principal = Decimal(payment.principal_paid or ZERO).quantize(TWOPLACES)
+    profit = Decimal(payment.interest_paid or ZERO).quantize(TWOPLACES)
+    allocation = getattr(payment, "allocation", None)
+    if allocation is not None and getattr(allocation, "late_fee_amount", None) is not None:
+        penalty = Decimal(allocation.late_fee_amount or ZERO).quantize(TWOPLACES)
+    else:
+        penalty = max(amount - principal - profit, ZERO).quantize(TWOPLACES)
+    # Keep components consistent with cash received.
+    components = (principal + profit + penalty).quantize(TWOPLACES)
+    if amount > ZERO and components != amount:
+        # Prefer explicit principal/profit; residual is penalty.
+        penalty = max(amount - principal - profit, ZERO).quantize(TWOPLACES)
+    return amount, principal, profit, penalty
 
 
 def _agent_payments_oldest_first(db: Session, finance_owner_id: int) -> list[Payment]:
@@ -68,20 +89,21 @@ def unsettled_collection_split(
 
     unsettled_principal = ZERO
     unsettled_profit = ZERO
+    unsettled_penalty = ZERO
     unsettled_total = ZERO
     settled_principal = ZERO
     settled_profit = ZERO
+    settled_penalty = ZERO
 
     for payment in payments:
-        amount = Decimal(payment.amount_paid or ZERO).quantize(TWOPLACES)
-        principal = Decimal(payment.principal_paid or ZERO).quantize(TWOPLACES)
-        profit = Decimal(payment.interest_paid or ZERO).quantize(TWOPLACES)
+        amount, principal, profit, penalty = _payment_components(payment)
         if amount <= ZERO:
             continue
 
         if remaining_settled <= ZERO:
             unsettled_principal += principal
             unsettled_profit += profit
+            unsettled_penalty += penalty
             unsettled_total += amount
             continue
 
@@ -89,6 +111,7 @@ def unsettled_collection_split(
             remaining_settled -= amount
             settled_principal += principal
             settled_profit += profit
+            settled_penalty += penalty
             continue
 
         # Partial cover of this payment
@@ -96,12 +119,15 @@ def unsettled_collection_split(
         uncovered = amount - covered
         ratio_uncovered = uncovered / amount
         part_principal = (principal * ratio_uncovered).quantize(TWOPLACES)
-        part_profit = (uncovered - part_principal).quantize(TWOPLACES)
+        part_profit = (profit * ratio_uncovered).quantize(TWOPLACES)
+        part_penalty = (uncovered - part_principal - part_profit).quantize(TWOPLACES)
         unsettled_principal += part_principal
         unsettled_profit += part_profit
+        unsettled_penalty += part_penalty
         unsettled_total += uncovered
         settled_principal += (principal - part_principal).quantize(TWOPLACES)
         settled_profit += (profit - part_profit).quantize(TWOPLACES)
+        settled_penalty += (penalty - part_penalty).quantize(TWOPLACES)
         remaining_settled = ZERO
 
     wallets = list_all_agent_wallets(db, finance_owner_id)
@@ -110,24 +136,30 @@ def unsettled_collection_split(
         ZERO,
     ).quantize(TWOPLACES)
 
-    # Prefer live wallet total if FIFO drift from rounding; scale principal/profit.
+    # Prefer live wallet total if FIFO drift from rounding; scale all three.
     if wallet_unsettled != unsettled_total and unsettled_total > ZERO:
         scale = wallet_unsettled / unsettled_total
         unsettled_principal = (unsettled_principal * scale).quantize(TWOPLACES)
-        unsettled_profit = (wallet_unsettled - unsettled_principal).quantize(TWOPLACES)
+        unsettled_profit = (unsettled_profit * scale).quantize(TWOPLACES)
+        unsettled_penalty = (
+            wallet_unsettled - unsettled_principal - unsettled_profit
+        ).quantize(TWOPLACES)
         unsettled_total = wallet_unsettled
     elif unsettled_total == ZERO and wallet_unsettled > ZERO:
         # No payment history match — treat all unsettled wallet as principal risk
         unsettled_total = wallet_unsettled
         unsettled_principal = wallet_unsettled
         unsettled_profit = ZERO
+        unsettled_penalty = ZERO
 
     return {
         "unsettled_total": unsettled_total.quantize(TWOPLACES),
         "capital_with_agents": unsettled_principal.quantize(TWOPLACES),
         "profit_with_agents": unsettled_profit.quantize(TWOPLACES),
+        "penalty_with_agents": unsettled_penalty.quantize(TWOPLACES),
         "settled_principal": settled_principal.quantize(TWOPLACES),
         "settled_profit": settled_profit.quantize(TWOPLACES),
+        "settled_penalty": settled_penalty.quantize(TWOPLACES),
         "wallet_unsettled": wallet_unsettled,
     }
 
@@ -144,6 +176,7 @@ def split_settlement_amount(
             "settlement_amount": ZERO,
             "principal_amount": ZERO,
             "profit_amount": ZERO,
+            "penalty_amount": ZERO,
         }
 
     payments = _agent_payments_oldest_first(db, finance_owner_id)
@@ -151,12 +184,11 @@ def split_settlement_amount(
 
     principal_part = ZERO
     profit_part = ZERO
+    penalty_part = ZERO
     need = amount
 
     for payment in payments:
-        pay_amt = Decimal(payment.amount_paid or ZERO).quantize(TWOPLACES)
-        principal = Decimal(payment.principal_paid or ZERO).quantize(TWOPLACES)
-        profit = Decimal(payment.interest_paid or ZERO).quantize(TWOPLACES)
+        pay_amt, principal, profit, penalty = _payment_components(payment)
         if pay_amt <= ZERO:
             continue
 
@@ -168,21 +200,25 @@ def split_settlement_amount(
             uncovered = pay_amt - remaining_settled
             ratio = uncovered / pay_amt
             unc_principal = (principal * ratio).quantize(TWOPLACES)
-            unc_profit = (uncovered - unc_principal).quantize(TWOPLACES)
+            unc_profit = (profit * ratio).quantize(TWOPLACES)
+            unc_penalty = (uncovered - unc_principal - unc_profit).quantize(TWOPLACES)
             remaining_settled = ZERO
         else:
             uncovered = pay_amt
             unc_principal = principal
             unc_profit = profit
+            unc_penalty = penalty
 
         take = min(need, uncovered)
         if take <= ZERO:
             continue
         ratio_take = take / uncovered
-        principal_part += (unc_principal * ratio_take).quantize(TWOPLACES)
-        profit_part += (take - (unc_principal * ratio_take).quantize(TWOPLACES)).quantize(
-            TWOPLACES
-        )
+        take_principal = (unc_principal * ratio_take).quantize(TWOPLACES)
+        take_profit = (unc_profit * ratio_take).quantize(TWOPLACES)
+        take_penalty = (take - take_principal - take_profit).quantize(TWOPLACES)
+        principal_part += take_principal
+        profit_part += take_profit
+        penalty_part += take_penalty
         need -= take
         if need <= ZERO:
             break
@@ -192,11 +228,13 @@ def split_settlement_amount(
         principal_part += need
 
     principal_part = principal_part.quantize(TWOPLACES)
-    profit_part = (amount - principal_part).quantize(TWOPLACES)
+    profit_part = profit_part.quantize(TWOPLACES)
+    penalty_part = (amount - principal_part - profit_part).quantize(TWOPLACES)
     return {
         "settlement_amount": amount,
         "principal_amount": principal_part,
         "profit_amount": profit_part,
+        "penalty_amount": penalty_part,
     }
 
 
@@ -228,6 +266,7 @@ def get_capital_location_summary(db: Session, finance_owner_id: int) -> dict:
         "available_to_lend": available_to_lend,
         "capital_with_agents": split["capital_with_agents"],
         "profit_with_agents": split["profit_with_agents"],
+        "penalty_with_agents": split["penalty_with_agents"],
         "unsettled_with_agents": split["unsettled_total"],
         "owner_account_principal": owner_reserved,
         "capital_with_owner": available_to_lend,
