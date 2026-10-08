@@ -14,6 +14,16 @@ export interface FinanceSettings {
   date_format: string | null;
   timezone: string | null;
   maturity_alert_days: number | null;
+  daily_grace_installments?: number | null;
+  daily_penalty_per_installment?: string | null;
+  weekly_grace_installments?: number | null;
+  weekly_penalty_per_installment?: string | null;
+  bi_weekly_grace_installments?: number | null;
+  bi_weekly_penalty_per_installment?: string | null;
+  monthly_grace_installments?: number | null;
+  monthly_penalty_per_installment?: string | null;
+  /** Set on save when installment loans are backfilled from these settings. */
+  penalty_loans_updated?: number | null;
 }
 
 export type FinanceSettingsUpdate = Partial<Omit<FinanceSettings, "id" | "finance_owner_id">>;

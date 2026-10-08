@@ -79,6 +79,16 @@ class FinanceSettings(Base):
         default=30,
     )
 
+    # Grace installments + fixed penalty per collection frequency (not grace days).
+    daily_grace_installments = Column(Integer, nullable=False, default=0)
+    daily_penalty_per_installment = Column(Numeric(12, 2), nullable=False, default=0)
+    weekly_grace_installments = Column(Integer, nullable=False, default=0)
+    weekly_penalty_per_installment = Column(Numeric(12, 2), nullable=False, default=0)
+    bi_weekly_grace_installments = Column(Integer, nullable=False, default=0)
+    bi_weekly_penalty_per_installment = Column(Numeric(12, 2), nullable=False, default=0)
+    monthly_grace_installments = Column(Integer, nullable=False, default=0)
+    monthly_penalty_per_installment = Column(Numeric(12, 2), nullable=False, default=0)
+
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

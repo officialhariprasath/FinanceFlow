@@ -15,6 +15,10 @@ from backend.app.services.capital_service import (
     record_principal_recovery,
 )
 from backend.app.services.payment_allocation_service import allocate_payment_amount
+from backend.app.services.penalty_service import (
+    compute_loan_payables_for_loan,
+    ensure_loan_penalty_from_settings,
+)
 from backend.app.services.profit_service import record_profit_recognition
 from backend.app.services.schedule_service import (
     get_open_schedules_for_loan,
@@ -28,6 +32,31 @@ from backend.app.utils.interest_calculator import calculate_interest
 
 ZERO = Decimal("0.00")
 TWOPLACES = Decimal("0.01")
+
+
+def _loan_all_schedules(db: Session, loan_id: int) -> list[LoanSchedule]:
+    return (
+        db.query(LoanSchedule)
+        .filter(LoanSchedule.loan_id == loan_id)
+        .order_by(LoanSchedule.schedule_date.asc())
+        .all()
+    )
+
+
+def _pending_for(
+    schedule: LoanSchedule,
+    loan: Loan,
+    all_schedules: list[LoanSchedule],
+    as_of: date | None = None,
+    settings=None,
+) -> Decimal:
+    return schedule_pending_amount(
+        schedule,
+        loan=loan,
+        all_schedules=all_schedules,
+        as_of=as_of or date.today(),
+        settings=settings,
+    )
 
 
 def calculate_outstanding_amount(
@@ -92,9 +121,12 @@ def _resolve_installment_schedules(
 
 def _expand_schedules_for_amount(
     db: Session,
-    loan_id: int,
+    loan: Loan,
     schedules: list[LoanSchedule],
     amount: Decimal,
+    all_schedules: list[LoanSchedule],
+    as_of: date | None = None,
+    settings=None,
 ) -> list[LoanSchedule]:
     """
     When the customer pays more than the selected days owe, include the next
@@ -103,26 +135,38 @@ def _expand_schedules_for_amount(
     if not schedules:
         return schedules
 
+    as_of = as_of or date.today()
     expanded = list(schedules)
     known_ids = {s.id for s in expanded}
-    pending_total = sum(schedule_pending_amount(s) for s in expanded).quantize(TWOPLACES)
+    pending_total = sum(
+        (_pending_for(s, loan, all_schedules, as_of, settings) for s in expanded), ZERO
+    ).quantize(TWOPLACES)
 
     while amount > pending_total + Decimal("0.001"):
         last_date = max(s.schedule_date for s in expanded)
-        candidates = get_open_schedules_for_loan(db, loan_id, after_date=last_date)
+        candidates = get_open_schedules_for_loan(db, loan.id, after_date=last_date)
         nxt = next((s for s in candidates if s.id not in known_ids), None)
         if nxt is None:
             break
         expanded.append(nxt)
         known_ids.add(nxt.id)
-        pending_total += schedule_pending_amount(nxt)
+        pending_total += _pending_for(nxt, loan, all_schedules, as_of, settings)
 
     return expanded
 
 
-def _max_open_schedule_pending(db: Session, loan_id: int) -> Decimal:
-    rows = get_open_schedules_for_loan(db, loan_id)
-    return sum((schedule_pending_amount(s) for s in rows), ZERO).quantize(TWOPLACES)
+def _max_open_schedule_pending(
+    db: Session,
+    loan: Loan,
+    all_schedules: list[LoanSchedule],
+    as_of: date | None = None,
+    settings=None,
+) -> Decimal:
+    as_of = as_of or date.today()
+    rows = get_open_schedules_for_loan(db, loan.id)
+    return sum(
+        (_pending_for(s, loan, all_schedules, as_of, settings) for s in rows), ZERO
+    ).quantize(TWOPLACES)
 
 
 def _prepare_schedules_for_payment(
@@ -130,11 +174,18 @@ def _prepare_schedules_for_payment(
     loan: Loan,
     payment: PaymentCreate,
     amount: Decimal,
+    all_schedules: list[LoanSchedule] | None = None,
+    as_of: date | None = None,
+    settings=None,
 ) -> list[LoanSchedule]:
+    as_of = as_of or date.today()
+    all_schedules = all_schedules or _loan_all_schedules(db, loan.id)
     schedules = _resolve_installment_schedules(db, loan, payment)
-    schedules = _expand_schedules_for_amount(db, loan.id, schedules, amount)
+    schedules = _expand_schedules_for_amount(
+        db, loan, schedules, amount, all_schedules, as_of, settings
+    )
 
-    max_payable = _max_open_schedule_pending(db, loan.id)
+    max_payable = _max_open_schedule_pending(db, loan, all_schedules, as_of, settings)
     if amount > max_payable:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -144,7 +195,7 @@ def _prepare_schedules_for_payment(
         )
 
     expected_total = sum(
-        (schedule_pending_amount(s) for s in schedules), ZERO
+        (_pending_for(s, loan, all_schedules, as_of, settings) for s in schedules), ZERO
     ).quantize(TWOPLACES)
     if amount > expected_total:
         raise HTTPException(
@@ -163,15 +214,17 @@ _REMARKS_MAX_LEN = 255
 
 
 def _payment_coverage_note(
-    breakdown: list[tuple[LoanSchedule, Decimal, Decimal, Decimal]],
+    breakdown: list[tuple[LoanSchedule, Decimal, Decimal, Decimal, Decimal]],
     expected_total: Decimal,
     applied: Decimal,
+    pending_before_by_id: dict[int, Decimal] | None = None,
 ) -> str | None:
     if not breakdown:
         return None
 
     first_date = breakdown[0][0].schedule_date
     last_date = breakdown[-1][0].schedule_date
+    pending_before_by_id = pending_before_by_id or {}
 
     if len(breakdown) > 1:
         # Detailed per-day split for a few days (advance/partial).
@@ -180,10 +233,18 @@ def _payment_coverage_note(
         # and the whole payment insert fails (e.g. ~38 days × ₹120 = ₹4560).
         if len(breakdown) <= 5:
             parts = []
-            for schedule, _, _, paid_total in breakdown:
-                pending_before = schedule_pending_amount(schedule)
+            for schedule, _, _, penalty_paid, paid_total in breakdown:
+                pending_before = pending_before_by_id.get(
+                    schedule.id, paid_total
+                )
                 if paid_total >= pending_before - Decimal("0.001"):
-                    parts.append(f"{schedule.schedule_date} ₹{paid_total} paid")
+                    if penalty_paid > ZERO:
+                        parts.append(
+                            f"{schedule.schedule_date} ₹{paid_total} paid "
+                            f"(incl. ₹{penalty_paid} penalty)"
+                        )
+                    else:
+                        parts.append(f"{schedule.schedule_date} ₹{paid_total} paid")
                 else:
                     left = (pending_before - paid_total).quantize(TWOPLACES)
                     parts.append(
@@ -192,8 +253,8 @@ def _payment_coverage_note(
             return f"Covers {len(breakdown)} day(s): " + "; ".join(parts)
 
         partial_days = 0
-        for schedule, _, _, paid_total in breakdown:
-            pending_before = schedule_pending_amount(schedule)
+        for schedule, _, _, _, paid_total in breakdown:
+            pending_before = pending_before_by_id.get(schedule.id, paid_total)
             if paid_total < pending_before - Decimal("0.001"):
                 partial_days += 1
         note = (
@@ -229,45 +290,76 @@ def _combine_remarks(coverage_note: str | None, user_remarks: str | None) -> str
 def _allocate_across_schedules(
     amount: Decimal,
     schedules: list[LoanSchedule],
-) -> tuple[Decimal, Decimal, list[tuple[LoanSchedule, Decimal, Decimal, Decimal]]]:
+    loan: Loan,
+    all_schedules: list[LoanSchedule],
+    as_of: date | None = None,
+    settings=None,
+) -> tuple[
+    Decimal,
+    Decimal,
+    Decimal,
+    list[tuple[LoanSchedule, Decimal, Decimal, Decimal, Decimal]],
+]:
     """
     Apply payment amount across schedules in date order.
-    Returns total principal, total profit, and per-schedule breakdown.
+
+    Returns total principal, total profit, total penalty, and per-schedule
+    breakdown tuples: (schedule, principal, profit, penalty, paid_total).
+    Allocation order per schedule: profit → principal → penalty.
     """
+    as_of = as_of or date.today()
+    payables = compute_loan_payables_for_loan(
+        loan, all_schedules, as_of=as_of, settings=settings
+    )
+
     remaining = amount.quantize(TWOPLACES)
     total_principal = ZERO
     total_profit = ZERO
-    breakdown: list[tuple[LoanSchedule, Decimal, Decimal, Decimal]] = []
+    total_penalty = ZERO
+    breakdown: list[tuple[LoanSchedule, Decimal, Decimal, Decimal, Decimal]] = []
 
     for schedule in schedules:
         if remaining <= ZERO:
             break
 
-        profit_remaining = (schedule.expected_profit - schedule.paid_profit).quantize(TWOPLACES)
-        principal_remaining = (schedule.expected_principal - schedule.paid_principal).quantize(TWOPLACES)
-        pending = schedule_pending_amount(schedule)
-
+        payable = payables[schedule.id]
+        pending = payable.total_payable
         if pending <= ZERO:
             continue
 
+        profit_remaining = (schedule.expected_profit - schedule.paid_profit).quantize(
+            TWOPLACES
+        )
+        principal_remaining = (
+            schedule.expected_principal - schedule.paid_principal
+        ).quantize(TWOPLACES)
+        penalty_remaining = payable.penalty_outstanding
+
         alloc_amount = min(remaining, pending)
-        principal_paid, profit_paid = allocate_payment_amount(
+        principal_paid, profit_paid, penalty_paid = allocate_payment_amount(
             amount=alloc_amount,
             profit_remaining=profit_remaining,
             principal_remaining=principal_remaining,
+            penalty_remaining=penalty_remaining,
         )
-        paid_total = (principal_paid + profit_paid).quantize(TWOPLACES)
+        # Installment portion recorded on paid_amount (excludes penalty).
+        installment_paid = (principal_paid + profit_paid).quantize(TWOPLACES)
+        paid_total = (installment_paid + penalty_paid).quantize(TWOPLACES)
         if paid_total <= ZERO:
             continue
 
-        breakdown.append((schedule, principal_paid, profit_paid, paid_total))
+        breakdown.append(
+            (schedule, principal_paid, profit_paid, penalty_paid, paid_total)
+        )
         total_principal += principal_paid
         total_profit += profit_paid
+        total_penalty += penalty_paid
         remaining -= paid_total
 
     return (
         total_principal.quantize(TWOPLACES),
         total_profit.quantize(TWOPLACES),
+        total_penalty.quantize(TWOPLACES),
         breakdown,
     )
 
@@ -287,22 +379,36 @@ def _create_daily_collection_payment(
             detail="Payment amount must be greater than zero.",
         )
 
-    mark_overdue_schedules(db, finance_owner_id, date.today())
+    as_of = date.today()
+    mark_overdue_schedules(db, finance_owner_id, as_of)
+    all_schedules = _loan_all_schedules(db, loan.id)
+    settings = ensure_loan_penalty_from_settings(db, loan)
 
-    schedules = _prepare_schedules_for_payment(db, loan, payment, amount)
-    expected_total = sum(
-        (schedule_pending_amount(s) for s in schedules), ZERO
-    ).quantize(TWOPLACES)
+    schedules = _prepare_schedules_for_payment(
+        db,
+        loan,
+        payment,
+        amount,
+        all_schedules=all_schedules,
+        as_of=as_of,
+        settings=settings,
+    )
+    pending_before_by_id = {
+        s.id: _pending_for(s, loan, all_schedules, as_of, settings) for s in schedules
+    }
+    expected_total = sum(pending_before_by_id.values(), ZERO).quantize(TWOPLACES)
 
-    total_principal, total_profit, breakdown = _allocate_across_schedules(amount, schedules)
+    total_principal, total_profit, total_penalty, breakdown = _allocate_across_schedules(
+        amount, schedules, loan, all_schedules, as_of=as_of, settings=settings
+    )
 
-    if total_principal + total_profit <= ZERO:
+    if total_principal + total_profit + total_penalty <= ZERO:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Payment does not match any outstanding schedule amount.",
         )
 
-    applied = (total_principal + total_profit).quantize(TWOPLACES)
+    applied = (total_principal + total_profit + total_penalty).quantize(TWOPLACES)
     if applied != amount:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -312,7 +418,9 @@ def _create_daily_collection_payment(
     first_date = breakdown[0][0].schedule_date
     last_date = breakdown[-1][0].schedule_date
 
-    coverage_note = _payment_coverage_note(breakdown, expected_total, applied)
+    coverage_note = _payment_coverage_note(
+        breakdown, expected_total, applied, pending_before_by_id
+    )
     remarks = _combine_remarks(coverage_note, payment.remarks)
 
     loan.remaining_principal -= total_principal
@@ -330,7 +438,7 @@ def _create_daily_collection_payment(
         finance_owner_id=finance_owner_id,
         loan_id=loan.id,
         payment_date=first_date,
-        amount_paid=total_principal + total_profit,
+        amount_paid=applied,
         interest_paid=total_profit,
         principal_paid=total_principal,
         payment_mode=payment.payment_mode,
@@ -347,18 +455,24 @@ def _create_daily_collection_payment(
         loan_id=loan.id,
         principal_amount=total_principal,
         profit_amount=total_profit,
-        late_fee_amount=ZERO,
+        late_fee_amount=total_penalty,
         other_amount=ZERO,
-        total_amount=total_principal + total_profit,
+        total_amount=applied,
     )
     db.add(allocation)
 
-    for schedule, principal_paid, profit_paid, paid_total in breakdown:
+    for schedule, principal_paid, profit_paid, penalty_paid, paid_total in breakdown:
+        installment_paid = (principal_paid + profit_paid).quantize(TWOPLACES)
         update_schedule_after_payment(
             schedule=schedule,
             principal_paid=principal_paid,
             profit_paid=profit_paid,
-            amount_paid=paid_total,
+            amount_paid=installment_paid,
+            penalty_paid=penalty_paid,
+            loan=loan,
+            all_schedules=all_schedules,
+            as_of=as_of,
+            settings=settings,
         )
 
     if total_principal > ZERO:
@@ -390,7 +504,7 @@ def _create_daily_collection_payment(
             agent_id=collected_by_agent_id,
             finance_owner_id=finance_owner_id,
             channel=payment_mode_to_channel(payment.payment_mode),
-            amount=total_principal + total_profit,
+            amount=applied,
             payment_id=db_payment.id,
             payment_reference=payment.payment_reference,
             notes=remarks,
@@ -555,17 +669,37 @@ def get_payment_preview(
         payment_mode="Cash",
         schedule_dates=schedule_dates,
     )
-    mark_overdue_schedules(db, finance_owner_id, date.today())
-    schedules = _prepare_schedules_for_payment(db, loan, preview_payment, amount)
-    total_principal, total_profit, breakdown = _allocate_across_schedules(amount, schedules)
-    applied = (total_principal + total_profit).quantize(TWOPLACES)
+    as_of = date.today()
+    mark_overdue_schedules(db, finance_owner_id, as_of)
+    all_schedules = _loan_all_schedules(db, loan.id)
+    settings = ensure_loan_penalty_from_settings(db, loan)
+    schedules = _prepare_schedules_for_payment(
+        db,
+        loan,
+        preview_payment,
+        amount,
+        all_schedules=all_schedules,
+        as_of=as_of,
+        settings=settings,
+    )
+    total_principal, total_profit, total_penalty, breakdown = _allocate_across_schedules(
+        amount, schedules, loan, all_schedules, as_of=as_of, settings=settings
+    )
+    applied = (total_principal + total_profit + total_penalty).quantize(TWOPLACES)
 
-    applied_by_schedule = {s.id: paid_total for s, _, _, paid_total in breakdown}
+    applied_by_schedule = {
+        s.id: (principal, profit, penalty, paid_total)
+        for s, principal, profit, penalty, paid_total in breakdown
+    }
 
     lines = []
     for schedule in schedules:
-        pending_before = schedule_pending_amount(schedule)
-        applied_amt = applied_by_schedule.get(schedule.id, ZERO).quantize(TWOPLACES)
+        pending_before = _pending_for(schedule, loan, all_schedules, as_of, settings)
+        applied_row = applied_by_schedule.get(schedule.id)
+        if applied_row is None:
+            continue
+        _principal, _profit, penalty_paid, applied_amt = applied_row
+        applied_amt = applied_amt.quantize(TWOPLACES)
         if applied_amt <= ZERO:
             continue
         remaining = (pending_before - applied_amt).quantize(TWOPLACES)
@@ -582,12 +716,14 @@ def get_payment_preview(
                 "applied_amount": applied_amt,
                 "remaining_pending": max(remaining, ZERO),
                 "status_after": status_after,
+                "penalty_applied": penalty_paid.quantize(TWOPLACES),
             }
         )
 
     return {
         "principal_amount": total_principal,
         "profit_amount": total_profit,
+        "late_fee_amount": total_penalty,
         "total_amount": applied,
         "installment_count": len(breakdown),
         "unapplied_amount": (amount - applied).quantize(TWOPLACES),

@@ -96,6 +96,8 @@ class LoanResponse(BaseModel):
     daily_profit: Decimal | None = None
     total_expected_profit: Decimal | None = None
     total_profit_paid: Decimal | None = None
+    grace_installments: int = 0
+    penalty_per_installment: Decimal = Decimal("0.00")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -122,6 +124,14 @@ class UnpaidScheduleResponse(BaseModel):
     status: str
     is_today: bool
     is_future: bool
+    original_amount: Decimal | None = None
+    penalty_amount: Decimal = Decimal("0.00")
+    paid_penalty: Decimal = Decimal("0.00")
+    penalty_outstanding: Decimal = Decimal("0.00")
+    installment_outstanding: Decimal | None = None
+    total_payable: Decimal | None = None
+    grace_status: str | None = None
+    grace_crossed: bool = False
 
 
 class LoanScheduleResponse(BaseModel):
@@ -132,6 +142,14 @@ class LoanScheduleResponse(BaseModel):
     status: str
     is_today: bool
     is_future: bool
+    original_amount: Decimal | None = None
+    penalty_amount: Decimal = Decimal("0.00")
+    paid_penalty: Decimal = Decimal("0.00")
+    penalty_outstanding: Decimal = Decimal("0.00")
+    installment_outstanding: Decimal | None = None
+    total_payable: Decimal | None = None
+    grace_status: str | None = None
+    grace_crossed: bool = False
 
 
 class LoanStatementResponse(BaseModel):

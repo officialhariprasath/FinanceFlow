@@ -7,6 +7,7 @@ from backend.app.models.customer import Customer
 from backend.app.models.enums import CollectionModel, ScheduleStatus
 from backend.app.models.loan import Loan
 from backend.app.models.loan_schedule import LoanSchedule
+from backend.app.services.penalty_service import fetch_finance_settings, sync_loan_penalty_fields
 from backend.app.services.schedule_service import mark_overdue_schedules, schedule_pending_amount
 
 ZERO = Decimal("0.00")
@@ -79,30 +80,32 @@ def get_today_collections(
     unassigned_due_count = 0
     unassigned_due_total = ZERO
     unassigned_names: list[str] = []
+    settings = fetch_finance_settings(db, finance_owner_id)
 
     for loan, customer in loans:
         if assigned_customer_ids is not None and customer.id not in assigned_customer_ids:
             continue
 
-        today_schedule = (
-            db.query(LoanSchedule)
-            .filter(
-                LoanSchedule.loan_id == loan.id,
-                LoanSchedule.schedule_date == target_date,
-            )
-            .first()
-        )
+        if settings is not None:
+            sync_loan_penalty_fields(loan, settings)
 
-        overdue_schedules = (
+        all_schedules = (
             db.query(LoanSchedule)
-            .filter(
-                LoanSchedule.loan_id == loan.id,
-                LoanSchedule.schedule_date < target_date,
-                LoanSchedule.status == ScheduleStatus.OVERDUE.value,
-            )
+            .filter(LoanSchedule.loan_id == loan.id)
             .order_by(LoanSchedule.schedule_date.asc())
             .all()
         )
+
+        today_schedule = next(
+            (s for s in all_schedules if s.schedule_date == target_date),
+            None,
+        )
+
+        overdue_schedules = [
+            s
+            for s in all_schedules
+            if s.schedule_date < target_date and s.status == ScheduleStatus.OVERDUE.value
+        ]
 
         if today_schedule is None and not overdue_schedules:
             continue
@@ -118,7 +121,13 @@ def get_today_collections(
         if today_schedule is not None:
             today_expected = Decimal(today_schedule.expected_amount)
             today_paid = Decimal(today_schedule.paid_amount)
-            today_pending = schedule_pending_amount(today_schedule)
+            today_pending = schedule_pending_amount(
+                today_schedule,
+                loan=loan,
+                all_schedules=all_schedules,
+                as_of=target_date,
+                settings=settings,
+            )
             expected_principal = Decimal(today_schedule.expected_principal)
             expected_profit = Decimal(today_schedule.expected_profit)
             status_label = _status_label(today_schedule.status)
@@ -129,7 +138,13 @@ def get_today_collections(
 
         overdue_pending = ZERO
         for sched in overdue_schedules:
-            overdue_pending += schedule_pending_amount(sched)
+            overdue_pending += schedule_pending_amount(
+                sched,
+                loan=loan,
+                all_schedules=all_schedules,
+                as_of=target_date,
+                settings=settings,
+            )
             overdue_installment_count += 1
 
         overdue_pending = overdue_pending.quantize(TWOPLACES)

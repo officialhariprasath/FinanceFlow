@@ -1,9 +1,12 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from backend.app.models.enums import CollectionModel
 from backend.app.models.finance_owner import FinanceOwner
 from backend.app.models.finance_settings import FinanceSettings
+from backend.app.models.loan import Loan
 from backend.app.schemas.finance_settings import FinanceSettingsUpdate
+from backend.app.services.penalty_service import sync_loan_penalty_fields
 
 
 def get_finance_settings(
@@ -26,6 +29,31 @@ def get_finance_settings(
         db.refresh(settings)
 
     return settings
+
+
+def backfill_installment_loan_penalties(
+    db: Session,
+    finance_owner_id: int,
+    settings: FinanceSettings,
+) -> int:
+    """
+    Push current per-frequency grace/penalty settings onto every installment
+    loan for this owner (active, closed, defaulted — all of them).
+
+    Dynamic payable math also reads live settings; this keeps loan snapshot
+    columns and API responses aligned after Settings save.
+    """
+    loans = (
+        db.query(Loan)
+        .filter(
+            Loan.finance_owner_id == finance_owner_id,
+            Loan.collection_model == CollectionModel.DAILY_COLLECTION.value,
+        )
+        .all()
+    )
+    for loan in loans:
+        sync_loan_penalty_fields(loan, settings)
+    return len(loans)
 
 
 def update_finance_settings(
@@ -67,7 +95,14 @@ def update_finance_settings(
             for field, value in owner_updates.items():
                 setattr(owner, field, value)
 
+    # Always backfill installment loans so existing + previously backfilled
+    # loans pick up grace/penalty changes (e.g. 5 → 3) immediately.
+    loans_updated = backfill_installment_loan_penalties(
+        db, finance_owner_id, settings
+    )
+
     db.commit()
     db.refresh(settings)
-
+    # Transient attribute for API response (not an ORM column).
+    settings.penalty_loans_updated = loans_updated
     return settings

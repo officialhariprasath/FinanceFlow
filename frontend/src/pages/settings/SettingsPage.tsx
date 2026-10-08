@@ -56,6 +56,14 @@ export default function SettingsPage() {
     date_format: "DD/MM/YYYY",
     timezone: "Asia/Kolkata",
     maturity_alert_days: "",
+    daily_grace_installments: "0",
+    daily_penalty_per_installment: "0",
+    weekly_grace_installments: "0",
+    weekly_penalty_per_installment: "0",
+    bi_weekly_grace_installments: "0",
+    bi_weekly_penalty_per_installment: "0",
+    monthly_grace_installments: "0",
+    monthly_penalty_per_installment: "0",
   });
 
   useEffect(() => {
@@ -81,6 +89,16 @@ export default function SettingsPage() {
             date_format: data.date_format ?? "DD/MM/YYYY",
             timezone: data.timezone ?? "Asia/Kolkata",
             maturity_alert_days: String(data.maturity_alert_days ?? ""),
+            daily_grace_installments: String(data.daily_grace_installments ?? 0),
+            daily_penalty_per_installment: String(data.daily_penalty_per_installment ?? 0),
+            weekly_grace_installments: String(data.weekly_grace_installments ?? 0),
+            weekly_penalty_per_installment: String(data.weekly_penalty_per_installment ?? 0),
+            bi_weekly_grace_installments: String(data.bi_weekly_grace_installments ?? 0),
+            bi_weekly_penalty_per_installment: String(
+              data.bi_weekly_penalty_per_installment ?? 0
+            ),
+            monthly_grace_installments: String(data.monthly_grace_installments ?? 0),
+            monthly_penalty_per_installment: String(data.monthly_penalty_per_installment ?? 0),
           });
         }
         setNotifications(await notifPromise);
@@ -137,11 +155,25 @@ export default function SettingsPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canEditBusiness) return;
+    const gracePenaltyErrors = [
+      nonNegativeOrError(form.daily_grace_installments, "Daily grace installments"),
+      nonNegativeOrError(form.daily_penalty_per_installment, "Daily penalty"),
+      nonNegativeOrError(form.weekly_grace_installments, "Weekly grace installments"),
+      nonNegativeOrError(form.weekly_penalty_per_installment, "Weekly penalty"),
+      nonNegativeOrError(form.bi_weekly_grace_installments, "Bi-weekly grace installments"),
+      nonNegativeOrError(form.bi_weekly_penalty_per_installment, "Bi-weekly penalty"),
+      nonNegativeOrError(form.monthly_grace_installments, "Monthly grace installments"),
+      nonNegativeOrError(form.monthly_penalty_per_installment, "Monthly penalty"),
+    ].filter(Boolean);
+    if (gracePenaltyErrors.length > 0) {
+      setSaveError(gracePenaltyErrors[0] as string);
+      return;
+    }
     try {
       setSaving(true);
       setSaveError("");
       setSuccess("");
-      await updateSettings({
+      const saved = await updateSettings({
         business_name: form.business_name || null,
         owner_name: form.owner_name || null,
         phone: form.phone || null,
@@ -161,9 +193,28 @@ export default function SettingsPage() {
         maturity_alert_days: form.maturity_alert_days
           ? Number(form.maturity_alert_days)
           : null,
+        daily_grace_installments: Number(form.daily_grace_installments || 0),
+        daily_penalty_per_installment: form.daily_penalty_per_installment || "0",
+        weekly_grace_installments: Number(form.weekly_grace_installments || 0),
+        weekly_penalty_per_installment: form.weekly_penalty_per_installment || "0",
+        bi_weekly_grace_installments: Number(form.bi_weekly_grace_installments || 0),
+        bi_weekly_penalty_per_installment: form.bi_weekly_penalty_per_installment || "0",
+        monthly_grace_installments: Number(form.monthly_grace_installments || 0),
+        monthly_penalty_per_installment: form.monthly_penalty_per_installment || "0",
       });
-      setSuccess("Settings saved successfully.");
-      toast.success("Settings saved.");
+      const updatedCount = saved?.penalty_loans_updated;
+      const backfillNote =
+        typeof updatedCount === "number"
+          ? ` Updated ${updatedCount} existing installment loan${
+              updatedCount === 1 ? "" : "s"
+            }.`
+          : "";
+      setSuccess(`Settings saved successfully.${backfillNote}`);
+      toast.success(
+        typeof updatedCount === "number" && updatedCount > 0
+          ? `Settings saved. ${updatedCount} loan${updatedCount === 1 ? "" : "s"} updated.`
+          : "Settings saved."
+      );
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data
         ?.detail;
@@ -171,6 +222,13 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function nonNegativeOrError(value: string, label: string): string | null {
+    if (value === "" || Number.isNaN(Number(value)) || Number(value) < 0) {
+      return `${label} must be 0 or greater.`;
+    }
+    return null;
   }
 
   function inp(label: string, key: keyof typeof form, type = "text") {
@@ -379,6 +437,49 @@ export default function SettingsPage() {
                     {inp("Default Loan Duration (months)", "default_loan_duration", "number")}
                     {inp("Default Grace Period (days)", "default_grace_period", "number")}
                     {inp("Maturity Alert Days", "maturity_alert_days", "number")}
+                  </div>
+                </div>
+
+                <div className="surface-card p-6">
+                  <h2 className="mb-1 font-semibold text-slate-800">
+                    Grace Installments &amp; Penalty
+                  </h2>
+                  <p className="mb-4 text-sm text-slate-500">
+                    Fixed penalty per missed installment after the configured number of
+                    subsequent installments have passed (not calendar days). Saving
+                    applies immediately to <span className="font-medium">all existing
+                    installment loans</span> of that frequency, including previously
+                    backfilled loans — e.g. changing grace from 5 to 3 updates them at
+                    once. Use 0 to disable.
+                  </p>
+                  <div className="space-y-4">
+                    {(
+                      [
+                        ["Daily", "daily_grace_installments", "daily_penalty_per_installment"],
+                        ["Weekly", "weekly_grace_installments", "weekly_penalty_per_installment"],
+                        [
+                          "Bi-weekly",
+                          "bi_weekly_grace_installments",
+                          "bi_weekly_penalty_per_installment",
+                        ],
+                        [
+                          "Monthly",
+                          "monthly_grace_installments",
+                          "monthly_penalty_per_installment",
+                        ],
+                      ] as const
+                    ).map(([label, graceKey, penaltyKey]) => (
+                      <div
+                        key={label}
+                        className="grid grid-cols-1 gap-4 rounded-lg border border-slate-200 p-4 md:grid-cols-3"
+                      >
+                        <div className="flex items-center">
+                          <p className="font-medium text-slate-800">{label}</p>
+                        </div>
+                        {inp("Grace Installments", graceKey, "number")}
+                        {inp("Penalty Per Installment (₹)", penaltyKey, "number")}
+                      </div>
+                    ))}
                   </div>
                 </div>
 

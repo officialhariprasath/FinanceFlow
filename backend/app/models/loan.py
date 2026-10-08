@@ -165,6 +165,18 @@ class Loan(Base):
         default=0,
     )
 
+    # Snapshot of penalty settings at loan creation (0 = disabled).
+    grace_installments = Column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+    penalty_per_installment = Column(
+        Numeric(12, 2),
+        nullable=False,
+        default=0,
+    )
+
     finance_owner = relationship(
         "FinanceOwner",
         back_populates="loans",

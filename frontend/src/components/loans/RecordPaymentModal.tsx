@@ -50,7 +50,32 @@ function formatScheduleLabel(row: UnpaidSchedule): string {
         : row.status === "PARTIAL"
           ? " · Partial"
           : "";
-  return `${date} — ${fmt(row.pending_amount)}${tag}`;
+  const penalty = Number(row.penalty_outstanding ?? row.penalty_amount ?? 0);
+  const payable = row.total_payable ?? row.pending_amount;
+  if (penalty > 0.009) {
+    const original = row.original_amount ?? row.expected_amount;
+    return `${date} — ${fmt(payable)} (= ${fmt(original)} + ${fmt(penalty)} penalty)${tag}`;
+  }
+  return `${date} — ${fmt(payable)}${tag}`;
+}
+
+function ScheduleBreakdown({ row }: { row: UnpaidSchedule }) {
+  const original = row.original_amount ?? row.expected_amount;
+  const penalty = Number(row.penalty_outstanding ?? 0);
+  const payable = row.total_payable ?? row.pending_amount;
+  if (penalty <= 0.009) {
+    return (
+      <p className="text-xs text-slate-500">
+        Original {fmt(original)} · Penalty ₹0 · Payable {fmt(payable)}
+      </p>
+    );
+  }
+  return (
+    <p className="text-xs text-slate-600 dark:text-slate-300">
+      Original {fmt(original)} + Penalty {fmt(penalty)} ={" "}
+      <span className="font-medium">{fmt(payable)} payable</span>
+    </p>
+  );
 }
 
 function formatShortDate(iso: string): string {
@@ -399,18 +424,22 @@ export default function RecordPaymentModal({
               ) : unpaidSchedules.length === 0 ? (
                 <p className="text-sm text-amber-700">All installments are paid.</p>
               ) : (
-                <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2">
+                <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border p-2">
                   {unpaidSchedules.map((row) => (
                     <label
                       key={row.schedule_date}
-                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                      className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700/50"
                     >
                       <input
                         type="checkbox"
+                        className="mt-1"
                         checked={selectedDates.includes(row.schedule_date)}
                         onChange={() => toggleDate(row.schedule_date)}
                       />
-                      <span>{formatScheduleLabel(row)}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block">{formatScheduleLabel(row)}</span>
+                        <ScheduleBreakdown row={row} />
+                      </span>
                     </label>
                   ))}
                 </div>

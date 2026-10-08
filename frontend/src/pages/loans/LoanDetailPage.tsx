@@ -265,21 +265,25 @@ export default function LoanDetailPage() {
                 <thead className="table-head">
                   <tr>
                     <th className="px-4 py-3 text-left text-slate-600">Date</th>
-                    <th className="px-4 py-3 text-right text-slate-600">Expected</th>
+                    <th className="px-4 py-3 text-right text-slate-600">Original</th>
+                    <th className="px-4 py-3 text-right text-slate-600">Penalty</th>
                     <th className="px-4 py-3 text-right text-slate-600">Paid</th>
-                    <th className="px-4 py-3 text-right text-slate-600">Pending</th>
+                    <th className="px-4 py-3 text-right text-slate-600">Payable</th>
                     <th className="px-4 py-3 text-left text-slate-600">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {schedules.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                      <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                         No installments on this loan.
                       </td>
                     </tr>
                   ) : (
-                    schedules.map((row) => (
+                    schedules.map((row) => {
+                      const penalty = Number(row.penalty_outstanding ?? row.penalty_amount ?? 0);
+                      const payable = Number(row.total_payable ?? row.pending_amount);
+                      return (
                       <tr
                         key={row.schedule_date}
                         className={`border-t hover:bg-slate-50 dark:hover:bg-slate-700/50 ${
@@ -292,16 +296,22 @@ export default function LoanDetailPage() {
                             <span className="ml-2 text-xs font-medium text-blue-600">Today</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-right">{fmt(row.expected_amount)}</td>
+                        <td className="px-4 py-3 text-right">
+                          {fmt(row.original_amount ?? row.expected_amount)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {penalty > 0.009 ? fmt(penalty) : "—"}
+                        </td>
                         <td className="px-4 py-3 text-right">{fmt(row.paid_amount)}</td>
                         <td className="px-4 py-3 text-right font-medium">
-                          {Number(row.pending_amount) > 0 ? fmt(row.pending_amount) : "—"}
+                          {payable > 0 ? fmt(payable) : "—"}
                         </td>
                         <td className="px-4 py-3">
                           <StatusChip status={row.status} />
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>
