@@ -45,11 +45,13 @@ function formatScheduleLabel(row: UnpaidSchedule): string {
     ? " · Today"
     : row.is_future
       ? " · Advance"
-      : row.status === "OVERDUE"
-        ? " · Overdue"
-        : row.status === "PARTIAL"
-          ? " · Partial"
-          : "";
+      : row.within_grace
+        ? " · Grace"
+        : row.status === "OVERDUE"
+          ? " · Overdue"
+          : row.status === "PARTIAL"
+            ? " · Partial"
+            : "";
   const penalty = Number(row.penalty_outstanding ?? row.penalty_amount ?? 0);
   const payable = row.total_payable ?? row.pending_amount;
   if (penalty > 0.009) {

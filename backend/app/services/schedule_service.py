@@ -122,6 +122,8 @@ def _schedule_row_dict(
         "total_payable": payable.total_payable,
         "grace_status": payable.grace_status,
         "grace_crossed": payable.grace_crossed,
+        "within_grace": payable.within_grace,
+        "overdue_rank": payable.overdue_rank,
     }
 
 
@@ -155,7 +157,7 @@ def list_unpaid_schedules(
         .all()
     )
 
-    # Need full schedule set for sequence-based grace aging.
+    # Full schedule set required so grace ranks overdue rows oldest-first.
     all_rows = (
         db.query(LoanSchedule)
         .filter(LoanSchedule.loan_id == loan_id)

@@ -295,6 +295,11 @@ export default function LoanDetailPage() {
                           {row.is_today && (
                             <span className="ml-2 text-xs font-medium text-blue-600">Today</span>
                           )}
+                          {row.within_grace && (
+                            <span className="ml-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                              Grace
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right">
                           {fmt(row.original_amount ?? row.expected_amount)}
