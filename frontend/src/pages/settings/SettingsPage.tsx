@@ -445,12 +445,12 @@ export default function SettingsPage() {
                     Grace Installments &amp; Penalty
                   </h2>
                   <p className="mb-4 text-sm text-slate-500">
-                    Grace Installments = how many overdue installments stay at the
-                    original amount (oldest first). Penalty is added only from the next
-                    overdue installment after that free block — not calendar days.
-                    Saving updates <span className="font-medium">all existing
-                    installment loans</span> of that frequency immediately (e.g. grace
-                    5 → 3). Use 0 to charge penalty on every overdue installment.
+                    Grace applies to the <span className="font-medium">first N overdue
+                    installments (oldest dates)</span>, not the last N days before today.
+                    Example: grace 3 → the first 3 missed installments stay ₹ original;
+                    from the 4th overdue onward the fixed penalty is added. Today never
+                    gets an early penalty. Saving updates all existing installment loans
+                    of that frequency immediately.
                   </p>
                   <div className="space-y-4">
                     {(

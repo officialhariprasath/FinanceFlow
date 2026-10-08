@@ -125,6 +125,8 @@ export interface UnpaidSchedule {
   total_payable?: string;
   grace_status?: string;
   grace_crossed?: boolean;
+  within_grace?: boolean;
+  overdue_rank?: number | null;
 }
 
 export type LoanScheduleRow = UnpaidSchedule;

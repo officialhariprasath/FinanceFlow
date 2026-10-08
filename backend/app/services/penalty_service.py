@@ -48,14 +48,20 @@ class InstallmentPayable:
     paid_penalty: Decimal
     penalty_outstanding: Decimal
     total_payable: Decimal
+    # True only for overdue unpaid rows inside the free first-N block.
+    within_grace: bool = False
+    # 0-based rank among overdue unpaid (oldest = 0). None if not overdue unpaid.
+    overdue_rank: int | None = None
 
     @property
     def grace_status(self) -> str:
         if self.installment_outstanding <= ZERO and self.penalty_outstanding <= ZERO:
             return "SETTLED"
+        if self.within_grace:
+            return "WITHIN_GRACE"
         if self.grace_crossed:
             return "GRACE_EXCEEDED"
-        return "WITHIN_GRACE"
+        return "NOT_APPLICABLE"
 
 
 def loan_grace_installments(loan: Loan) -> int:
@@ -217,7 +223,14 @@ def compute_loan_payables(
 
         penalty_outstanding = max(penalty_amount - paid_penalty, ZERO).quantize(TWOPLACES)
         total_payable = (installment_outstanding + penalty_outstanding).quantize(TWOPLACES)
-        elapsed = overdue_rank.get(row.id, 0)
+        rank = overdue_rank.get(row.id)
+        # First N overdue unpaid (oldest) are within grace — never the last N before today.
+        within_grace = (
+            rank is not None
+            and installment_outstanding > ZERO
+            and rank < grace_n
+            and penalty_amount <= ZERO
+        )
 
         result[row.id] = InstallmentPayable(
             schedule_id=row.id,
@@ -226,12 +239,14 @@ def compute_loan_payables(
             paid_amount=paid_amount,
             installment_outstanding=installment_outstanding,
             grace_installments=grace_n,
-            installments_elapsed=elapsed,
+            installments_elapsed=rank if rank is not None else 0,
             grace_crossed=penalty_amount > ZERO,
             penalty_amount=penalty_amount,
             paid_penalty=paid_penalty,
             penalty_outstanding=penalty_outstanding,
             total_payable=total_payable,
+            within_grace=within_grace,
+            overdue_rank=rank,
         )
     return result
 

@@ -160,16 +160,56 @@ def test_grace_5_oct_example_matches_user_case():
     for i in range(5):
         assert payables[schedules[i].id].penalty_outstanding == ZERO
         assert payables[schedules[i].id].total_payable == AMT
+        assert payables[schedules[i].id].within_grace is True
 
     # Oct 7 → after grace
     oct7 = payables[schedules[5].id]
     assert oct7.schedule_date == date(2026, 10, 7)
     assert oct7.penalty_outstanding == Decimal("50.00")
     assert oct7.total_payable == Decimal("170.00")
+    assert oct7.within_grace is False
 
     # Oct 8 today
     assert payables[schedules[6].id].total_payable == AMT
     assert payables[schedules[6].id].penalty_outstanding == ZERO
+    assert payables[schedules[6].id].within_grace is False
+
+
+def test_grace_3_must_not_free_last_three_before_today():
+    """
+    Regression for the reported bug (aging / last-3-free).
+
+    Screenshot had: Oct 2–4 penalized, Oct 5–7 free (WRONG).
+    Correct (grace=3, penalty=25, today=Oct 8):
+      Oct 2–4 free (first 3 overdue), Oct 5–7 ₹145, Oct 8 ₹120.
+    """
+    due_start = date(2026, 10, 2)
+    schedules = _build_loan_schedules(10, due_start=due_start, amount=AMT)
+    as_of = date(2026, 10, 8)
+    payables = _payable_map(
+        schedules, grace=3, penalty=Decimal("25.00"), as_of=as_of
+    )
+
+    # First 3 overdue = Oct 2,3,4 → grace (NO penalty)
+    for i, day in enumerate((2, 3, 4)):
+        p = payables[schedules[i].id]
+        assert p.schedule_date == date(2026, 10, day)
+        assert p.penalty_outstanding == ZERO, f"Oct {day} must be within grace"
+        assert p.within_grace is True
+        assert p.total_payable == AMT
+
+    # After grace = Oct 5,6,7 → penalty (NOT free)
+    for i, day in enumerate((5, 6, 7), start=3):
+        p = payables[schedules[i].id]
+        assert p.schedule_date == date(2026, 10, day)
+        assert p.penalty_outstanding == Decimal("25.00"), (
+            f"Oct {day} must NOT be treated as grace (last-3-free bug)"
+        )
+        assert p.within_grace is False
+        assert p.total_payable == Decimal("145.00")
+
+    assert payables[schedules[6].id].total_payable == AMT  # today
+    assert payables[schedules[6].id].within_grace is False
 
 
 def test_no_overdue_when_day1_paid():
