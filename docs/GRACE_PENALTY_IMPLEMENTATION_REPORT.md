@@ -66,30 +66,22 @@ Creates equal `loan_schedules` rows via `installment_schedule_date` in `backend/
 
 ## 4. Grace-threshold rule (exact)
 
-**Sequence aging (generic across frequencies):**
+**First N overdue free (generic across frequencies):**
 
 ```
-schedules = loan schedules ordered by schedule_date ascending
-current_index = max { i | schedules[i].schedule_date <= as_of }, or -1 if none
-for installment at index i with installment_outstanding > 0:
-    elapsed = current_index - i
-    if elapsed > grace_installments:
-        penalty = configured_fixed_penalty
+overdue_unpaid = schedules with schedule_date < as_of AND outstanding > 0
+                 ordered oldest-first
+for index, installment in enumerate(overdue_unpaid):
+    if index < grace_installments:
+        penalty = 0       # free grace block
     else:
-        penalty = 0
-    # current installment: elapsed == 0 → never penalized early
-    total_payable = installment_outstanding + max(penalty - paid_penalty, 0)
+        penalty = fixed   # after the grace block
+# current/future (schedule_date >= as_of) → penalty = 0
 ```
 
-**Day 1–6 (Daily, grace=3, penalty=₹10, installment=₹120), as_of = Day N:**
+**Day 1–6 (Daily, grace=3, penalty=₹10):** Day 5 → Day 4 @ ₹130; Days 1–3 free; Day 5 current @ ₹120.
 
-| as_of | Penalized installments | Current |
-|-------|------------------------|---------|
-| Day 1–4 | none | Day N @ ₹120 |
-| Day 5 | Day 1 @ ₹130 | Day 5 @ ₹120 |
-| Day 6 | Day 1 & Day 2 @ ₹130 | Day 6 @ ₹120 |
-
-This matches the prose (“Day 1 has passed the grace threshold” on Day 5) and “subsequent installments have passed”. The prompt’s Day 5/6 tables labeling **Day 4/Day 5** as ₹130 are treated as off-by-grace labeling errors (1+3→4, 2+3→5); automated tests follow the aging rule above.
+**User case (grace=5, penalty=₹50, today=8 Oct):** Oct 2–6 free @ ₹120; Oct 7 @ ₹170; Oct 8 today @ ₹120.
 
 Penalty never compounds; original `expected_amount` is never mutated.
 
