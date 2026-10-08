@@ -20,6 +20,8 @@ from backend.app.services.capital_location_service import get_available_to_lend
 from backend.app.services.capital_service import (
     record_loan_disbursement,
 )
+from backend.app.services.finance_settings_service import get_finance_settings
+from backend.app.services.penalty_service import penalty_defaults_from_settings
 from backend.app.services.schedule_service import generate_installment_schedule
 from backend.app.utils.date_helpers import last_installment_date
 
@@ -103,6 +105,10 @@ def create_loan(
         interest_method = CollectionModel.DAILY_COLLECTION.value
         interest_rate = ZERO
         duration_days = installment_count if frequency == CollectionFrequency.DAILY.value else None
+        settings = get_finance_settings(db, finance_owner_id)
+        grace_installments, penalty_per_installment = penalty_defaults_from_settings(
+            settings, frequency
+        )
     else:
         due_date = loan.due_date
         daily_principal = None
@@ -115,6 +121,8 @@ def create_loan(
         installment_count = None
         due_start_date = None
         duration_days = None
+        grace_installments = 0
+        penalty_per_installment = ZERO
 
         if due_date <= loan.issue_date:
             raise HTTPException(
@@ -146,6 +154,8 @@ def create_loan(
         daily_profit=daily_profit,
         total_expected_profit=total_expected_profit,
         total_profit_paid=ZERO,
+        grace_installments=grace_installments,
+        penalty_per_installment=penalty_per_installment,
     )
 
     db.add(db_loan)

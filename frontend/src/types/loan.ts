@@ -30,6 +30,8 @@ export interface LoanResponse {
   daily_profit?: string | null;
   total_expected_profit?: string | null;
   total_profit_paid?: string | null;
+  grace_installments?: number;
+  penalty_per_installment?: string;
 }
 
 export interface LoanCreate {
@@ -115,6 +117,14 @@ export interface UnpaidSchedule {
   status: string;
   is_today: boolean;
   is_future: boolean;
+  original_amount?: string;
+  penalty_amount?: string;
+  paid_penalty?: string;
+  penalty_outstanding?: string;
+  installment_outstanding?: string;
+  total_payable?: string;
+  grace_status?: string;
+  grace_crossed?: boolean;
 }
 
 export type LoanScheduleRow = UnpaidSchedule;

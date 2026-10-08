@@ -6,6 +6,12 @@ from sqlalchemy.orm import Session
 from backend.app.models.enums import ScheduleStatus
 from backend.app.models.loan import Loan
 from backend.app.models.loan_schedule import LoanSchedule
+from backend.app.services.penalty_service import (
+    compute_installment_payable,
+    compute_loan_payables_for_loan,
+    loan_grace_installments,
+    loan_penalty_per_installment,
+)
 from backend.app.utils.date_helpers import installment_schedule_date
 from backend.app.utils.loan_helpers import is_installment_loan
 
@@ -40,6 +46,7 @@ def generate_installment_schedule(
             paid_amount=ZERO,
             paid_principal=ZERO,
             paid_profit=ZERO,
+            paid_penalty=ZERO,
             status=ScheduleStatus.PENDING.value,
         )
         db.add(schedule)
@@ -93,10 +100,36 @@ def get_schedule_for_payment(
     )
 
 
+def _schedule_row_dict(
+    schedule: LoanSchedule,
+    payable,
+    *,
+    today: date,
+) -> dict:
+    return {
+        "schedule_date": schedule.schedule_date,
+        "expected_amount": payable.original_amount,
+        "paid_amount": payable.paid_amount,
+        "pending_amount": payable.total_payable,
+        "status": schedule.status,
+        "is_today": schedule.schedule_date == today,
+        "is_future": schedule.schedule_date > today,
+        "original_amount": payable.original_amount,
+        "penalty_amount": payable.penalty_amount,
+        "paid_penalty": payable.paid_penalty,
+        "penalty_outstanding": payable.penalty_outstanding,
+        "installment_outstanding": payable.installment_outstanding,
+        "total_payable": payable.total_payable,
+        "grace_status": payable.grace_status,
+        "grace_crossed": payable.grace_crossed,
+    }
+
+
 def list_unpaid_schedules(
     db: Session,
     loan_id: int,
     finance_owner_id: int,
+    as_of: date | None = None,
 ) -> list[dict]:
     loan = (
         db.query(Loan)
@@ -122,23 +155,22 @@ def list_unpaid_schedules(
         .all()
     )
 
-    today = date.today()
+    # Need full schedule set for sequence-based grace aging.
+    all_rows = (
+        db.query(LoanSchedule)
+        .filter(LoanSchedule.loan_id == loan_id)
+        .order_by(LoanSchedule.schedule_date.asc())
+        .all()
+    )
+
+    today = as_of or date.today()
+    payables = compute_loan_payables_for_loan(loan, all_rows, as_of=today)
     result = []
     for schedule in rows:
-        expected = Decimal(schedule.expected_amount)
-        paid = Decimal(schedule.paid_amount)
-        pending = max(expected - paid, ZERO).quantize(TWOPLACES)
-        result.append(
-            {
-                "schedule_date": schedule.schedule_date,
-                "expected_amount": expected,
-                "paid_amount": paid,
-                "pending_amount": pending,
-                "status": schedule.status,
-                "is_today": schedule.schedule_date == today,
-                "is_future": schedule.schedule_date > today,
-            }
-        )
+        payable = payables[schedule.id]
+        if payable.total_payable <= ZERO:
+            continue
+        result.append(_schedule_row_dict(schedule, payable, today=today))
     return result
 
 
@@ -146,6 +178,7 @@ def list_loan_schedules(
     db: Session,
     loan_id: int,
     finance_owner_id: int,
+    as_of: date | None = None,
 ) -> list[dict]:
     """Full installment schedule for a loan (paid, partial, pending, overdue)."""
     loan = (
@@ -163,23 +196,12 @@ def list_loan_schedules(
         .all()
     )
 
-    today = date.today()
+    today = as_of or date.today()
+    payables = compute_loan_payables_for_loan(loan, rows, as_of=today)
     result = []
     for schedule in rows:
-        expected = Decimal(schedule.expected_amount)
-        paid = Decimal(schedule.paid_amount)
-        pending = max(expected - paid, ZERO).quantize(TWOPLACES)
-        result.append(
-            {
-                "schedule_date": schedule.schedule_date,
-                "expected_amount": expected,
-                "paid_amount": paid,
-                "pending_amount": pending,
-                "status": schedule.status,
-                "is_today": schedule.schedule_date == today,
-                "is_future": schedule.schedule_date > today,
-            }
-        )
+        payable = payables[schedule.id]
+        result.append(_schedule_row_dict(schedule, payable, today=today))
     return result
 
 
@@ -231,10 +253,35 @@ def get_schedules_for_dates(
     return [by_date[d] for d in unique_dates]
 
 
-def schedule_pending_amount(schedule: LoanSchedule) -> Decimal:
+def schedule_installment_pending(schedule: LoanSchedule) -> Decimal:
+    """Installment principal+profit pending only (excludes penalty)."""
     expected = Decimal(schedule.expected_amount)
     paid = Decimal(schedule.paid_amount)
     return max(expected - paid, ZERO).quantize(TWOPLACES)
+
+
+def schedule_pending_amount(
+    schedule: LoanSchedule,
+    loan: Loan | None = None,
+    all_schedules: list[LoanSchedule] | None = None,
+    as_of: date | None = None,
+) -> Decimal:
+    """
+    Total payable for a schedule.
+
+    When loan + all_schedules are provided, includes sequence-based penalty.
+    Otherwise returns installment-only pending (legacy / tests without context).
+    """
+    if loan is not None and all_schedules is not None:
+        payable = compute_installment_payable(
+            schedule,
+            ordered_schedules=all_schedules,
+            grace_installments=loan_grace_installments(loan),
+            penalty_per_installment=loan_penalty_per_installment(loan),
+            as_of=as_of or date.today(),
+        )
+        return payable.total_payable
+    return schedule_installment_pending(schedule)
 
 
 def update_schedule_after_payment(
@@ -242,17 +289,39 @@ def update_schedule_after_payment(
     principal_paid: Decimal,
     profit_paid: Decimal,
     amount_paid: Decimal,
+    penalty_paid: Decimal = ZERO,
+    *,
+    loan: Loan | None = None,
+    all_schedules: list[LoanSchedule] | None = None,
+    as_of: date | None = None,
 ) -> None:
     schedule.paid_principal += principal_paid
     schedule.paid_profit += profit_paid
     schedule.paid_amount += amount_paid
+    if penalty_paid > ZERO:
+        schedule.paid_penalty = (Decimal(schedule.paid_penalty or 0) + penalty_paid).quantize(
+            TWOPLACES
+        )
 
-    if (
+    installment_cleared = (
         schedule.paid_principal >= schedule.expected_principal
         and schedule.paid_profit >= schedule.expected_profit
-    ):
+    )
+
+    penalty_cleared = True
+    if loan is not None and all_schedules is not None:
+        payable = compute_installment_payable(
+            schedule,
+            ordered_schedules=all_schedules,
+            grace_installments=loan_grace_installments(loan),
+            penalty_per_installment=loan_penalty_per_installment(loan),
+            as_of=as_of or date.today(),
+        )
+        penalty_cleared = payable.penalty_outstanding <= ZERO
+
+    if installment_cleared and penalty_cleared:
         schedule.status = ScheduleStatus.PAID.value
-    elif schedule.paid_amount > ZERO:
+    elif schedule.paid_amount > ZERO or Decimal(schedule.paid_penalty or 0) > ZERO:
         schedule.status = ScheduleStatus.PARTIAL.value
 
 

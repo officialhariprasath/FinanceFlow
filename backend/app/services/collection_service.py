@@ -84,25 +84,23 @@ def get_today_collections(
         if assigned_customer_ids is not None and customer.id not in assigned_customer_ids:
             continue
 
-        today_schedule = (
+        all_schedules = (
             db.query(LoanSchedule)
-            .filter(
-                LoanSchedule.loan_id == loan.id,
-                LoanSchedule.schedule_date == target_date,
-            )
-            .first()
-        )
-
-        overdue_schedules = (
-            db.query(LoanSchedule)
-            .filter(
-                LoanSchedule.loan_id == loan.id,
-                LoanSchedule.schedule_date < target_date,
-                LoanSchedule.status == ScheduleStatus.OVERDUE.value,
-            )
+            .filter(LoanSchedule.loan_id == loan.id)
             .order_by(LoanSchedule.schedule_date.asc())
             .all()
         )
+
+        today_schedule = next(
+            (s for s in all_schedules if s.schedule_date == target_date),
+            None,
+        )
+
+        overdue_schedules = [
+            s
+            for s in all_schedules
+            if s.schedule_date < target_date and s.status == ScheduleStatus.OVERDUE.value
+        ]
 
         if today_schedule is None and not overdue_schedules:
             continue
@@ -118,7 +116,12 @@ def get_today_collections(
         if today_schedule is not None:
             today_expected = Decimal(today_schedule.expected_amount)
             today_paid = Decimal(today_schedule.paid_amount)
-            today_pending = schedule_pending_amount(today_schedule)
+            today_pending = schedule_pending_amount(
+                today_schedule,
+                loan=loan,
+                all_schedules=all_schedules,
+                as_of=target_date,
+            )
             expected_principal = Decimal(today_schedule.expected_principal)
             expected_profit = Decimal(today_schedule.expected_profit)
             status_label = _status_label(today_schedule.status)
@@ -129,7 +132,12 @@ def get_today_collections(
 
         overdue_pending = ZERO
         for sched in overdue_schedules:
-            overdue_pending += schedule_pending_amount(sched)
+            overdue_pending += schedule_pending_amount(
+                sched,
+                loan=loan,
+                all_schedules=all_schedules,
+                as_of=target_date,
+            )
             overdue_installment_count += 1
 
         overdue_pending = overdue_pending.quantize(TWOPLACES)

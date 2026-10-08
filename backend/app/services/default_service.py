@@ -102,7 +102,10 @@ def list_overdue_loans(db: Session, finance_owner_id: int):
     from backend.app.models.customer import Customer
     from backend.app.services.schedule_service import mark_overdue_schedules
 
-    mark_overdue_schedules(db, finance_owner_id, date.today())
+    as_of = date.today()
+    mark_overdue_schedules(db, finance_owner_id, as_of)
+
+    from backend.app.services.schedule_service import schedule_pending_amount
 
     rows = (
         db.query(Loan, Customer, LoanSchedule)
@@ -116,17 +119,39 @@ def list_overdue_loans(db: Session, finance_owner_id: int):
         )
         .all()
     )
-    return [
-        {
-            "loan_id": loan.id,
-            "customer_name": customer.full_name,
-            "schedule_date": schedule.schedule_date,
-            "expected_amount": schedule.expected_amount,
-            "paid_amount": schedule.paid_amount,
-            "pending_amount": max(
-                Decimal(schedule.expected_amount) - Decimal(schedule.paid_amount),
-                ZERO,
-            ),
-        }
-        for loan, customer, schedule in rows
-    ]
+
+    # Full schedule sets per loan for sequence-based penalty calculation.
+    schedules_by_loan: dict[int, list] = {}
+    all_open = (
+        db.query(LoanSchedule)
+        .join(Loan, LoanSchedule.loan_id == Loan.id)
+        .filter(
+            Loan.finance_owner_id == finance_owner_id,
+            Loan.status == "ACTIVE",
+            Loan.collection_model == CollectionModel.DAILY_COLLECTION.value,
+        )
+        .order_by(LoanSchedule.loan_id.asc(), LoanSchedule.schedule_date.asc())
+        .all()
+    )
+    for schedule in all_open:
+        schedules_by_loan.setdefault(schedule.loan_id, []).append(schedule)
+
+    result = []
+    for loan, customer, schedule in rows:
+        pending = schedule_pending_amount(
+            schedule,
+            loan=loan,
+            all_schedules=schedules_by_loan.get(loan.id, [schedule]),
+            as_of=as_of,
+        )
+        result.append(
+            {
+                "loan_id": loan.id,
+                "customer_name": customer.full_name,
+                "schedule_date": schedule.schedule_date,
+                "expected_amount": schedule.expected_amount,
+                "paid_amount": schedule.paid_amount,
+                "pending_amount": pending,
+            }
+        )
+    return result
