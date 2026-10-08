@@ -19,6 +19,7 @@ class OwnerCashAccount(Base):
     )
     principal_balance = Column(Numeric(12, 2), nullable=False, default=0)
     profit_balance = Column(Numeric(12, 2), nullable=False, default=0)
+    penalty_balance = Column(Numeric(12, 2), nullable=False, default=0)
     currency = Column(String(10), nullable=False, default="INR")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
@@ -52,8 +53,10 @@ class OwnerCashTransaction(Base):
     amount = Column(Numeric(12, 2), nullable=False)
     principal_amount = Column(Numeric(12, 2), nullable=False, default=0)
     profit_amount = Column(Numeric(12, 2), nullable=False, default=0)
+    penalty_amount = Column(Numeric(12, 2), nullable=False, default=0)
     principal_balance_after = Column(Numeric(12, 2), nullable=False)
     profit_balance_after = Column(Numeric(12, 2), nullable=False)
+    penalty_balance_after = Column(Numeric(12, 2), nullable=False, default=0)
     reference_type = Column(String(50), nullable=True)
     reference_id = Column(Integer, nullable=True)
     description = Column(String(255), nullable=True)

@@ -126,6 +126,56 @@ def record_profit_recognition(
     return transaction
 
 
+def record_penalty_recognition(
+    db: Session,
+    finance_owner_id: int,
+    loan_id: int,
+    payment_id: int,
+    amount: Decimal,
+) -> ProfitTransaction:
+    """Book late-fee income on the profit ledger (separate transaction type)."""
+    amount = amount.quantize(TWOPLACES)
+    if amount <= ZERO:
+        raise ValueError("Penalty recognition amount must be positive.")
+    account = get_or_create_profit_account(db, finance_owner_id)
+    current = get_available_profit(db, finance_owner_id)
+    new_balance = current + amount
+
+    transaction = ProfitTransaction(
+        profit_account_id=account.id,
+        type=ProfitTransactionType.PENALTY_RECOGNITION.value,
+        amount=amount,
+        direction=LedgerDirection.CREDIT.value,
+        reference_type="PAYMENT",
+        reference_id=payment_id,
+        description=f"Penalty recognition for loan #{loan_id}",
+        balance_after=new_balance,
+        created_by=finance_owner_id,
+    )
+    db.add(transaction)
+    db.flush()
+    return transaction
+
+
+def get_total_penalty_earned(
+    db: Session,
+    finance_owner_id: int,
+) -> Decimal:
+    account = get_or_create_profit_account(db, finance_owner_id)
+    rows = (
+        db.query(ProfitTransaction)
+        .filter(
+            ProfitTransaction.profit_account_id == account.id,
+            ProfitTransaction.type == ProfitTransactionType.PENALTY_RECOGNITION.value,
+        )
+        .all()
+    )
+    total = ZERO
+    for row in rows:
+        total += row.amount
+    return total.quantize(TWOPLACES)
+
+
 def get_profit_for_period(
     db: Session,
     finance_owner_id: int,

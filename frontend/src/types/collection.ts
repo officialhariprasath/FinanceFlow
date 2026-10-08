@@ -10,6 +10,7 @@ export interface CollectionItem {
   overdue_pending_amount?: string;
   expected_principal: string;
   expected_profit: string;
+  penalty_outstanding?: string;
   status: string;
   is_assigned_to_agent?: boolean;
 }

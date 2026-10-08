@@ -146,6 +146,7 @@ def get_capital_summary(
         "available_to_lend": location["available_to_lend"],
         "capital_with_agents": location["capital_with_agents"],
         "profit_with_agents": location["profit_with_agents"],
+        "penalty_with_agents": location["penalty_with_agents"],
         "unsettled_with_agents": location["unsettled_with_agents"],
         "owner_account_principal": location.get("owner_account_principal", ZERO),
         "capital_with_owner": location["capital_with_owner"],

@@ -32,6 +32,7 @@ class CapitalSummaryResponse(BaseModel):
     available_to_lend: Decimal = Decimal("0.00")
     capital_with_agents: Decimal = Decimal("0.00")
     profit_with_agents: Decimal = Decimal("0.00")
+    penalty_with_agents: Decimal = Decimal("0.00")
     unsettled_with_agents: Decimal = Decimal("0.00")
     owner_account_principal: Decimal = Decimal("0.00")
     capital_with_owner: Decimal = Decimal("0.00")

@@ -10,8 +10,10 @@ import {
   getOwnerAccountSummary,
   getOwnerAccountTransactions,
   moveOwnerPrincipalToCapital,
+  reinvestOwnerPenalty,
   reinvestOwnerProfit,
   withdrawOwnerCash,
+  withdrawOwnerPenalty,
   withdrawOwnerProfit,
 } from "../../services/ownerAccountService";
 import type {
@@ -24,6 +26,8 @@ type ActionKind =
   | "move-capital"
   | "withdraw-profit"
   | "reinvest-profit"
+  | "withdraw-penalty"
+  | "reinvest-penalty"
   | "withdraw-cash"
   | null;
 
@@ -117,6 +121,12 @@ export default function OwnerAccountPage() {
       } else if (action === "withdraw-cash") {
         result = await withdrawOwnerCash(value, note);
         toast.success("Cash withdrawn from Owner Account.");
+      } else if (action === "withdraw-penalty") {
+        result = await withdrawOwnerPenalty(value, note);
+        toast.success("Penalty withdrawn from Owner Account.");
+      } else if (action === "reinvest-penalty") {
+        result = await reinvestOwnerPenalty(value, note);
+        toast.success("Penalty reinvested into Available Capital.");
       } else {
         return;
       }
@@ -151,6 +161,8 @@ export default function OwnerAccountPage() {
     );
   }
 
+  const penaltyBalance = summary.penalty_balance ?? "0";
+
   const actionTitle =
     action === "move-capital"
       ? "Move principal to Available Capital"
@@ -158,16 +170,22 @@ export default function OwnerAccountPage() {
         ? "Withdraw profit"
         : action === "reinvest-profit"
           ? "Reinvest profit to Available Capital"
-          : action === "withdraw-cash"
-            ? "Withdraw cash (principal)"
-            : "";
+          : action === "withdraw-penalty"
+            ? "Withdraw penalty (late-fee income)"
+            : action === "reinvest-penalty"
+              ? "Reinvest penalty to Available Capital"
+              : action === "withdraw-cash"
+                ? "Withdraw cash (principal)"
+                : "";
 
   const maxHint =
     action === "move-capital" || action === "withdraw-cash"
       ? summary.principal_balance
       : action === "withdraw-profit" || action === "reinvest-profit"
         ? summary.profit_balance
-        : "0";
+        : action === "withdraw-penalty" || action === "reinvest-penalty"
+          ? penaltyBalance
+          : "0";
 
   return (
     <MainLayout>
@@ -202,7 +220,7 @@ export default function OwnerAccountPage() {
           <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-slate-100">
             Owner Account balances
           </h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <DashboardCard
               title="Total in Owner Account"
               value={fmt(summary.total_balance)}
@@ -216,6 +234,10 @@ export default function OwnerAccountPage() {
               value={fmt(summary.profit_balance)}
             />
             <DashboardCard
+              title="Penalty (late-fee income)"
+              value={fmt(penaltyBalance)}
+            />
+            <DashboardCard
               title="Available to lend"
               value={fmt(summary.available_to_lend)}
               onClick={() => navigate("/capital")}
@@ -227,7 +249,7 @@ export default function OwnerAccountPage() {
           <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-slate-100">
             Still outside this account
           </h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <DashboardCard
               title="With agents (unsettled)"
               value={fmt(summary.unsettled_with_agents)}
@@ -240,6 +262,10 @@ export default function OwnerAccountPage() {
             <DashboardCard
               title="Profit with agents"
               value={fmt(summary.profit_with_agents)}
+            />
+            <DashboardCard
+              title="Penalty with agents"
+              value={fmt(summary.penalty_with_agents ?? "0")}
             />
             <DashboardCard
               title="Currently lent"
@@ -256,7 +282,7 @@ export default function OwnerAccountPage() {
             Settlement money sits here until you choose. Add Capital (pocket
             money) stays on the Capital page.
           </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <button
               type="button"
               disabled={Number(summary.principal_balance) <= 0}
@@ -294,6 +320,28 @@ export default function OwnerAccountPage() {
               Withdraw profit
               <span className="mt-1 block text-xs font-normal text-slate-500">
                 Take profit out of the business
+              </span>
+            </button>
+            <button
+              type="button"
+              disabled={Number(penaltyBalance) <= 0}
+              onClick={() => openAction("reinvest-penalty", penaltyBalance)}
+              className="rounded-lg border border-amber-700 px-4 py-3 text-left text-sm font-medium text-amber-800 hover:bg-amber-50 disabled:opacity-50 dark:text-amber-300"
+            >
+              Reinvest penalty
+              <span className="mt-1 block text-xs font-normal text-slate-500">
+                Add late fees into lendable capital
+              </span>
+            </button>
+            <button
+              type="button"
+              disabled={Number(penaltyBalance) <= 0}
+              onClick={() => openAction("withdraw-penalty", penaltyBalance)}
+              className="rounded-lg border px-4 py-3 text-left text-sm font-medium hover:bg-slate-50 disabled:opacity-50 dark:hover:bg-slate-800"
+            >
+              Withdraw penalty
+              <span className="mt-1 block text-xs font-normal text-slate-500">
+                Take late-fee income out
               </span>
             </button>
             <button
@@ -379,6 +427,7 @@ export default function OwnerAccountPage() {
                   <th className="px-4 py-3 text-left">Description</th>
                   <th className="px-4 py-3 text-right">Principal</th>
                   <th className="px-4 py-3 text-right">Profit</th>
+                  <th className="px-4 py-3 text-right">Penalty</th>
                   <th className="px-4 py-3 text-right">Total</th>
                 </tr>
               </thead>
@@ -386,7 +435,7 @@ export default function OwnerAccountPage() {
                 {transactions.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-4 py-6 text-center text-slate-500"
                     >
                       No Owner Account movements yet. Approve an agent
@@ -410,6 +459,10 @@ export default function OwnerAccountPage() {
                         <td className="px-4 py-3 text-right">
                           {sign}
                           {fmt(tx.profit_amount)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {sign}
+                          {fmt(tx.penalty_amount ?? "0")}
                         </td>
                         <td className="px-4 py-3 text-right font-medium">
                           {sign}

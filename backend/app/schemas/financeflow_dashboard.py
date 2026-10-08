@@ -10,6 +10,7 @@ class FinanceFlowDashboardResponse(BaseModel):
     available_to_lend: Decimal = Decimal("0")
     capital_with_agents: Decimal = Decimal("0")
     profit_with_agents: Decimal = Decimal("0")
+    penalty_with_agents: Decimal = Decimal("0")
     capital_currently_lent: Decimal
     principal_outstanding: Decimal
     profit_today: Decimal

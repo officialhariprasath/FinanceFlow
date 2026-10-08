@@ -69,6 +69,10 @@ export default function ReconciliationPage() {
             title="Profit with agents"
             value={fmt(data?.profit_with_agents ?? "0")}
           />
+          <DashboardCard
+            title="Penalty with agents"
+            value={fmt((data as { penalty_with_agents?: string })?.penalty_with_agents ?? "0")}
+          />
           <DashboardCard title="Capital lent" value={fmt(data?.capital_lent)} />
           <DashboardCard
             title="Profit available"

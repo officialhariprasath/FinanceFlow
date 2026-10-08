@@ -252,6 +252,10 @@ export default function CapitalPage() {
             value={fmt(summary?.profit_with_agents ?? "0")}
           />
           <DashboardCard
+            title="Penalty with agents"
+            value={fmt(summary?.penalty_with_agents ?? "0")}
+          />
+          <DashboardCard
             title="Unsettled with agents"
             value={fmt(summary?.unsettled_with_agents ?? "0")}
           />

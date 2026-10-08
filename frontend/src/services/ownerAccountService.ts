@@ -60,3 +60,25 @@ export async function withdrawOwnerCash(
   );
   return r.data;
 }
+
+export async function withdrawOwnerPenalty(
+  amount: string,
+  description?: string
+): Promise<OwnerAccountActionResult> {
+  const r = await api.post<OwnerAccountActionResult>(
+    "/owner-account/withdraw-penalty",
+    { amount, description }
+  );
+  return r.data;
+}
+
+export async function reinvestOwnerPenalty(
+  amount: string,
+  description?: string
+): Promise<OwnerAccountActionResult> {
+  const r = await api.post<OwnerAccountActionResult>(
+    "/owner-account/reinvest-penalty",
+    { amount, description }
+  );
+  return r.data;
+}

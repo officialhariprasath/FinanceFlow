@@ -24,6 +24,7 @@ from backend.app.services.capital_service import (
 from backend.app.services.profit_service import (
     get_available_profit,
     get_or_create_profit_account,
+    get_total_penalty_earned,
 )
 
 COMPLETED_SETTLEMENT_STATUSES = ("COMPLETED", "APPROVED")
@@ -47,6 +48,7 @@ def get_or_create_owner_cash_account(
         finance_owner_id=finance_owner_id,
         principal_balance=ZERO,
         profit_balance=ZERO,
+        penalty_balance=ZERO,
         currency="INR",
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
@@ -91,32 +93,68 @@ def _bootstrap_opening_profit(
     split = unsettled_collection_split(db, finance_owner_id)
     total_profit = get_total_profit_earned(db, finance_owner_id)
     settled_profit = (total_profit - split["profit_with_agents"]).quantize(TWOPLACES)
-    if settled_profit <= ZERO:
-        return
+    if settled_profit > ZERO:
+        account.profit_balance = settled_profit
+        account.updated_at = datetime.utcnow()
+        tx = OwnerCashTransaction(
+            owner_cash_account_id=account.id,
+            finance_owner_id=finance_owner_id,
+            type=OwnerCashTransactionType.OPENING_BALANCE.value,
+            direction=LedgerDirection.CREDIT.value,
+            amount=settled_profit,
+            principal_amount=ZERO,
+            profit_amount=settled_profit,
+            penalty_amount=ZERO,
+            principal_balance_after=ZERO,
+            profit_balance_after=settled_profit,
+            penalty_balance_after=Decimal(account.penalty_balance or ZERO).quantize(
+                TWOPLACES
+            ),
+            reference_type="BOOTSTRAP",
+            reference_id=None,
+            description=(
+                "Opening Owner Account profit — settled collections already received "
+                "(not still with agents)"
+            ),
+            created_by=finance_owner_id,
+            created_at=datetime.utcnow(),
+        )
+        db.add(tx)
+        db.flush()
 
-    account.profit_balance = settled_profit
-    account.updated_at = datetime.utcnow()
-    tx = OwnerCashTransaction(
-        owner_cash_account_id=account.id,
-        finance_owner_id=finance_owner_id,
-        type=OwnerCashTransactionType.OPENING_BALANCE.value,
-        direction=LedgerDirection.CREDIT.value,
-        amount=settled_profit,
-        principal_amount=ZERO,
-        profit_amount=settled_profit,
-        principal_balance_after=ZERO,
-        profit_balance_after=settled_profit,
-        reference_type="BOOTSTRAP",
-        reference_id=None,
-        description=(
-            "Opening Owner Account profit — settled collections already received "
-            "(not still with agents)"
-        ),
-        created_by=finance_owner_id,
-        created_at=datetime.utcnow(),
-    )
-    db.add(tx)
-    db.flush()
+    # Seed settled penalty income already with owner (not still with agents).
+    total_penalty = get_total_penalty_earned(db, finance_owner_id)
+    settled_penalty = (total_penalty - split["penalty_with_agents"]).quantize(TWOPLACES)
+    if settled_penalty > ZERO:
+        account.penalty_balance = (
+            Decimal(account.penalty_balance or ZERO) + settled_penalty
+        ).quantize(TWOPLACES)
+        account.updated_at = datetime.utcnow()
+        penalty_tx = OwnerCashTransaction(
+            owner_cash_account_id=account.id,
+            finance_owner_id=finance_owner_id,
+            type=OwnerCashTransactionType.OPENING_BALANCE.value,
+            direction=LedgerDirection.CREDIT.value,
+            amount=settled_penalty,
+            principal_amount=ZERO,
+            profit_amount=ZERO,
+            penalty_amount=settled_penalty,
+            principal_balance_after=Decimal(account.principal_balance).quantize(
+                TWOPLACES
+            ),
+            profit_balance_after=Decimal(account.profit_balance).quantize(TWOPLACES),
+            penalty_balance_after=Decimal(account.penalty_balance).quantize(TWOPLACES),
+            reference_type="BOOTSTRAP",
+            reference_id=None,
+            description=(
+                "Opening Owner Account penalty — settled late fees already received "
+                "(not still with agents)"
+            ),
+            created_by=finance_owner_id,
+            created_at=datetime.utcnow(),
+        )
+        db.add(penalty_tx)
+        db.flush()
 
 
 def _append_tx(
@@ -131,10 +169,12 @@ def _append_tx(
     created_by: int,
     reference_type: str | None = None,
     reference_id: int | None = None,
+    penalty_amount: Decimal = ZERO,
 ) -> OwnerCashTransaction:
     principal_amount = principal_amount.quantize(TWOPLACES)
     profit_amount = profit_amount.quantize(TWOPLACES)
-    amount = (principal_amount + profit_amount).quantize(TWOPLACES)
+    penalty_amount = Decimal(penalty_amount or ZERO).quantize(TWOPLACES)
+    amount = (principal_amount + profit_amount + penalty_amount).quantize(TWOPLACES)
     if amount <= ZERO:
         raise HTTPException(status_code=400, detail="Amount must be greater than zero.")
 
@@ -144,6 +184,9 @@ def _append_tx(
         ).quantize(TWOPLACES)
         account.profit_balance = (
             Decimal(account.profit_balance) + profit_amount
+        ).quantize(TWOPLACES)
+        account.penalty_balance = (
+            Decimal(getattr(account, "penalty_balance", ZERO) or ZERO) + penalty_amount
         ).quantize(TWOPLACES)
     else:
         if principal_amount > Decimal(account.principal_balance):
@@ -156,12 +199,19 @@ def _append_tx(
                 status_code=400,
                 detail=f"Insufficient Owner Account profit. Available: {account.profit_balance}",
             )
+        penalty_bal = Decimal(getattr(account, "penalty_balance", ZERO) or ZERO)
+        if penalty_amount > penalty_bal:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient Owner Account penalty. Available: {penalty_bal}",
+            )
         account.principal_balance = (
             Decimal(account.principal_balance) - principal_amount
         ).quantize(TWOPLACES)
         account.profit_balance = (
             Decimal(account.profit_balance) - profit_amount
         ).quantize(TWOPLACES)
+        account.penalty_balance = (penalty_bal - penalty_amount).quantize(TWOPLACES)
 
     account.updated_at = datetime.utcnow()
     tx = OwnerCashTransaction(
@@ -172,8 +222,10 @@ def _append_tx(
         amount=amount,
         principal_amount=principal_amount,
         profit_amount=profit_amount,
+        penalty_amount=penalty_amount,
         principal_balance_after=Decimal(account.principal_balance).quantize(TWOPLACES),
         profit_balance_after=Decimal(account.profit_balance).quantize(TWOPLACES),
+        penalty_balance_after=Decimal(account.penalty_balance).quantize(TWOPLACES),
         reference_type=reference_type,
         reference_id=reference_id,
         description=description,
@@ -193,6 +245,7 @@ def credit_settlement_to_owner_account(
     principal_amount: Decimal,
     profit_amount: Decimal,
     description: str,
+    penalty_amount: Decimal = ZERO,
 ) -> OwnerCashTransaction:
     account = get_or_create_owner_cash_account(db, finance_owner_id)
     return _append_tx(
@@ -207,6 +260,7 @@ def credit_settlement_to_owner_account(
         created_by=owner_id,
         reference_type="AGENT_SETTLEMENT",
         reference_id=settlement_id,
+        penalty_amount=penalty_amount,
     )
 
 
@@ -217,23 +271,30 @@ def get_owner_cash_summary(db: Session, finance_owner_id: int) -> dict:
     location = get_capital_location_summary(db, finance_owner_id)
     principal = Decimal(account.principal_balance).quantize(TWOPLACES)
     profit = Decimal(account.profit_balance).quantize(TWOPLACES)
+    penalty = Decimal(getattr(account, "penalty_balance", ZERO) or ZERO).quantize(
+        TWOPLACES
+    )
     return {
         "principal_balance": principal,
         "profit_balance": profit,
-        "total_balance": (principal + profit).quantize(TWOPLACES),
+        "penalty_balance": penalty,
+        "total_balance": (principal + profit + penalty).quantize(TWOPLACES),
         "currency": account.currency,
         "available_to_lend": location["available_to_lend"],
         "capital_with_agents": location["capital_with_agents"],
         "profit_with_agents": location["profit_with_agents"],
+        "penalty_with_agents": location["penalty_with_agents"],
         "unsettled_with_agents": location["unsettled_with_agents"],
         "ledger_capital": location["ledger_capital"],
         "total_capital_added": location["total_capital_added"],
         "capital_currently_lent": location["capital_currently_lent"],
         "available_profit_ledger": get_available_profit(db, finance_owner_id),
+        "total_penalty_earned": get_total_penalty_earned(db, finance_owner_id),
         "over_lent_against_unsettled": location["over_lent_against_unsettled"],
         "notes": (
             "Money from approved agent settlements lands here first. "
-            "Move principal to Available Capital to lend, or withdraw profit/cash. "
+            "Move principal to Available Capital to lend, or withdraw profit/penalty/cash. "
+            "Penalty is late-fee income — separate from installment profit. "
             "Add Capital is only for new money from your pocket."
         ),
     }
@@ -436,6 +497,171 @@ def reinvest_profit_from_owner_account(
         "owner_cash_transaction",
         tx.id,
         f"Reinvested profit ₹{amount} to capital",
+        actor_type="owner",
+        actor_id=owner_id,
+    )
+    db.commit()
+    return {
+        "transaction": tx,
+        "summary": get_owner_cash_summary(db, finance_owner_id),
+    }
+
+
+def withdraw_penalty_from_owner_account(
+    db: Session,
+    finance_owner_id: int,
+    owner_id: int,
+    amount: Decimal,
+    description: str | None = None,
+) -> dict:
+    """Withdraw late-fee / penalty income from Owner Account."""
+    amount = Decimal(amount).quantize(TWOPLACES)
+    if amount <= ZERO:
+        raise HTTPException(status_code=400, detail="Amount must be positive.")
+
+    account = get_or_create_owner_cash_account(db, finance_owner_id)
+    penalty_bal = Decimal(getattr(account, "penalty_balance", ZERO) or ZERO)
+    if amount > penalty_bal:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot withdraw more than Owner Account penalty ({penalty_bal}).",
+        )
+
+    available = get_available_profit(db, finance_owner_id)
+    if amount > available:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Income ledger available is only {available}.",
+        )
+
+    tx = _append_tx(
+        db,
+        account,
+        finance_owner_id,
+        OwnerCashTransactionType.WITHDRAW_PENALTY,
+        LedgerDirection.DEBIT,
+        principal_amount=ZERO,
+        profit_amount=ZERO,
+        description=description or f"Withdraw penalty ₹{amount} from Owner Account",
+        created_by=owner_id,
+        reference_type="PENALTY_WITHDRAWAL",
+        reference_id=None,
+        penalty_amount=amount,
+    )
+
+    profit_account = get_or_create_profit_account(db, finance_owner_id)
+    new_balance = available - amount
+    profit_tx = ProfitTransaction(
+        profit_account_id=profit_account.id,
+        type=ProfitTransactionType.PENALTY_WITHDRAWAL.value,
+        amount=amount,
+        direction=LedgerDirection.DEBIT.value,
+        reference_type="OWNER_CASH",
+        reference_id=tx.id,
+        description=description or "Penalty withdrawn from Owner Account",
+        balance_after=new_balance,
+        created_by=finance_owner_id,
+    )
+    db.add(profit_tx)
+    db.flush()
+    tx.reference_id = profit_tx.id
+
+    log_audit(
+        db,
+        finance_owner_id,
+        "OWNER_CASH_WITHDRAW_PENALTY",
+        "owner_cash_transaction",
+        tx.id,
+        f"Withdrew penalty ₹{amount}",
+        actor_type="owner",
+        actor_id=owner_id,
+    )
+    db.commit()
+    return {
+        "transaction": tx,
+        "summary": get_owner_cash_summary(db, finance_owner_id),
+    }
+
+
+def reinvest_penalty_from_owner_account(
+    db: Session,
+    finance_owner_id: int,
+    owner_id: int,
+    amount: Decimal,
+    description: str | None = None,
+) -> dict:
+    """Move Owner Account penalty income into Available Capital."""
+    from backend.app.services.capital_service import record_profit_reinvestment
+
+    amount = Decimal(amount).quantize(TWOPLACES)
+    if amount <= ZERO:
+        raise HTTPException(status_code=400, detail="Amount must be positive.")
+
+    account = get_or_create_owner_cash_account(db, finance_owner_id)
+    penalty_bal = Decimal(getattr(account, "penalty_balance", ZERO) or ZERO)
+    if amount > penalty_bal:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot reinvest more than Owner Account penalty ({penalty_bal}).",
+        )
+
+    available = get_available_profit(db, finance_owner_id)
+    if amount > available:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Income ledger available is only {available}.",
+        )
+
+    tx = _append_tx(
+        db,
+        account,
+        finance_owner_id,
+        OwnerCashTransactionType.MOVE_TO_CAPITAL,
+        LedgerDirection.DEBIT,
+        principal_amount=ZERO,
+        profit_amount=ZERO,
+        description=description
+        or f"Reinvested Owner Account penalty ₹{amount} to Available Capital",
+        created_by=owner_id,
+        reference_type="PENALTY_REINVESTMENT",
+        reference_id=None,
+        penalty_amount=amount,
+    )
+
+    profit_account = get_or_create_profit_account(db, finance_owner_id)
+    new_balance = available - amount
+    profit_tx = ProfitTransaction(
+        profit_account_id=profit_account.id,
+        type=ProfitTransactionType.PENALTY_REINVESTMENT.value,
+        amount=amount,
+        direction=LedgerDirection.DEBIT.value,
+        reference_type="OWNER_CASH",
+        reference_id=tx.id,
+        description=description or "Penalty reinvested to capital from Owner Account",
+        balance_after=new_balance,
+        created_by=finance_owner_id,
+    )
+    db.add(profit_tx)
+    db.flush()
+
+    capital_tx = record_profit_reinvestment(
+        db=db,
+        finance_owner_id=finance_owner_id,
+        amount=amount,
+        profit_transaction_id=profit_tx.id,
+        description=description
+        or f"Penalty reinvestment from Owner Account (tx #{tx.id})",
+    )
+    profit_tx.reference_id = capital_tx.id
+    tx.reference_id = capital_tx.id
+
+    log_audit(
+        db,
+        finance_owner_id,
+        "OWNER_CASH_REINVEST_PENALTY",
+        "owner_cash_transaction",
+        tx.id,
+        f"Reinvested penalty ₹{amount} to capital",
         actor_type="owner",
         actor_id=owner_id,
     )

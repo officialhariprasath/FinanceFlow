@@ -17,6 +17,7 @@ class CollectionItemResponse(BaseModel):
     overdue_pending_amount: Decimal = Decimal("0.00")
     expected_principal: Decimal
     expected_profit: Decimal
+    penalty_outstanding: Decimal = Decimal("0.00")
     status: str
     is_assigned_to_agent: bool = True
 

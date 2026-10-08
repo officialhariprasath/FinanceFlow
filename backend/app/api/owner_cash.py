@@ -14,8 +14,10 @@ from backend.app.services.owner_cash_service import (
     get_owner_cash_summary,
     list_owner_cash_transactions,
     move_to_available_capital,
+    reinvest_penalty_from_owner_account,
     reinvest_profit_from_owner_account,
     withdraw_cash_from_owner_account,
+    withdraw_penalty_from_owner_account,
     withdraw_profit_from_owner_account,
 )
 
@@ -82,5 +84,27 @@ def owner_withdraw_cash(
     owner: FinanceOwner = Depends(get_current_finance_owner),
 ):
     return withdraw_cash_from_owner_account(
+        db, owner.id, owner.id, payload.amount, payload.description
+    )
+
+
+@router.post("/withdraw-penalty", response_model=OwnerCashActionResponse)
+def owner_withdraw_penalty(
+    payload: OwnerCashAmountRequest,
+    db: Session = Depends(get_db),
+    owner: FinanceOwner = Depends(get_current_finance_owner),
+):
+    return withdraw_penalty_from_owner_account(
+        db, owner.id, owner.id, payload.amount, payload.description
+    )
+
+
+@router.post("/reinvest-penalty", response_model=OwnerCashActionResponse)
+def owner_reinvest_penalty(
+    payload: OwnerCashAmountRequest,
+    db: Session = Depends(get_db),
+    owner: FinanceOwner = Depends(get_current_finance_owner),
+):
+    return reinvest_penalty_from_owner_account(
         db, owner.id, owner.id, payload.amount, payload.description
     )

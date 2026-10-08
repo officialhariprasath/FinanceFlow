@@ -240,6 +240,11 @@ export default function DashboardPage() {
                   onClick={() => navigate("/agent-settlements")}
                 />
                 <DashboardCard
+                  title="Penalty with agents"
+                  value={fmt(ffDashboard.penalty_with_agents ?? "0")}
+                  onClick={() => navigate("/agent-settlements")}
+                />
+                <DashboardCard
                   title="Pending settlements"
                   value={String(ffDashboard.pending_settlement_count)}
                   onClick={() => navigate("/agent-settlements")}
