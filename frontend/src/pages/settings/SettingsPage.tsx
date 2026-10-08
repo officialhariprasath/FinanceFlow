@@ -445,12 +445,12 @@ export default function SettingsPage() {
                     Grace Installments &amp; Penalty
                   </h2>
                   <p className="mb-4 text-sm text-slate-500">
-                    Fixed penalty per missed installment after the configured number of
-                    subsequent installments have passed (not calendar days). Saving
-                    applies immediately to <span className="font-medium">all existing
-                    installment loans</span> of that frequency, including previously
-                    backfilled loans — e.g. changing grace from 5 to 3 updates them at
-                    once. Use 0 to disable.
+                    Grace Installments = how many overdue installments stay at the
+                    original amount (oldest first). Penalty is added only from the next
+                    overdue installment after that free block — not calendar days.
+                    Saving updates <span className="font-medium">all existing
+                    installment loans</span> of that frequency immediately (e.g. grace
+                    5 → 3). Use 0 to charge penalty on every overdue installment.
                   </p>
                   <div className="space-y-4">
                     {(

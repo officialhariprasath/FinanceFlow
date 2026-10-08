@@ -1,10 +1,14 @@
 """
-Installment-sequence grace + fixed penalty engine.
+Installment grace + fixed penalty engine.
 
-Penalty is a fixed amount per installment after `grace_installments`
-subsequent installments have passed (sequence aging), independent of
-calendar frequency (daily / weekly / bi-weekly / monthly).
+Grace is a count of overdue installments (sequence), not calendar days:
 
+  - Among unpaid installments due before as_of (oldest first), the first
+    `grace_installments` stay at the original amount (no penalty).
+  - Any additional overdue installment gets the fixed penalty.
+  - Today's / future installment never gets an early penalty.
+
+Works the same for daily / weekly / bi-weekly / monthly schedules.
 Original installment amounts are never mutated.
 """
 
@@ -137,70 +141,36 @@ def ensure_loan_penalty_from_settings(db, loan: Loan):
     return settings
 
 
-def _current_sequence_index(ordered: Sequence[LoanSchedule], as_of: date) -> int:
-    current = -1
-    for index, schedule in enumerate(ordered):
-        if schedule.schedule_date <= as_of:
-            current = index
-    return current
-
-
-def compute_installment_payable(
-    schedule: LoanSchedule,
-    *,
-    ordered_schedules: Sequence[LoanSchedule],
-    grace_installments: int,
-    penalty_per_installment: Decimal,
-    as_of: date,
-) -> InstallmentPayable:
-    ordered = list(ordered_schedules)
-    try:
-        index = next(i for i, row in enumerate(ordered) if row.id == schedule.id)
-    except StopIteration:
-        ordered = sorted(
-            [*ordered, schedule],
-            key=lambda row: (row.schedule_date, row.id or 0),
-        )
-        index = next(i for i, row in enumerate(ordered) if row.id == schedule.id)
-
-    current_index = _current_sequence_index(ordered, as_of)
-    elapsed = current_index - index if current_index >= 0 else -1
-
+def _installment_outstanding(schedule: LoanSchedule) -> Decimal:
     original = Decimal(schedule.expected_amount).quantize(TWOPLACES)
     paid_amount = Decimal(schedule.paid_amount or 0).quantize(TWOPLACES)
-    paid_penalty = Decimal(getattr(schedule, "paid_penalty", None) or 0).quantize(TWOPLACES)
-    installment_outstanding = max(original - paid_amount, ZERO).quantize(TWOPLACES)
+    return max(original - paid_amount, ZERO).quantize(TWOPLACES)
 
+
+def _penalty_eligible_schedule_ids(
+    ordered: Sequence[LoanSchedule],
+    *,
+    grace_installments: int,
+    as_of: date,
+) -> set[int]:
+    """
+    First `grace_installments` overdue unpaid rows (oldest first) are free.
+    Any further overdue unpaid row is penalty-eligible.
+    """
     grace_n = max(int(grace_installments), 0)
-    fixed_penalty = max(Decimal(penalty_per_installment), ZERO).quantize(TWOPLACES)
-    grace_crossed = elapsed > grace_n
+    overdue_unpaid: list[LoanSchedule] = []
+    for row in ordered:
+        if row.schedule_date >= as_of:
+            continue
+        if _installment_outstanding(row) <= ZERO:
+            continue
+        overdue_unpaid.append(row)
 
-    # Match conceptual rule: no installment outstanding → no new penalty.
-    # If a penalty was already partially paid, keep the remainder collectible.
-    if installment_outstanding <= ZERO and paid_penalty <= ZERO:
-        penalty_amount = ZERO
-    elif grace_crossed:
-        penalty_amount = fixed_penalty
-    else:
-        penalty_amount = ZERO
-
-    penalty_outstanding = max(penalty_amount - paid_penalty, ZERO).quantize(TWOPLACES)
-    total_payable = (installment_outstanding + penalty_outstanding).quantize(TWOPLACES)
-
-    return InstallmentPayable(
-        schedule_id=schedule.id,
-        schedule_date=schedule.schedule_date,
-        original_amount=original,
-        paid_amount=paid_amount,
-        installment_outstanding=installment_outstanding,
-        grace_installments=grace_n,
-        installments_elapsed=max(elapsed, 0),
-        grace_crossed=grace_crossed and penalty_amount > ZERO,
-        penalty_amount=penalty_amount,
-        paid_penalty=paid_penalty,
-        penalty_outstanding=penalty_outstanding,
-        total_payable=total_payable,
-    )
+    eligible: set[int] = set()
+    for index, row in enumerate(overdue_unpaid):
+        if index >= grace_n:
+            eligible.add(row.id)
+    return eligible
 
 
 def compute_loan_payables(
@@ -211,16 +181,83 @@ def compute_loan_payables(
     as_of: date,
 ) -> dict[int, InstallmentPayable]:
     ordered = sorted(schedules, key=lambda row: (row.schedule_date, row.id or 0))
-    return {
-        row.id: compute_installment_payable(
-            row,
-            ordered_schedules=ordered,
-            grace_installments=grace_installments,
-            penalty_per_installment=penalty_per_installment,
-            as_of=as_of,
+    grace_n = max(int(grace_installments), 0)
+    fixed_penalty = max(Decimal(penalty_per_installment), ZERO).quantize(TWOPLACES)
+    eligible_ids = _penalty_eligible_schedule_ids(
+        ordered, grace_installments=grace_n, as_of=as_of
+    )
+
+    # Rank among overdue unpaid (for display / diagnostics).
+    overdue_rank: dict[int, int] = {}
+    rank = 0
+    for row in ordered:
+        if row.schedule_date >= as_of:
+            continue
+        if _installment_outstanding(row) <= ZERO:
+            continue
+        overdue_rank[row.id] = rank
+        rank += 1
+
+    result: dict[int, InstallmentPayable] = {}
+    for row in ordered:
+        original = Decimal(row.expected_amount).quantize(TWOPLACES)
+        paid_amount = Decimal(row.paid_amount or 0).quantize(TWOPLACES)
+        paid_penalty = Decimal(getattr(row, "paid_penalty", None) or 0).quantize(TWOPLACES)
+        installment_outstanding = max(original - paid_amount, ZERO).quantize(TWOPLACES)
+
+        in_eligible = row.id in eligible_ids
+        # Penalty applies when this overdue row sits past the free grace block,
+        # or when a penalty was already partially collected on it.
+        if installment_outstanding <= ZERO and paid_penalty <= ZERO:
+            penalty_amount = ZERO
+        elif in_eligible or (paid_penalty > ZERO and row.schedule_date < as_of):
+            penalty_amount = fixed_penalty
+        else:
+            penalty_amount = ZERO
+
+        penalty_outstanding = max(penalty_amount - paid_penalty, ZERO).quantize(TWOPLACES)
+        total_payable = (installment_outstanding + penalty_outstanding).quantize(TWOPLACES)
+        elapsed = overdue_rank.get(row.id, 0)
+
+        result[row.id] = InstallmentPayable(
+            schedule_id=row.id,
+            schedule_date=row.schedule_date,
+            original_amount=original,
+            paid_amount=paid_amount,
+            installment_outstanding=installment_outstanding,
+            grace_installments=grace_n,
+            installments_elapsed=elapsed,
+            grace_crossed=penalty_amount > ZERO,
+            penalty_amount=penalty_amount,
+            paid_penalty=paid_penalty,
+            penalty_outstanding=penalty_outstanding,
+            total_payable=total_payable,
         )
-        for row in ordered
-    }
+    return result
+
+
+def compute_installment_payable(
+    schedule: LoanSchedule,
+    *,
+    ordered_schedules: Sequence[LoanSchedule],
+    grace_installments: int,
+    penalty_per_installment: Decimal,
+    as_of: date,
+) -> InstallmentPayable:
+    """Single-row helper; always evaluates against the full schedule set."""
+    ordered = list(ordered_schedules)
+    if not any(row.id == schedule.id for row in ordered):
+        ordered = sorted(
+            [*ordered, schedule],
+            key=lambda row: (row.schedule_date, row.id or 0),
+        )
+    payables = compute_loan_payables(
+        ordered,
+        grace_installments=grace_installments,
+        penalty_per_installment=penalty_per_installment,
+        as_of=as_of,
+    )
+    return payables[schedule.id]
 
 
 def compute_loan_payables_for_loan(
