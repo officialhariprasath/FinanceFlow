@@ -9,10 +9,10 @@ router = APIRouter(tags=["App Update"])
 # Bump these when you publish a new APK, then redeploy the API.
 # Prefer a direct HTTPS APK URL (Vercel /releases or GitHub Release asset).
 APP_UPDATE = {
-    "versionCode": 14,
-    "versionName": "1.2.11",
-    "apkUrl": "https://github.com/officialhariprasath/FinanceFlow/releases/download/v1.2.11/FinanceFlow-v1.2.11.apk",
-    "notes": "Fix: settling by selecting all pending/advance days (e.g. ₹4560) no longer fails. Advance & partial payments included.",
+    "versionCode": 15,
+    "versionName": "1.2.12",
+    "apkUrl": "https://github.com/officialhariprasath/FinanceFlow/releases/download/v1.2.12/FinanceFlow-v1.2.12.apk",
+    "notes": "Grace update: last N overdue installments stay free; older/most-late ones get the penalty. Recalculates after payments.",
     "force": True,
 }
 
