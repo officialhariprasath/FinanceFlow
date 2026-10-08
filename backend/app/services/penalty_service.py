@@ -1,14 +1,17 @@
 """
 Installment grace + fixed penalty engine.
 
-Grace is a count of overdue installments (sequence), not calendar days:
+Grace protects the **last N overdue unpaid installments** (closest to today).
+Penalty applies to the **most late** overdue installments beyond that window.
 
-  - Among unpaid installments due before as_of (oldest first), the first
-    `grace_installments` stay at the original amount (no penalty).
-  - Any additional overdue installment gets the fixed penalty.
-  - Today's / future installment never gets an early penalty.
+Example (grace=5):
+  - 6 overdue → oldest 1 gets penalty; last 5 free
+  - 7 overdue → oldest 2 get penalty; last 5 free
 
-Works the same for daily / weekly / bi-weekly / monthly schedules.
+After payments, the overdue unpaid list is rebuilt and grace is recalculated.
+Today / future installments never get an early penalty.
+
+Works for daily / weekly / bi-weekly / monthly schedules.
 Original installment amounts are never mutated.
 """
 
@@ -25,7 +28,6 @@ from backend.app.models.loan_schedule import LoanSchedule
 ZERO = Decimal("0.00")
 TWOPLACES = Decimal("0.01")
 
-# Settings / loan field prefixes by CollectionFrequency value
 FREQUENCY_PENALTY_FIELDS = {
     "DAILY": ("daily_grace_installments", "daily_penalty_per_installment"),
     "WEEKLY": ("weekly_grace_installments", "weekly_penalty_per_installment"),
@@ -48,14 +50,20 @@ class InstallmentPayable:
     paid_penalty: Decimal
     penalty_outstanding: Decimal
     total_payable: Decimal
+    # True for overdue unpaid rows inside the free last-N grace window.
+    within_grace: bool = False
+    # 0-based rank among overdue unpaid (oldest = 0). None if not overdue unpaid.
+    overdue_rank: int | None = None
 
     @property
     def grace_status(self) -> str:
         if self.installment_outstanding <= ZERO and self.penalty_outstanding <= ZERO:
             return "SETTLED"
+        if self.within_grace:
+            return "WITHIN_GRACE"
         if self.grace_crossed:
             return "GRACE_EXCEEDED"
-        return "WITHIN_GRACE"
+        return "NOT_APPLICABLE"
 
 
 def loan_grace_installments(loan: Loan) -> int:
@@ -73,7 +81,6 @@ def loan_penalty_per_installment(loan: Loan) -> Decimal:
 
 
 def penalty_defaults_from_settings(settings, frequency: str) -> tuple[int, Decimal]:
-    """Return (grace_installments, penalty_per_installment) for a frequency."""
     freq = (frequency or "DAILY").upper()
     fields = FREQUENCY_PENALTY_FIELDS.get(freq)
     if settings is None or fields is None:
@@ -87,13 +94,6 @@ def penalty_defaults_from_settings(settings, frequency: str) -> tuple[int, Decim
 
 
 def effective_penalty_config(loan: Loan, settings=None) -> tuple[int, Decimal]:
-    """
-    Live penalty config for a loan.
-
-    Prefer finance settings for the loan's frequency so a settings change
-    (e.g. grace 5 → 3) applies to existing loans immediately. Fall back to
-    the loan snapshot columns when settings are unavailable.
-    """
     if settings is not None and getattr(loan, "collection_model", None) == "DAILY_COLLECTION":
         return penalty_defaults_from_settings(
             settings, getattr(loan, "collection_frequency", None) or "DAILY"
@@ -102,7 +102,6 @@ def effective_penalty_config(loan: Loan, settings=None) -> tuple[int, Decimal]:
 
 
 def sync_loan_penalty_fields(loan: Loan, settings) -> None:
-    """Copy frequency settings onto the loan snapshot columns."""
     if getattr(loan, "collection_model", None) != "DAILY_COLLECTION":
         loan.grace_installments = 0
         loan.penalty_per_installment = ZERO
@@ -115,7 +114,6 @@ def sync_loan_penalty_fields(loan: Loan, settings) -> None:
 
 
 def fetch_finance_settings(db, finance_owner_id: int):
-    """Read settings without auto-creating (safe mid-transaction)."""
     from backend.app.models.finance_settings import FinanceSettings
 
     return (
@@ -126,12 +124,6 @@ def fetch_finance_settings(db, finance_owner_id: int):
 
 
 def ensure_loan_penalty_from_settings(db, loan: Loan):
-    """
-    Apply current finance settings onto the loan object (in-memory + dirty).
-
-    Call before any payable/pending calculation so existing loans reflect
-    the latest Settings page values without waiting for a separate job.
-    """
     if getattr(loan, "collection_model", None) != "DAILY_COLLECTION":
         return None
     settings = fetch_finance_settings(db, loan.finance_owner_id)
@@ -152,10 +144,12 @@ def _penalty_eligible_schedule_ids(
     *,
     grace_installments: int,
     as_of: date,
-) -> set[int]:
+) -> tuple[set[int], dict[int, int], set[int]]:
     """
-    First `grace_installments` overdue unpaid rows (oldest first) are free.
-    Any further overdue unpaid row is penalty-eligible.
+    Last `grace_installments` overdue unpaid rows (newest / closest to today)
+    are free. Older overdue unpaid rows (most late) are penalty-eligible.
+
+    Returns (eligible_ids, overdue_rank_by_id, within_grace_ids).
     """
     grace_n = max(int(grace_installments), 0)
     overdue_unpaid: list[LoanSchedule] = []
@@ -166,11 +160,19 @@ def _penalty_eligible_schedule_ids(
             continue
         overdue_unpaid.append(row)
 
+    overdue_rank = {row.id: index for index, row in enumerate(overdue_unpaid)}
+    count = len(overdue_unpaid)
+    # Oldest (count - grace) rows get penalty when count > grace.
+    penalty_cut = max(0, count - grace_n)
+
     eligible: set[int] = set()
+    within_grace: set[int] = set()
     for index, row in enumerate(overdue_unpaid):
-        if index >= grace_n:
+        if index < penalty_cut:
             eligible.add(row.id)
-    return eligible
+        else:
+            within_grace.add(row.id)
+    return eligible, overdue_rank, within_grace
 
 
 def compute_loan_payables(
@@ -183,20 +185,9 @@ def compute_loan_payables(
     ordered = sorted(schedules, key=lambda row: (row.schedule_date, row.id or 0))
     grace_n = max(int(grace_installments), 0)
     fixed_penalty = max(Decimal(penalty_per_installment), ZERO).quantize(TWOPLACES)
-    eligible_ids = _penalty_eligible_schedule_ids(
+    eligible_ids, overdue_rank, within_grace_ids = _penalty_eligible_schedule_ids(
         ordered, grace_installments=grace_n, as_of=as_of
     )
-
-    # Rank among overdue unpaid (for display / diagnostics).
-    overdue_rank: dict[int, int] = {}
-    rank = 0
-    for row in ordered:
-        if row.schedule_date >= as_of:
-            continue
-        if _installment_outstanding(row) <= ZERO:
-            continue
-        overdue_rank[row.id] = rank
-        rank += 1
 
     result: dict[int, InstallmentPayable] = {}
     for row in ordered:
@@ -206,8 +197,7 @@ def compute_loan_payables(
         installment_outstanding = max(original - paid_amount, ZERO).quantize(TWOPLACES)
 
         in_eligible = row.id in eligible_ids
-        # Penalty applies when this overdue row sits past the free grace block,
-        # or when a penalty was already partially collected on it.
+        # Keep collecting a partially paid penalty even if ranking shifts after pays.
         if installment_outstanding <= ZERO and paid_penalty <= ZERO:
             penalty_amount = ZERO
         elif in_eligible or (paid_penalty > ZERO and row.schedule_date < as_of):
@@ -217,7 +207,12 @@ def compute_loan_payables(
 
         penalty_outstanding = max(penalty_amount - paid_penalty, ZERO).quantize(TWOPLACES)
         total_payable = (installment_outstanding + penalty_outstanding).quantize(TWOPLACES)
-        elapsed = overdue_rank.get(row.id, 0)
+        rank = overdue_rank.get(row.id)
+        within_grace = (
+            row.id in within_grace_ids
+            and installment_outstanding > ZERO
+            and penalty_amount <= ZERO
+        )
 
         result[row.id] = InstallmentPayable(
             schedule_id=row.id,
@@ -226,12 +221,14 @@ def compute_loan_payables(
             paid_amount=paid_amount,
             installment_outstanding=installment_outstanding,
             grace_installments=grace_n,
-            installments_elapsed=elapsed,
+            installments_elapsed=rank if rank is not None else 0,
             grace_crossed=penalty_amount > ZERO,
             penalty_amount=penalty_amount,
             paid_penalty=paid_penalty,
             penalty_outstanding=penalty_outstanding,
             total_payable=total_payable,
+            within_grace=within_grace,
+            overdue_rank=rank,
         )
     return result
 
@@ -244,7 +241,6 @@ def compute_installment_payable(
     penalty_per_installment: Decimal,
     as_of: date,
 ) -> InstallmentPayable:
-    """Single-row helper; always evaluates against the full schedule set."""
     ordered = list(ordered_schedules)
     if not any(row.id == schedule.id for row in ordered):
         ordered = sorted(

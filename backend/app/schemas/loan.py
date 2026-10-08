@@ -132,6 +132,8 @@ class UnpaidScheduleResponse(BaseModel):
     total_payable: Decimal | None = None
     grace_status: str | None = None
     grace_crossed: bool = False
+    within_grace: bool = False
+    overdue_rank: int | None = None
 
 
 class LoanScheduleResponse(BaseModel):
@@ -150,6 +152,8 @@ class LoanScheduleResponse(BaseModel):
     total_payable: Decimal | None = None
     grace_status: str | None = None
     grace_crossed: bool = False
+    within_grace: bool = False
+    overdue_rank: int | None = None
 
 
 class LoanStatementResponse(BaseModel):
