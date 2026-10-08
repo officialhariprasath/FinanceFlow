@@ -9,8 +9,8 @@ from backend.app.models.loan_schedule import LoanSchedule
 from backend.app.services.penalty_service import (
     compute_installment_payable,
     compute_loan_payables_for_loan,
-    loan_grace_installments,
-    loan_penalty_per_installment,
+    effective_penalty_config,
+    ensure_loan_penalty_from_settings,
 )
 from backend.app.utils.date_helpers import installment_schedule_date
 from backend.app.utils.loan_helpers import is_installment_loan
@@ -164,7 +164,10 @@ def list_unpaid_schedules(
     )
 
     today = as_of or date.today()
-    payables = compute_loan_payables_for_loan(loan, all_rows, as_of=today)
+    settings = ensure_loan_penalty_from_settings(db, loan)
+    payables = compute_loan_payables_for_loan(
+        loan, all_rows, as_of=today, settings=settings
+    )
     result = []
     for schedule in rows:
         payable = payables[schedule.id]
@@ -197,7 +200,10 @@ def list_loan_schedules(
     )
 
     today = as_of or date.today()
-    payables = compute_loan_payables_for_loan(loan, rows, as_of=today)
+    settings = ensure_loan_penalty_from_settings(db, loan)
+    payables = compute_loan_payables_for_loan(
+        loan, rows, as_of=today, settings=settings
+    )
     result = []
     for schedule in rows:
         payable = payables[schedule.id]
@@ -265,6 +271,7 @@ def schedule_pending_amount(
     loan: Loan | None = None,
     all_schedules: list[LoanSchedule] | None = None,
     as_of: date | None = None,
+    settings=None,
 ) -> Decimal:
     """
     Total payable for a schedule.
@@ -273,11 +280,12 @@ def schedule_pending_amount(
     Otherwise returns installment-only pending (legacy / tests without context).
     """
     if loan is not None and all_schedules is not None:
+        grace, penalty = effective_penalty_config(loan, settings)
         payable = compute_installment_payable(
             schedule,
             ordered_schedules=all_schedules,
-            grace_installments=loan_grace_installments(loan),
-            penalty_per_installment=loan_penalty_per_installment(loan),
+            grace_installments=grace,
+            penalty_per_installment=penalty,
             as_of=as_of or date.today(),
         )
         return payable.total_payable
@@ -294,6 +302,7 @@ def update_schedule_after_payment(
     loan: Loan | None = None,
     all_schedules: list[LoanSchedule] | None = None,
     as_of: date | None = None,
+    settings=None,
 ) -> None:
     schedule.paid_principal += principal_paid
     schedule.paid_profit += profit_paid
@@ -310,11 +319,12 @@ def update_schedule_after_payment(
 
     penalty_cleared = True
     if loan is not None and all_schedules is not None:
+        grace, penalty = effective_penalty_config(loan, settings)
         payable = compute_installment_payable(
             schedule,
             ordered_schedules=all_schedules,
-            grace_installments=loan_grace_installments(loan),
-            penalty_per_installment=loan_penalty_per_installment(loan),
+            grace_installments=grace,
+            penalty_per_installment=penalty,
             as_of=as_of or date.today(),
         )
         penalty_cleared = payable.penalty_outstanding <= ZERO

@@ -127,12 +127,12 @@ Penalty never compounds; original `expected_amount` is never mutated.
 ## 7. Integration plan
 
 1. **Settings:** per-frequency `grace_installments` + `penalty_per_installment` on `finance_settings` (defaults **0**).
-2. **Loan create:** snapshot those values onto the loan from settings for its frequency (historical stability).
-3. **Existing loans:** NULL/0 snapshot → no penalty.
-4. **Engine:** pure functions in `penalty_service.py`; `schedule_pending_amount` delegates when loan context provided.
-5. **Payments:** extend allocation to profit → principal → **penalty**; fill `late_fee_amount`; track `paid_penalty` on schedule.
-6. **UI:** Settings section per loan type; Record Payment shows Original / Penalty / Total breakdown.
-7. **Tests:** Day 1–6 aging, all frequencies, partial pay, no compounding, backward-compatible zero config.
+2. **Live source of truth:** payable math resolves config from **current finance settings** by loan frequency (grace 5→3 takes effect immediately on existing loans).
+3. **Backfill on every Settings save:** copies matching frequency values onto **all** installment loans for that owner (including previously backfilled). API returns `penalty_loans_updated`.
+4. **Loan create:** still snapshots current settings onto the loan for display consistency.
+5. **Engine / payment / collection / schedule:** apply live settings before computing payables.
+6. **UI:** Settings warns that save updates all existing installment loans; toast shows count; Record Payment + schedule show Original / Penalty / Payable.
+7. **Tests:** Day 1–6, frequencies, partial pay, compounding, **settings 5→3 on existing loan**, backfill sync.
 
 ---
 

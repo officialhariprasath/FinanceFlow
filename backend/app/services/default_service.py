@@ -105,7 +105,13 @@ def list_overdue_loans(db: Session, finance_owner_id: int):
     as_of = date.today()
     mark_overdue_schedules(db, finance_owner_id, as_of)
 
+    from backend.app.services.penalty_service import (
+        fetch_finance_settings,
+        sync_loan_penalty_fields,
+    )
     from backend.app.services.schedule_service import schedule_pending_amount
+
+    settings = fetch_finance_settings(db, finance_owner_id)
 
     rows = (
         db.query(Loan, Customer, LoanSchedule)
@@ -138,11 +144,14 @@ def list_overdue_loans(db: Session, finance_owner_id: int):
 
     result = []
     for loan, customer, schedule in rows:
+        if settings is not None:
+            sync_loan_penalty_fields(loan, settings)
         pending = schedule_pending_amount(
             schedule,
             loan=loan,
             all_schedules=schedules_by_loan.get(loan.id, [schedule]),
             as_of=as_of,
+            settings=settings,
         )
         result.append(
             {

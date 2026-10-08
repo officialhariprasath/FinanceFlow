@@ -70,5 +70,7 @@ class FinanceSettingsUpdate(FinanceSettingsBase):
 class FinanceSettingsResponse(FinanceSettingsBase):
     id: int
     finance_owner_id: int
+    # Populated on PUT when installment loans are backfilled from settings.
+    penalty_loans_updated: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)

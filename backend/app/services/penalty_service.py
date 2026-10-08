@@ -82,6 +82,61 @@ def penalty_defaults_from_settings(settings, frequency: str) -> tuple[int, Decim
     return grace_n, penalty_d
 
 
+def effective_penalty_config(loan: Loan, settings=None) -> tuple[int, Decimal]:
+    """
+    Live penalty config for a loan.
+
+    Prefer finance settings for the loan's frequency so a settings change
+    (e.g. grace 5 → 3) applies to existing loans immediately. Fall back to
+    the loan snapshot columns when settings are unavailable.
+    """
+    if settings is not None and getattr(loan, "collection_model", None) == "DAILY_COLLECTION":
+        return penalty_defaults_from_settings(
+            settings, getattr(loan, "collection_frequency", None) or "DAILY"
+        )
+    return loan_grace_installments(loan), loan_penalty_per_installment(loan)
+
+
+def sync_loan_penalty_fields(loan: Loan, settings) -> None:
+    """Copy frequency settings onto the loan snapshot columns."""
+    if getattr(loan, "collection_model", None) != "DAILY_COLLECTION":
+        loan.grace_installments = 0
+        loan.penalty_per_installment = ZERO
+        return
+    grace, penalty = penalty_defaults_from_settings(
+        settings, getattr(loan, "collection_frequency", None) or "DAILY"
+    )
+    loan.grace_installments = grace
+    loan.penalty_per_installment = penalty
+
+
+def fetch_finance_settings(db, finance_owner_id: int):
+    """Read settings without auto-creating (safe mid-transaction)."""
+    from backend.app.models.finance_settings import FinanceSettings
+
+    return (
+        db.query(FinanceSettings)
+        .filter(FinanceSettings.finance_owner_id == finance_owner_id)
+        .first()
+    )
+
+
+def ensure_loan_penalty_from_settings(db, loan: Loan):
+    """
+    Apply current finance settings onto the loan object (in-memory + dirty).
+
+    Call before any payable/pending calculation so existing loans reflect
+    the latest Settings page values without waiting for a separate job.
+    """
+    if getattr(loan, "collection_model", None) != "DAILY_COLLECTION":
+        return None
+    settings = fetch_finance_settings(db, loan.finance_owner_id)
+    if settings is None:
+        return None
+    sync_loan_penalty_fields(loan, settings)
+    return settings
+
+
 def _current_sequence_index(ordered: Sequence[LoanSchedule], as_of: date) -> int:
     current = -1
     for index, schedule in enumerate(ordered):
@@ -173,12 +228,14 @@ def compute_loan_payables_for_loan(
     schedules: Sequence[LoanSchedule] | None = None,
     *,
     as_of: date | None = None,
+    settings=None,
 ) -> dict[int, InstallmentPayable]:
     rows = list(schedules if schedules is not None else (loan.schedules or []))
+    grace, penalty = effective_penalty_config(loan, settings)
     return compute_loan_payables(
         rows,
-        grace_installments=loan_grace_installments(loan),
-        penalty_per_installment=loan_penalty_per_installment(loan),
+        grace_installments=grace,
+        penalty_per_installment=penalty,
         as_of=as_of or date.today(),
     )
 
@@ -189,12 +246,14 @@ def schedule_total_pending(
     loan: Loan,
     all_schedules: Sequence[LoanSchedule],
     as_of: date | None = None,
+    settings=None,
 ) -> Decimal:
+    grace, penalty = effective_penalty_config(loan, settings)
     payable = compute_installment_payable(
         schedule,
         ordered_schedules=all_schedules,
-        grace_installments=loan_grace_installments(loan),
-        penalty_per_installment=loan_penalty_per_installment(loan),
+        grace_installments=grace,
+        penalty_per_installment=penalty,
         as_of=as_of or date.today(),
     )
     return payable.total_payable

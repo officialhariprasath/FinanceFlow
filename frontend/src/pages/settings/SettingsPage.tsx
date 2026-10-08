@@ -173,7 +173,7 @@ export default function SettingsPage() {
       setSaving(true);
       setSaveError("");
       setSuccess("");
-      await updateSettings({
+      const saved = await updateSettings({
         business_name: form.business_name || null,
         owner_name: form.owner_name || null,
         phone: form.phone || null,
@@ -202,8 +202,19 @@ export default function SettingsPage() {
         monthly_grace_installments: Number(form.monthly_grace_installments || 0),
         monthly_penalty_per_installment: form.monthly_penalty_per_installment || "0",
       });
-      setSuccess("Settings saved successfully.");
-      toast.success("Settings saved.");
+      const updatedCount = saved?.penalty_loans_updated;
+      const backfillNote =
+        typeof updatedCount === "number"
+          ? ` Updated ${updatedCount} existing installment loan${
+              updatedCount === 1 ? "" : "s"
+            }.`
+          : "";
+      setSuccess(`Settings saved successfully.${backfillNote}`);
+      toast.success(
+        typeof updatedCount === "number" && updatedCount > 0
+          ? `Settings saved. ${updatedCount} loan${updatedCount === 1 ? "" : "s"} updated.`
+          : "Settings saved."
+      );
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data
         ?.detail;
@@ -435,8 +446,11 @@ export default function SettingsPage() {
                   </h2>
                   <p className="mb-4 text-sm text-slate-500">
                     Fixed penalty per missed installment after the configured number of
-                    subsequent installments have passed. Applies to new loans of each
-                    frequency. Use 0 to disable.
+                    subsequent installments have passed (not calendar days). Saving
+                    applies immediately to <span className="font-medium">all existing
+                    installment loans</span> of that frequency, including previously
+                    backfilled loans — e.g. changing grace from 5 to 3 updates them at
+                    once. Use 0 to disable.
                   </p>
                   <div className="space-y-4">
                     {(

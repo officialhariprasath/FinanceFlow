@@ -348,3 +348,156 @@ def test_original_amount_never_mutated_conceptually():
         p = payables[sched.id]
         assert p.original_amount == AMT
         assert Decimal(sched.expected_amount) == AMT
+
+
+def test_settings_change_grace_5_to_3_affects_existing_loan_payables():
+    """
+    Existing loan: with grace=5 on Day 5, Day 1 has no penalty yet.
+    After settings change to grace=3, same Day 5 → Day 1 gets ₹130.
+    """
+    from backend.app.services.penalty_service import (
+        compute_loan_payables_for_loan,
+        effective_penalty_config,
+        sync_loan_penalty_fields,
+    )
+
+    schedules = _build_loan_schedules(10, due_start=DUE_START)
+    as_of = DUE_START + timedelta(days=4)  # Day 5
+    loan = SimpleNamespace(
+        collection_model="DAILY_COLLECTION",
+        collection_frequency="DAILY",
+        grace_installments=5,
+        penalty_per_installment=PENALTY,
+        schedules=schedules,
+    )
+
+    settings_grace_5 = SimpleNamespace(
+        daily_grace_installments=5,
+        daily_penalty_per_installment=PENALTY,
+        weekly_grace_installments=0,
+        weekly_penalty_per_installment=ZERO,
+        bi_weekly_grace_installments=0,
+        bi_weekly_penalty_per_installment=ZERO,
+        monthly_grace_installments=0,
+        monthly_penalty_per_installment=ZERO,
+    )
+    settings_grace_3 = SimpleNamespace(
+        daily_grace_installments=3,
+        daily_penalty_per_installment=PENALTY,
+        weekly_grace_installments=0,
+        weekly_penalty_per_installment=ZERO,
+        bi_weekly_grace_installments=0,
+        bi_weekly_penalty_per_installment=ZERO,
+        monthly_grace_installments=0,
+        monthly_penalty_per_installment=ZERO,
+    )
+
+    before = compute_loan_payables_for_loan(
+        loan, schedules, as_of=as_of, settings=settings_grace_5
+    )
+    assert before[schedules[0].id].penalty_outstanding == ZERO
+    assert before[schedules[0].id].total_payable == AMT
+
+    # Settings page save → sync loan snapshot (backfill) + live calc uses new grace
+    sync_loan_penalty_fields(loan, settings_grace_3)
+    assert loan.grace_installments == 3
+    assert effective_penalty_config(loan, settings_grace_3) == (3, PENALTY)
+
+    after = compute_loan_payables_for_loan(
+        loan, schedules, as_of=as_of, settings=settings_grace_3
+    )
+    assert after[schedules[0].id].total_payable == Decimal("130.00")
+    assert after[schedules[0].id].penalty_outstanding == PENALTY
+    assert after[schedules[4].id].total_payable == AMT  # current unchanged
+
+
+def test_backfill_syncs_all_frequencies_from_settings():
+    from backend.app.services.penalty_service import sync_loan_penalty_fields
+
+    settings = SimpleNamespace(
+        daily_grace_installments=3,
+        daily_penalty_per_installment=Decimal("10.00"),
+        weekly_grace_installments=1,
+        weekly_penalty_per_installment=Decimal("50.00"),
+        bi_weekly_grace_installments=1,
+        bi_weekly_penalty_per_installment=Decimal("100.00"),
+        monthly_grace_installments=2,
+        monthly_penalty_per_installment=Decimal("200.00"),
+    )
+    daily = SimpleNamespace(
+        collection_model="DAILY_COLLECTION",
+        collection_frequency="DAILY",
+        grace_installments=0,
+        penalty_per_installment=ZERO,
+    )
+    weekly = SimpleNamespace(
+        collection_model="DAILY_COLLECTION",
+        collection_frequency="WEEKLY",
+        grace_installments=0,
+        penalty_per_installment=ZERO,
+    )
+    standard = SimpleNamespace(
+        collection_model="STANDARD",
+        collection_frequency="DAILY",
+        grace_installments=9,
+        penalty_per_installment=Decimal("99.00"),
+    )
+
+    sync_loan_penalty_fields(daily, settings)
+    sync_loan_penalty_fields(weekly, settings)
+    sync_loan_penalty_fields(standard, settings)
+
+    assert daily.grace_installments == 3
+    assert daily.penalty_per_installment == Decimal("10.00")
+    assert weekly.grace_installments == 1
+    assert weekly.penalty_per_installment == Decimal("50.00")
+    assert standard.grace_installments == 0
+    assert standard.penalty_per_installment == ZERO
+
+
+def test_backfill_installment_loan_penalties_updates_rows(monkeypatch):
+    """Service backfill walks installment loans and syncs snapshot fields."""
+    from backend.app.services import finance_settings_service as svc
+
+    settings = SimpleNamespace(
+        daily_grace_installments=3,
+        daily_penalty_per_installment=Decimal("10.00"),
+        weekly_grace_installments=1,
+        weekly_penalty_per_installment=Decimal("50.00"),
+        bi_weekly_grace_installments=0,
+        bi_weekly_penalty_per_installment=ZERO,
+        monthly_grace_installments=0,
+        monthly_penalty_per_installment=ZERO,
+    )
+    loan_a = SimpleNamespace(
+        id=1,
+        collection_model="DAILY_COLLECTION",
+        collection_frequency="DAILY",
+        grace_installments=5,
+        penalty_per_installment=Decimal("10.00"),
+    )
+    loan_b = SimpleNamespace(
+        id=2,
+        collection_model="DAILY_COLLECTION",
+        collection_frequency="WEEKLY",
+        grace_installments=2,
+        penalty_per_installment=Decimal("50.00"),
+    )
+
+    class _FakeQuery:
+        def filter(self, *args, **kwargs):
+            return self
+
+        def all(self):
+            return [loan_a, loan_b]
+
+    class _FakeDB:
+        def query(self, *_args):
+            return _FakeQuery()
+
+    count = svc.backfill_installment_loan_penalties(_FakeDB(), finance_owner_id=1, settings=settings)
+    assert count == 2
+    assert loan_a.grace_installments == 3
+    assert loan_a.penalty_per_installment == Decimal("10.00")
+    assert loan_b.grace_installments == 1
+    assert loan_b.penalty_per_installment == Decimal("50.00")
