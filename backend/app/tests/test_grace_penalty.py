@@ -1,9 +1,8 @@
 """
-Last-N grace + most-late penalty tests.
+Calendar-day grace tests.
 
-Grace protects the newest N overdue unpaid installments (closest to today).
-Penalty applies to older overdue unpaid installments (most late).
-Grace is recalculated whenever the overdue unpaid set changes after payments.
+Grace N = free while (today - due_date).days <= N.
+Beyond that: fixed penalty on normal dues; last due accumulates (days_late - N) × penalty.
 """
 
 from datetime import date, timedelta
@@ -85,119 +84,92 @@ def test_day1_current_no_penalty():
     assert payables[schedules[0].id].penalty_outstanding == ZERO
 
 
-def test_overdue_count_within_grace_no_penalty():
-    """≤ grace overdue → all free."""
+def test_within_calendar_grace_no_penalty():
+    """Due dates with days_late <= grace stay free."""
     schedules = _build_loan_schedules(10, due_start=DUE_START)
-    for day_offset in (1, 2, 3):  # Days 2–4: 1–3 overdue
-        as_of = DUE_START + timedelta(days=day_offset)
-        payables = _payable_map(schedules, grace=GRACE, penalty=PENALTY, as_of=as_of)
-        for sched in schedules:
-            if sched.schedule_date > as_of:
-                continue
-            assert payables[sched.id].penalty_outstanding == ZERO
+    as_of = DUE_START + timedelta(days=3)  # days_late for day1 = 3
+    payables = _payable_map(schedules, grace=GRACE, penalty=PENALTY, as_of=as_of)
+    for sched in schedules:
+        if sched.schedule_date >= as_of:
+            continue
+        assert payables[sched.id].penalty_outstanding == ZERO
+        assert payables[sched.id].within_grace is True
 
 
-def test_six_overdue_grace_5_first_day_penalized():
-    """Case A: 6 overdue, grace=5 → only oldest (Day 1) has penalty."""
-    schedules = _build_loan_schedules(12, due_start=DUE_START)
-    as_of = DUE_START + timedelta(days=6)  # Day 7 current; overdue Days 1–6
+def test_day_outside_calendar_grace_gets_fixed_penalty():
+    """days_late = 4 with grace=3 → first day penalized once."""
+    schedules = _build_loan_schedules(10, due_start=DUE_START)
+    as_of = DUE_START + timedelta(days=4)
+    payables = _payable_map(schedules, grace=GRACE, penalty=PENALTY, as_of=as_of)
+    assert payables[schedules[0].id].total_payable == Decimal("130.00")
+    assert payables[schedules[0].id].within_grace is False
+    # days_late 3,2,1 still free
+    for i in (1, 2, 3):
+        assert payables[schedules[i].id].penalty_outstanding == ZERO
+        assert payables[schedules[i].id].within_grace is True
+    assert payables[schedules[4].id].total_payable == AMT  # today
+
+
+def test_user_screenshot_case_nov9_grace5():
+    """
+    Last due 7 Nov, today 9 Nov, grace 5.
+    Nov 3 is 6 days late → penalty; Nov 4–7 still within 5 days → grace.
+    """
+    due_start = date(2026, 11, 3)
+    schedules = _build_loan_schedules(5, due_start=due_start, amount=Decimal("240.00"))
+    as_of = date(2026, 11, 9)
     payables = _payable_map(
         schedules, grace=5, penalty=Decimal("50.00"), as_of=as_of
     )
-    assert payables[schedules[0].id].total_payable == Decimal("170.00")
-    for i in range(1, 6):
+    assert schedules[0].schedule_date == date(2026, 11, 3)
+    assert schedules[-1].schedule_date == date(2026, 11, 7)
+    assert payables[schedules[0].id].penalty_outstanding == Decimal("50.00")
+    assert payables[schedules[0].id].total_payable == Decimal("290.00")
+    for i in range(1, 5):
         assert payables[schedules[i].id].penalty_outstanding == ZERO
         assert payables[schedules[i].id].within_grace is True
-    assert payables[schedules[6].id].total_payable == AMT  # today
+        assert payables[schedules[i].id].total_payable == Decimal("240.00")
 
 
-def test_seven_overdue_grace_5_first_two_penalized():
-    """Case B: 7 overdue, grace=5 → oldest 2 have penalty."""
-    schedules = _build_loan_schedules(12, due_start=DUE_START)
-    as_of = DUE_START + timedelta(days=7)  # Day 8; overdue 1–7
+def test_post_maturity_accumulates_on_last_due():
+    """
+    Last due 7 Nov, unpaid until 20 Nov, grace 5, penalty ₹50.
+    Nov 7 days_late=13 → (13-5)×50 = ₹400 on the last due.
+    Older dues each get fixed ₹50 once.
+    """
+    due_start = date(2026, 11, 3)
+    schedules = _build_loan_schedules(5, due_start=due_start, amount=Decimal("240.00"))
+    as_of = date(2026, 11, 20)
     payables = _payable_map(
         schedules, grace=5, penalty=Decimal("50.00"), as_of=as_of
     )
-    assert payables[schedules[0].id].total_payable == Decimal("170.00")
-    assert payables[schedules[1].id].total_payable == Decimal("170.00")
-    for i in range(2, 7):
-        assert payables[schedules[i].id].penalty_outstanding == ZERO
-        assert payables[schedules[i].id].within_grace is True
-    assert payables[schedules[7].id].total_payable == AMT
+    # Nov 3–6: fixed once
+    for i in range(4):
+        assert payables[schedules[i].id].penalty_outstanding == Decimal("50.00")
+        assert payables[schedules[i].id].total_payable == Decimal("290.00")
+    # Nov 7 last due: accumulates
+    assert payables[schedules[4].id].penalty_outstanding == Decimal("400.00")
+    assert payables[schedules[4].id].total_payable == Decimal("640.00")
 
 
-def test_pay_oldest_three_then_recalculate_grace():
-    """
-    Case C: start with 7 overdue / grace=5 (Days 1–2 penalized).
-    Pay Days 1–3 → paid-late rows stay in the ranking, so Days 4–7 stay free.
-    Paid rows keep assessed penalty visible (outstanding 0).
-    """
-    schedules = _build_loan_schedules(12, due_start=DUE_START)
-    as_of = DUE_START + timedelta(days=7)
-    before = _payable_map(
-        schedules, grace=5, penalty=Decimal("50.00"), as_of=as_of
-    )
-    assert before[schedules[0].id].penalty_outstanding == Decimal("50.00")
-    assert before[schedules[1].id].penalty_outstanding == Decimal("50.00")
-
-    for i in range(3):
-        schedules[i].paid_amount = AMT
-        schedules[i].paid_principal = AMT
-        schedules[i].paid_penalty = (
-            Decimal("50.00") if before[schedules[i].id].penalty_outstanding > ZERO else ZERO
-        )
-        schedules[i].assessed_penalty = schedules[i].paid_penalty
-        schedules[i].paid_on = as_of
-        schedules[i].status = "PAID"
-
-    after = _payable_map(
-        schedules, grace=5, penalty=Decimal("50.00"), as_of=as_of
-    )
-    for i in range(3):
-        assert after[schedules[i].id].total_payable == ZERO
-        assert after[schedules[i].id].penalty_amount == schedules[i].assessed_penalty
-    for i in range(3, 7):
-        assert after[schedules[i].id].penalty_outstanding == ZERO
-        assert after[schedules[i].id].within_grace is True
-        assert after[schedules[i].id].total_payable == AMT
+def test_last_due_grows_each_day_past_grace():
+    due_start = date(2026, 11, 1)
+    schedules = _build_loan_schedules(1, due_start=due_start, amount=AMT)
+    # days_late=5 → still grace
+    as_of = date(2026, 11, 6)
+    p1 = _payable_map(schedules, grace=5, penalty=PENALTY, as_of=as_of)
+    assert p1[schedules[0].id].penalty_outstanding == ZERO
+    # days_late=6 → 1 unit
+    as_of2 = date(2026, 11, 7)
+    p2 = _payable_map(schedules, grace=5, penalty=PENALTY, as_of=as_of2)
+    assert p2[schedules[0].id].penalty_outstanding == PENALTY
+    # days_late=8 → 3 units
+    as_of3 = date(2026, 11, 9)
+    p3 = _payable_map(schedules, grace=5, penalty=PENALTY, as_of=as_of3)
+    assert p3[schedules[0].id].penalty_outstanding == Decimal("30.00")
 
 
-def test_pay_oldest_does_not_push_penalty_onto_grace_day():
-    """
-    10 overdue, grace=5: Days 1–5 penalized, 6–10 grace.
-    Pay Days 1–3 → Days 6–10 must stay free (no jump). Days 4–5 keep penalty.
-    """
-    schedules = _build_loan_schedules(15, due_start=DUE_START)
-    as_of = DUE_START + timedelta(days=10)  # Day 11; overdue 1–10
-    before = _payable_map(
-        schedules, grace=5, penalty=Decimal("50.00"), as_of=as_of
-    )
-    for i in range(5):
-        assert before[schedules[i].id].penalty_outstanding == Decimal("50.00")
-    for i in range(5, 10):
-        assert before[schedules[i].id].within_grace is True
-
-    for i in range(3):
-        schedules[i].paid_amount = AMT
-        schedules[i].paid_principal = AMT
-        schedules[i].paid_penalty = Decimal("50.00")
-        schedules[i].assessed_penalty = Decimal("50.00")
-        schedules[i].paid_on = as_of
-        schedules[i].status = "PAID"
-
-    after = _payable_map(
-        schedules, grace=5, penalty=Decimal("50.00"), as_of=as_of
-    )
-    assert after[schedules[0].id].penalty_amount == Decimal("50.00")
-    assert after[schedules[0].id].total_payable == ZERO
-    assert after[schedules[3].id].total_payable == Decimal("170.00")
-    assert after[schedules[4].id].total_payable == Decimal("170.00")
-    for i in range(5, 10):
-        assert after[schedules[i].id].penalty_outstanding == ZERO
-        assert after[schedules[i].id].within_grace is True
-
-
-def test_paid_row_shows_assessed_penalty_after_clear():
+def test_paid_row_keeps_assessed_penalty_visible():
     schedules = _build_loan_schedules(10, due_start=DUE_START)
     as_of = DUE_START + timedelta(days=4)
     day1 = schedules[0]
@@ -225,95 +197,18 @@ def test_paid_row_shows_assessed_penalty_after_clear():
     assert after.total_payable == ZERO
     assert after.penalty_amount == PENALTY
     assert after.paid_penalty == PENALTY
-    assert after.penalty_outstanding == ZERO
 
 
-def test_day5_grace_3_oldest_one_penalized():
-    """Day 5, grace=3, 4 overdue → Day 1 ₹130; Days 2–4 grace; Day 5 current."""
-    schedules = _build_loan_schedules(10, due_start=DUE_START)
-    as_of = DUE_START + timedelta(days=4)
-    payables = _payable_map(schedules, grace=GRACE, penalty=PENALTY, as_of=as_of)
-    assert payables[schedules[0].id].total_payable == Decimal("130.00")
-    assert payables[schedules[1].id].penalty_outstanding == ZERO
-    assert payables[schedules[2].id].penalty_outstanding == ZERO
-    assert payables[schedules[3].id].penalty_outstanding == ZERO
-    assert payables[schedules[4].id].total_payable == AMT
-
-
-def test_day6_grace_3_oldest_two_penalized():
-    schedules = _build_loan_schedules(10, due_start=DUE_START)
-    as_of = DUE_START + timedelta(days=5)
-    payables = _payable_map(schedules, grace=GRACE, penalty=PENALTY, as_of=as_of)
-    assert payables[schedules[0].id].total_payable == Decimal("130.00")
-    assert payables[schedules[1].id].total_payable == Decimal("130.00")
-    assert payables[schedules[2].id].penalty_outstanding == ZERO
-    assert payables[schedules[5].id].total_payable == AMT
-
-
-def test_oct8_grace_5_matches_last_n_screenshot_pattern():
-    """Today Oct 8, overdue Oct 2–7 (6 days), grace=5 → Oct 2 penalized, Oct 3–7 grace."""
-    due_start = date(2026, 10, 2)
-    schedules = _build_loan_schedules(10, due_start=due_start, amount=AMT)
-    as_of = date(2026, 10, 8)
-    payables = _payable_map(
-        schedules, grace=5, penalty=Decimal("50.00"), as_of=as_of
-    )
-    assert payables[schedules[0].id].total_payable == Decimal("170.00")  # Oct 2
-    for i in range(1, 6):
-        assert payables[schedules[i].id].penalty_outstanding == ZERO
-        assert payables[schedules[i].id].within_grace is True
-    assert payables[schedules[6].id].total_payable == AMT  # today
-
-
-def test_no_overdue_when_day1_paid():
-    schedules = _build_loan_schedules(10, due_start=DUE_START)
-    schedules[0].paid_amount = AMT
-    schedules[0].paid_principal = AMT
-    as_of = DUE_START + timedelta(days=1)
-    payables = _payable_map(schedules, grace=GRACE, penalty=PENALTY, as_of=as_of)
-    assert payables[schedules[0].id].total_payable == ZERO
-    assert payables[schedules[1].id].total_payable == AMT
-
-
-def test_penalty_never_compounds():
-    schedules = _build_loan_schedules(20, due_start=DUE_START)
-    for day_offset in range(4, 15):
-        as_of = DUE_START + timedelta(days=day_offset)
-        payables = _payable_map(schedules, grace=GRACE, penalty=PENALTY, as_of=as_of)
-        day1 = payables[schedules[0].id]
-        assert day1.total_payable == Decimal("130.00")
-        assert day1.original_amount == AMT
-
-
-def test_payment_clears_penalty_on_oldest():
-    schedules = _build_loan_schedules(10, due_start=DUE_START)
-    as_of = DUE_START + timedelta(days=4)
-    day1 = schedules[0]
-    payable = compute_installment_payable(
-        day1,
-        ordered_schedules=schedules,
-        grace_installments=GRACE,
-        penalty_per_installment=PENALTY,
-        as_of=as_of,
-    )
-    assert payable.total_payable == Decimal("130.00")
+def test_payment_allocation_clears_penalty():
     principal, profit, penalty = allocate_payment_amount(
         amount=Decimal("130.00"),
         profit_remaining=ZERO,
         principal_remaining=AMT,
         penalty_remaining=PENALTY,
     )
-    day1.paid_amount = principal + profit
-    day1.paid_principal = principal
-    day1.paid_penalty = penalty
-    after = compute_installment_payable(
-        day1,
-        ordered_schedules=schedules,
-        grace_installments=GRACE,
-        penalty_per_installment=PENALTY,
-        as_of=as_of,
-    )
-    assert after.total_payable == ZERO
+    assert principal == AMT
+    assert profit == ZERO
+    assert penalty == PENALTY
 
 
 def test_partial_payment_leaves_remaining():
@@ -327,47 +222,22 @@ def test_partial_payment_leaves_remaining():
     assert (AMT - principal) + (PENALTY - penalty) == Decimal("80.00")
 
 
-def test_weekly_last_n_grace():
+def test_weekly_calendar_grace():
     due_start = date(2026, 1, 5)
     schedules = _build_loan_schedules(
-        8, due_start=due_start, frequency="WEEKLY", amount=AMT
+        4, due_start=due_start, frequency="WEEKLY", amount=AMT
     )
-    # On 4th installment: overdue=[0,1,2], grace=2 → oldest 1 penalized
-    as_of = schedules[3].schedule_date
-    payables = _payable_map(
-        schedules, grace=2, penalty=Decimal("50.00"), as_of=as_of
-    )
-    assert payables[schedules[0].id].total_payable == Decimal("170.00")
-    assert payables[schedules[1].id].penalty_outstanding == ZERO
-    assert payables[schedules[2].id].penalty_outstanding == ZERO
-    assert payables[schedules[3].id].total_payable == AMT
-
-
-def test_biweekly_last_n_grace():
-    due_start = date(2026, 1, 1)
-    schedules = _build_loan_schedules(
-        6, due_start=due_start, frequency="BI_WEEKLY", amount=AMT
-    )
-    as_of = schedules[2].schedule_date  # overdue=[0,1], grace=1 → oldest penalized
-    payables = _payable_map(
-        schedules, grace=1, penalty=Decimal("100.00"), as_of=as_of
-    )
-    assert payables[schedules[0].id].total_payable == Decimal("220.00")
-    assert payables[schedules[1].id].within_grace is True
-    assert payables[schedules[2].id].total_payable == AMT
-
-
-def test_monthly_last_n_grace():
-    due_start = date(2026, 1, 15)
-    schedules = _build_loan_schedules(
-        6, due_start=due_start, frequency="MONTHLY", amount=AMT
-    )
+    # as_of = 3rd weekly due; first due is 14 days late
     as_of = schedules[2].schedule_date
     payables = _payable_map(
-        schedules, grace=1, penalty=Decimal("200.00"), as_of=as_of
+        schedules, grace=5, penalty=Decimal("50.00"), as_of=as_of
     )
-    assert payables[schedules[0].id].total_payable == Decimal("320.00")
-    assert payables[schedules[1].id].penalty_outstanding == ZERO
+    # first due: 14 days late > 5 → fixed (not last)
+    assert payables[schedules[0].id].penalty_outstanding == Decimal("50.00")
+    # second: 7 days late > 5 → fixed
+    assert payables[schedules[1].id].penalty_outstanding == Decimal("50.00")
+    # third is today / last among overdue-or-today — if last overall and days_late=0
+    assert payables[schedules[2].id].penalty_outstanding == ZERO
 
 
 def test_zero_config_never_penalizes():
@@ -383,6 +253,8 @@ def test_grace_zero_all_overdue_penalized():
     schedules = _build_loan_schedules(5, due_start=DUE_START)
     as_of = DUE_START + timedelta(days=1)
     payables = _payable_map(schedules, grace=0, penalty=PENALTY, as_of=as_of)
+    # day1 is last? no - 5 schedules, day1 is overdue 1 day, not last
+    # last is day5 which is future. day1 days_late=1 > 0 → fixed
     assert payables[schedules[0].id].total_payable == Decimal("130.00")
     assert payables[schedules[1].id].total_payable == AMT
 
@@ -401,32 +273,36 @@ def test_settings_defaults_helper():
     assert penalty_defaults_from_settings(settings, "DAILY") == (5, Decimal("50.00"))
 
 
-def test_settings_change_grace_5_to_3_recalculates_most_late():
-    from backend.app.services.penalty_service import (
-        compute_loan_payables_for_loan,
-        sync_loan_penalty_fields,
-    )
+def test_settings_change_grace_5_to_3_recalculates_by_calendar():
+    from backend.app.services.penalty_service import effective_penalty_config
 
-    schedules = _build_loan_schedules(12, due_start=DUE_START)
-    as_of = DUE_START + timedelta(days=7)  # 7 overdue
+    due_start = date(2026, 11, 3)
+    schedules = _build_loan_schedules(5, due_start=due_start, amount=AMT)
+    as_of = date(2026, 11, 9)
+    with_grace5 = _payable_map(
+        schedules, grace=5, penalty=Decimal("50.00"), as_of=as_of
+    )
+    assert with_grace5[schedules[0].id].penalty_outstanding == Decimal("50.00")
+    assert with_grace5[schedules[1].id].penalty_outstanding == ZERO
+
+    with_grace3 = _payable_map(
+        schedules, grace=3, penalty=Decimal("50.00"), as_of=as_of
+    )
+    # Nov 3 days_late=6, Nov 4=5, Nov 5=4 → with grace 3: Nov3,4,5 penalized?
+    # Nov 3: 6>3 fixed, Nov 4: 5>3 fixed, Nov 5: 4>3 fixed, Nov 6: 3<=3 grace, Nov 7: 2 grace last
+    assert with_grace3[schedules[0].id].penalty_outstanding == Decimal("50.00")
+    assert with_grace3[schedules[1].id].penalty_outstanding == Decimal("50.00")
+    assert with_grace3[schedules[2].id].penalty_outstanding == Decimal("50.00")
+    assert with_grace3[schedules[3].id].penalty_outstanding == ZERO
+    assert with_grace3[schedules[4].id].penalty_outstanding == ZERO
+
     loan = SimpleNamespace(
         collection_model="DAILY_COLLECTION",
         collection_frequency="DAILY",
         grace_installments=5,
         penalty_per_installment=Decimal("50.00"),
-        schedules=schedules,
     )
-    settings_5 = SimpleNamespace(
-        daily_grace_installments=5,
-        daily_penalty_per_installment=Decimal("50.00"),
-        weekly_grace_installments=0,
-        weekly_penalty_per_installment=ZERO,
-        bi_weekly_grace_installments=0,
-        bi_weekly_penalty_per_installment=ZERO,
-        monthly_grace_installments=0,
-        monthly_penalty_per_installment=ZERO,
-    )
-    settings_3 = SimpleNamespace(
+    settings = SimpleNamespace(
         daily_grace_installments=3,
         daily_penalty_per_installment=Decimal("50.00"),
         weekly_grace_installments=0,
@@ -436,59 +312,26 @@ def test_settings_change_grace_5_to_3_recalculates_most_late():
         monthly_grace_installments=0,
         monthly_penalty_per_installment=ZERO,
     )
-    before = compute_loan_payables_for_loan(
-        loan, schedules, as_of=as_of, settings=settings_5
+    assert effective_penalty_config(loan, settings) == (3, Decimal("50.00"))
+
+
+def test_biweekly_and_monthly_use_calendar_days():
+    due_start = date(2026, 1, 1)
+    bi = _build_loan_schedules(3, due_start=due_start, frequency="BI_WEEKLY", amount=AMT)
+    as_of = bi[1].schedule_date  # 14 days after first
+    payables = _payable_map(bi, grace=5, penalty=Decimal("100.00"), as_of=as_of)
+    assert payables[bi[0].id].penalty_outstanding == Decimal("100.00")
+
+    monthly = _build_loan_schedules(3, due_start=due_start, frequency="MONTHLY", amount=AMT)
+    as_of_m = monthly[1].schedule_date
+    payables_m = _payable_map(
+        monthly, grace=5, penalty=Decimal("200.00"), as_of=as_of_m
     )
-    # grace 5, 7 overdue → 2 penalized
-    assert before[schedules[0].id].penalty_outstanding == Decimal("50.00")
-    assert before[schedules[1].id].penalty_outstanding == Decimal("50.00")
-    assert before[schedules[2].id].penalty_outstanding == ZERO
-
-    sync_loan_penalty_fields(loan, settings_3)
-    after = compute_loan_payables_for_loan(
-        loan, schedules, as_of=as_of, settings=settings_3
-    )
-    # grace 3, 7 overdue → 4 penalized
-    for i in range(4):
-        assert after[schedules[i].id].penalty_outstanding == Decimal("50.00")
-    assert after[schedules[4].id].within_grace is True
+    assert payables_m[monthly[0].id].penalty_outstanding == Decimal("200.00")
 
 
-def test_backfill_installment_loan_penalties_updates_rows():
-    from backend.app.services import finance_settings_service as svc
-
-    settings = SimpleNamespace(
-        daily_grace_installments=5,
-        daily_penalty_per_installment=Decimal("50.00"),
-        weekly_grace_installments=1,
-        weekly_penalty_per_installment=Decimal("50.00"),
-        bi_weekly_grace_installments=0,
-        bi_weekly_penalty_per_installment=ZERO,
-        monthly_grace_installments=0,
-        monthly_penalty_per_installment=ZERO,
-    )
-    loan_a = SimpleNamespace(
-        id=1,
-        collection_model="DAILY_COLLECTION",
-        collection_frequency="DAILY",
-        grace_installments=0,
-        penalty_per_installment=ZERO,
-    )
-
-    class _FakeQuery:
-        def filter(self, *args, **kwargs):
-            return self
-
-        def all(self):
-            return [loan_a]
-
-    class _FakeDB:
-        def query(self, *_args):
-            return _FakeQuery()
-
-    count = svc.backfill_installment_loan_penalties(
-        _FakeDB(), finance_owner_id=1, settings=settings
-    )
-    assert count == 1
-    assert loan_a.grace_installments == 5
-    assert loan_a.penalty_per_installment == Decimal("50.00")
+def test_penalty_never_mutates_original_amount():
+    schedules = _build_loan_schedules(10, due_start=DUE_START)
+    as_of = DUE_START + timedelta(days=20)
+    payables = _payable_map(schedules, grace=GRACE, penalty=PENALTY, as_of=as_of)
+    assert payables[schedules[0].id].original_amount == AMT

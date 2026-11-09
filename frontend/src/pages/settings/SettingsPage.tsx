@@ -445,12 +445,13 @@ export default function SettingsPage() {
                     Grace Installments &amp; Penalty
                   </h2>
                   <p className="mb-4 text-sm text-slate-500">
-                    Grace applies to the <span className="font-medium">last N overdue
-                    installments</span> (closest to today). Older / most-late overdue
-                    installments beyond that window get the fixed penalty. Example:
-                    grace 5 with 7 overdue → first 2 most-late get penalty; last 5 stay
-                    at original. After payments, grace is recalculated on what remains
-                    unpaid. Saving updates all existing installment loans immediately.
+                    Grace is counted in <span className="font-medium">calendar days
+                    from today</span>. A due stays free while (today − due date) ≤ N.
+                    Older dues beyond that get the fixed penalty once. On the loan’s
+                    <span className="font-medium"> last due date</span>, penalty keeps
+                    adding each day past grace (so post-maturity days accumulate there).
+                    Example: grace 5, today 9 Nov, due 3 Nov → penalty; dues within 5
+                    days stay free. Saving updates all existing installment loans.
                   </p>
                   <div className="space-y-4">
                     {(
@@ -476,8 +477,8 @@ export default function SettingsPage() {
                         <div className="flex items-center">
                           <p className="font-medium text-slate-800">{label}</p>
                         </div>
-                        {inp("Grace Installments", graceKey, "number")}
-                        {inp("Penalty Per Installment (₹)", penaltyKey, "number")}
+                        {inp("Grace Days (from today)", graceKey, "number")}
+                        {inp("Penalty Per Day / Installment (₹)", penaltyKey, "number")}
                       </div>
                     ))}
                   </div>

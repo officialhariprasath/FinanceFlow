@@ -1,17 +1,15 @@
 """
-Installment grace + fixed penalty engine.
+Installment grace + penalty engine (calendar days from today).
 
-Grace protects the **last N overdue unpaid installments** (closest to today).
-Penalty applies to the **most late** overdue installments beyond that window.
+Grace N means: an overdue installment stays free while
+(as_of - due_date).days <= N.
 
-Example (grace=5):
-  - 6 overdue → oldest 1 gets penalty; last 5 free
-  - 7 overdue → oldest 2 get penalty; last 5 free
+When (as_of - due_date).days > N:
+  - Normal dues get a fixed penalty_per_installment once
+  - The loan's last due accumulates (days_late - N) × penalty
+    so post-maturity days keep adding onto the final installment
 
-After payments, the overdue unpaid list is rebuilt and grace is recalculated.
-Today / future installments never get an early penalty.
-
-Works for daily / weekly / bi-weekly / monthly schedules.
+Today / future dues never get an early penalty.
 Original installment amounts are never mutated.
 """
 
@@ -50,9 +48,9 @@ class InstallmentPayable:
     paid_penalty: Decimal
     penalty_outstanding: Decimal
     total_payable: Decimal
-    # True for overdue unpaid rows inside the free last-N grace window.
+    # True when overdue unpaid and still inside calendar grace from today.
     within_grace: bool = False
-    # 0-based rank among overdue unpaid (oldest = 0). None if not overdue unpaid.
+    # Days late vs as_of (0 for today/future). None if not applicable.
     overdue_rank: int | None = None
 
     @property
@@ -133,64 +131,36 @@ def ensure_loan_penalty_from_settings(db, loan: Loan):
     return settings
 
 
+def _as_decimal(value) -> Decimal:
+    return Decimal(value or 0).quantize(TWOPLACES)
+
+
 def _installment_outstanding(schedule: LoanSchedule) -> Decimal:
     original = Decimal(schedule.expected_amount).quantize(TWOPLACES)
     paid_amount = Decimal(schedule.paid_amount or 0).quantize(TWOPLACES)
     return max(original - paid_amount, ZERO).quantize(TWOPLACES)
 
 
-def _as_decimal(value) -> Decimal:
-    return Decimal(value or 0).quantize(TWOPLACES)
+def _days_late(schedule_date: date, as_of: date) -> int:
+    return max((as_of - schedule_date).days, 0)
 
 
-def _is_overdue_slot(row: LoanSchedule, as_of: date) -> bool:
-    """
-    Dates that were late still occupy the grace window after they are paid,
-    so paying the oldest day does not push penalty onto a former grace day.
-    """
-    if row.schedule_date >= as_of:
-        return False
-    if _installment_outstanding(row) > ZERO:
-        return True
-    if _as_decimal(getattr(row, "paid_penalty", None)) > ZERO:
-        return True
-    if _as_decimal(getattr(row, "assessed_penalty", None)) > ZERO:
-        return True
-    paid_on = getattr(row, "paid_on", None)
-    return paid_on is not None and paid_on > row.schedule_date
-
-
-def _penalty_eligible_schedule_ids(
-    ordered: Sequence[LoanSchedule],
+def _computed_penalty_for_row(
     *,
-    grace_installments: int,
-    as_of: date,
-) -> tuple[set[int], dict[int, int], set[int]]:
-    """
-    Last `grace_installments` overdue slots (newest / closest to today)
-    are free. Older overdue slots (most late) are penalty-eligible.
-
-    Paid-late rows stay in the ranking so penalty does not jump after a payment.
-
-    Returns (eligible_ids, overdue_rank_by_id, within_grace_ids).
-    """
-    grace_n = max(int(grace_installments), 0)
-    overdue_slots: list[LoanSchedule] = [
-        row for row in ordered if _is_overdue_slot(row, as_of)
-    ]
-
-    overdue_rank = {row.id: index for index, row in enumerate(overdue_slots)}
-    count = len(overdue_slots)
-    penalty_cut = max(0, count - grace_n)
-
-    eligible: set[int] = set()
-    within_grace: set[int] = set()
-    for index, row in enumerate(overdue_slots):
-        if index < penalty_cut:
-            eligible.add(row.id)
-        else:
-            within_grace.add(row.id)
-    return eligible, overdue_rank, within_grace
+    days_late: int,
+    grace_n: int,
+    fixed_penalty: Decimal,
+    is_last_due: bool,
+    needs_penalty_base: bool,
+) -> Decimal:
+    if not needs_penalty_base or days_late <= 0 or fixed_penalty <= ZERO:
+        return ZERO
+    if days_late <= grace_n:
+        return ZERO
+    if is_last_due:
+        units = days_late - grace_n
+        return (fixed_penalty * units).quantize(TWOPLACES)
+    return fixed_penalty
 
 
 def compute_loan_payables(
@@ -203,9 +173,7 @@ def compute_loan_payables(
     ordered = sorted(schedules, key=lambda row: (row.schedule_date, row.id or 0))
     grace_n = max(int(grace_installments), 0)
     fixed_penalty = max(Decimal(penalty_per_installment), ZERO).quantize(TWOPLACES)
-    eligible_ids, overdue_rank, within_grace_ids = _penalty_eligible_schedule_ids(
-        ordered, grace_installments=grace_n, as_of=as_of
-    )
+    last_due = ordered[-1].schedule_date if ordered else None
 
     result: dict[int, InstallmentPayable] = {}
     for row in ordered:
@@ -215,29 +183,36 @@ def compute_loan_payables(
         frozen = _as_decimal(getattr(row, "assessed_penalty", None))
         installment_outstanding = max(original - paid_amount, ZERO).quantize(TWOPLACES)
 
-        in_eligible = row.id in eligible_ids
-        # Frozen once charged. New charge only on currently eligible most-late rows.
-        if frozen > ZERO:
-            penalty_amount = frozen
-        elif in_eligible and (installment_outstanding > ZERO or paid_penalty > ZERO):
-            penalty_amount = fixed_penalty
-        elif paid_penalty > ZERO and row.schedule_date < as_of:
-            penalty_amount = max(fixed_penalty, paid_penalty)
-        else:
-            penalty_amount = ZERO
+        days_late = _days_late(row.schedule_date, as_of)
+        is_last_due = last_due is not None and row.schedule_date == last_due
+        still_open = installment_outstanding > ZERO or paid_penalty > ZERO or frozen > ZERO
+        needs_penalty_base = installment_outstanding > ZERO or paid_penalty > ZERO or frozen > ZERO
 
-        if penalty_amount > ZERO and frozen < penalty_amount:
-            if hasattr(row, "assessed_penalty"):
-                row.assessed_penalty = penalty_amount
-            frozen = penalty_amount
-            penalty_amount = frozen
+        computed = _computed_penalty_for_row(
+            days_late=days_late,
+            grace_n=grace_n,
+            fixed_penalty=fixed_penalty,
+            is_last_due=is_last_due,
+            needs_penalty_base=needs_penalty_base and still_open,
+        )
+
+        # Keep the higher of frozen assessed vs live computed (allows last-due growth).
+        if installment_outstanding <= ZERO and paid_penalty <= ZERO and frozen <= ZERO:
+            penalty_amount = ZERO
+        else:
+            penalty_amount = max(frozen, computed, paid_penalty)
+
+        if penalty_amount > frozen and hasattr(row, "assessed_penalty"):
+            row.assessed_penalty = penalty_amount
 
         penalty_outstanding = max(penalty_amount - paid_penalty, ZERO).quantize(TWOPLACES)
         total_payable = (installment_outstanding + penalty_outstanding).quantize(TWOPLACES)
-        rank = overdue_rank.get(row.id)
+
         within_grace = (
-            row.id in within_grace_ids
-            and installment_outstanding > ZERO
+            installment_outstanding > ZERO
+            and row.schedule_date < as_of
+            and days_late > 0
+            and days_late <= grace_n
             and penalty_amount <= ZERO
         )
 
@@ -248,14 +223,14 @@ def compute_loan_payables(
             paid_amount=paid_amount,
             installment_outstanding=installment_outstanding,
             grace_installments=grace_n,
-            installments_elapsed=rank if rank is not None else 0,
+            installments_elapsed=days_late,
             grace_crossed=penalty_amount > ZERO,
             penalty_amount=penalty_amount,
             paid_penalty=paid_penalty,
             penalty_outstanding=penalty_outstanding,
             total_payable=total_payable,
             within_grace=within_grace,
-            overdue_rank=rank,
+            overdue_rank=days_late if row.schedule_date < as_of else None,
         )
     return result
 
