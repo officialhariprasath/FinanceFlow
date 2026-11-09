@@ -139,6 +139,27 @@ def _installment_outstanding(schedule: LoanSchedule) -> Decimal:
     return max(original - paid_amount, ZERO).quantize(TWOPLACES)
 
 
+def _as_decimal(value) -> Decimal:
+    return Decimal(value or 0).quantize(TWOPLACES)
+
+
+def _is_overdue_slot(row: LoanSchedule, as_of: date) -> bool:
+    """
+    Dates that were late still occupy the grace window after they are paid,
+    so paying the oldest day does not push penalty onto a former grace day.
+    """
+    if row.schedule_date >= as_of:
+        return False
+    if _installment_outstanding(row) > ZERO:
+        return True
+    if _as_decimal(getattr(row, "paid_penalty", None)) > ZERO:
+        return True
+    if _as_decimal(getattr(row, "assessed_penalty", None)) > ZERO:
+        return True
+    paid_on = getattr(row, "paid_on", None)
+    return paid_on is not None and paid_on > row.schedule_date
+
+
 def _penalty_eligible_schedule_ids(
     ordered: Sequence[LoanSchedule],
     *,
@@ -146,28 +167,25 @@ def _penalty_eligible_schedule_ids(
     as_of: date,
 ) -> tuple[set[int], dict[int, int], set[int]]:
     """
-    Last `grace_installments` overdue unpaid rows (newest / closest to today)
-    are free. Older overdue unpaid rows (most late) are penalty-eligible.
+    Last `grace_installments` overdue slots (newest / closest to today)
+    are free. Older overdue slots (most late) are penalty-eligible.
+
+    Paid-late rows stay in the ranking so penalty does not jump after a payment.
 
     Returns (eligible_ids, overdue_rank_by_id, within_grace_ids).
     """
     grace_n = max(int(grace_installments), 0)
-    overdue_unpaid: list[LoanSchedule] = []
-    for row in ordered:
-        if row.schedule_date >= as_of:
-            continue
-        if _installment_outstanding(row) <= ZERO:
-            continue
-        overdue_unpaid.append(row)
+    overdue_slots: list[LoanSchedule] = [
+        row for row in ordered if _is_overdue_slot(row, as_of)
+    ]
 
-    overdue_rank = {row.id: index for index, row in enumerate(overdue_unpaid)}
-    count = len(overdue_unpaid)
-    # Oldest (count - grace) rows get penalty when count > grace.
+    overdue_rank = {row.id: index for index, row in enumerate(overdue_slots)}
+    count = len(overdue_slots)
     penalty_cut = max(0, count - grace_n)
 
     eligible: set[int] = set()
     within_grace: set[int] = set()
-    for index, row in enumerate(overdue_unpaid):
+    for index, row in enumerate(overdue_slots):
         if index < penalty_cut:
             eligible.add(row.id)
         else:
@@ -193,17 +211,26 @@ def compute_loan_payables(
     for row in ordered:
         original = Decimal(row.expected_amount).quantize(TWOPLACES)
         paid_amount = Decimal(row.paid_amount or 0).quantize(TWOPLACES)
-        paid_penalty = Decimal(getattr(row, "paid_penalty", None) or 0).quantize(TWOPLACES)
+        paid_penalty = _as_decimal(getattr(row, "paid_penalty", None))
+        frozen = _as_decimal(getattr(row, "assessed_penalty", None))
         installment_outstanding = max(original - paid_amount, ZERO).quantize(TWOPLACES)
 
         in_eligible = row.id in eligible_ids
-        # Keep collecting a partially paid penalty even if ranking shifts after pays.
-        if installment_outstanding <= ZERO and paid_penalty <= ZERO:
-            penalty_amount = ZERO
-        elif in_eligible or (paid_penalty > ZERO and row.schedule_date < as_of):
+        # Frozen once charged. New charge only on currently eligible most-late rows.
+        if frozen > ZERO:
+            penalty_amount = frozen
+        elif in_eligible and (installment_outstanding > ZERO or paid_penalty > ZERO):
             penalty_amount = fixed_penalty
+        elif paid_penalty > ZERO and row.schedule_date < as_of:
+            penalty_amount = max(fixed_penalty, paid_penalty)
         else:
             penalty_amount = ZERO
+
+        if penalty_amount > ZERO and frozen < penalty_amount:
+            if hasattr(row, "assessed_penalty"):
+                row.assessed_penalty = penalty_amount
+            frozen = penalty_amount
+            penalty_amount = frozen
 
         penalty_outstanding = max(penalty_amount - paid_penalty, ZERO).quantize(TWOPLACES)
         total_payable = (installment_outstanding + penalty_outstanding).quantize(TWOPLACES)

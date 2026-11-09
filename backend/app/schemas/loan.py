@@ -128,6 +128,8 @@ class UnpaidScheduleResponse(BaseModel):
     penalty_amount: Decimal = Decimal("0.00")
     paid_penalty: Decimal = Decimal("0.00")
     penalty_outstanding: Decimal = Decimal("0.00")
+    total_paid: Decimal | None = None
+    paid_on: date | None = None
     installment_outstanding: Decimal | None = None
     total_payable: Decimal | None = None
     grace_status: str | None = None
@@ -148,6 +150,8 @@ class LoanScheduleResponse(BaseModel):
     penalty_amount: Decimal = Decimal("0.00")
     paid_penalty: Decimal = Decimal("0.00")
     penalty_outstanding: Decimal = Decimal("0.00")
+    total_paid: Decimal | None = None
+    paid_on: date | None = None
     installment_outstanding: Decimal | None = None
     total_payable: Decimal | None = None
     grace_status: str | None = None

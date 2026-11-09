@@ -33,6 +33,8 @@ class LoanSchedule(Base):
     paid_principal = Column(Numeric(12, 2), default=0, nullable=False)
     paid_profit = Column(Numeric(12, 2), default=0, nullable=False)
     paid_penalty = Column(Numeric(12, 2), default=0, nullable=False)
+    assessed_penalty = Column(Numeric(12, 2), default=0, nullable=False)
+    paid_on = Column(Date, nullable=True)
 
     status = Column(String(20), nullable=False, default="PENDING")
 

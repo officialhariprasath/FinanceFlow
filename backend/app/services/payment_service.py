@@ -31,6 +31,7 @@ from backend.app.services.schedule_service import (
     schedule_pending_amount,
     update_schedule_after_payment,
 )
+from backend.app.utils.date_helpers import business_today
 from backend.app.utils.interest_calculator import calculate_interest
 
 ZERO = Decimal("0.00")
@@ -464,6 +465,7 @@ def _create_daily_collection_payment(
     )
     db.add(allocation)
 
+    recorded_on = business_today()
     for schedule, principal_paid, profit_paid, penalty_paid, paid_total in breakdown:
         installment_paid = (principal_paid + profit_paid).quantize(TWOPLACES)
         update_schedule_after_payment(
@@ -476,6 +478,7 @@ def _create_daily_collection_payment(
             all_schedules=all_schedules,
             as_of=as_of,
             settings=settings,
+            paid_on=recorded_on,
         )
 
     if total_principal > ZERO:

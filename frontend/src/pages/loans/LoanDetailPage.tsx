@@ -264,24 +264,31 @@ export default function LoanDetailPage() {
               <table className="min-w-full text-sm">
                 <thead className="table-head">
                   <tr>
-                    <th className="px-4 py-3 text-left text-slate-600">Date</th>
+                    <th className="px-4 py-3 text-left text-slate-600">Due</th>
                     <th className="px-4 py-3 text-right text-slate-600">Original</th>
                     <th className="px-4 py-3 text-right text-slate-600">Penalty</th>
                     <th className="px-4 py-3 text-right text-slate-600">Paid</th>
                     <th className="px-4 py-3 text-right text-slate-600">Payable</th>
                     <th className="px-4 py-3 text-left text-slate-600">Status</th>
+                    <th className="px-4 py-3 text-left text-slate-600">Paid on</th>
                   </tr>
                 </thead>
                 <tbody>
                   {schedules.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
+                      <td colSpan={7} className="px-4 py-6 text-center text-slate-500">
                         No installments on this loan.
                       </td>
                     </tr>
                   ) : (
                     schedules.map((row) => {
-                      const penalty = Number(row.penalty_outstanding ?? row.penalty_amount ?? 0);
+                      const assessedPenalty = Number(
+                        row.penalty_amount ?? row.paid_penalty ?? row.penalty_outstanding ?? 0
+                      );
+                      const totalPaid = Number(
+                        row.total_paid ??
+                          Number(row.paid_amount || 0) + Number(row.paid_penalty || 0)
+                      );
                       const payable = Number(row.total_payable ?? row.pending_amount);
                       return (
                       <tr
@@ -305,14 +312,19 @@ export default function LoanDetailPage() {
                           {fmt(row.original_amount ?? row.expected_amount)}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {penalty > 0.009 ? fmt(penalty) : "—"}
+                          {assessedPenalty > 0.009 ? fmt(assessedPenalty) : "—"}
                         </td>
-                        <td className="px-4 py-3 text-right">{fmt(row.paid_amount)}</td>
+                        <td className="px-4 py-3 text-right">
+                          {totalPaid > 0.009 ? fmt(totalPaid) : "—"}
+                        </td>
                         <td className="px-4 py-3 text-right font-medium">
                           {payable > 0 ? fmt(payable) : "—"}
                         </td>
                         <td className="px-4 py-3">
                           <StatusChip status={row.status} />
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                          {row.paid_on || "—"}
                         </td>
                       </tr>
                       );

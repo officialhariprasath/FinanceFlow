@@ -47,6 +47,8 @@ def generate_installment_schedule(
             paid_principal=ZERO,
             paid_profit=ZERO,
             paid_penalty=ZERO,
+            assessed_penalty=ZERO,
+            paid_on=None,
             status=ScheduleStatus.PENDING.value,
         )
         db.add(schedule)
@@ -118,6 +120,8 @@ def _schedule_row_dict(
         "penalty_amount": payable.penalty_amount,
         "paid_penalty": payable.paid_penalty,
         "penalty_outstanding": payable.penalty_outstanding,
+        "total_paid": (payable.paid_amount + payable.paid_penalty).quantize(TWOPLACES),
+        "paid_on": getattr(schedule, "paid_on", None),
         "installment_outstanding": payable.installment_outstanding,
         "total_payable": payable.total_payable,
         "grace_status": payable.grace_status,
@@ -305,6 +309,7 @@ def update_schedule_after_payment(
     all_schedules: list[LoanSchedule] | None = None,
     as_of: date | None = None,
     settings=None,
+    paid_on: date | None = None,
 ) -> None:
     schedule.paid_principal += principal_paid
     schedule.paid_profit += profit_paid
@@ -313,6 +318,11 @@ def update_schedule_after_payment(
         schedule.paid_penalty = (Decimal(schedule.paid_penalty or 0) + penalty_paid).quantize(
             TWOPLACES
         )
+        assessed = Decimal(getattr(schedule, "assessed_penalty", None) or 0)
+        if assessed < Decimal(schedule.paid_penalty or 0):
+            schedule.assessed_penalty = Decimal(schedule.paid_penalty or 0).quantize(TWOPLACES)
+    if paid_on is not None:
+        schedule.paid_on = paid_on
 
     installment_cleared = (
         schedule.paid_principal >= schedule.expected_principal

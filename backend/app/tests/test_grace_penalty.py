@@ -29,6 +29,8 @@ def _sched(
     amount: Decimal = Decimal("120.00"),
     paid: Decimal = ZERO,
     paid_penalty: Decimal = ZERO,
+    assessed_penalty: Decimal = ZERO,
+    paid_on: date | None = None,
     schedule_id: int | None = None,
 ):
     schedule_date = installment_schedule_date(due_start, frequency, index)
@@ -42,6 +44,8 @@ def _sched(
         paid_principal=paid,
         paid_profit=ZERO,
         paid_penalty=paid_penalty,
+        assessed_penalty=assessed_penalty,
+        paid_on=paid_on,
         status="PENDING",
     )
 
@@ -125,7 +129,8 @@ def test_seven_overdue_grace_5_first_two_penalized():
 def test_pay_oldest_three_then_recalculate_grace():
     """
     Case C: start with 7 overdue / grace=5 (Days 1–2 penalized).
-    Pay Days 1–3 → remaining 4 overdue ≤ 5 → all free again.
+    Pay Days 1–3 → paid-late rows stay in the ranking, so Days 4–7 stay free.
+    Paid rows keep assessed penalty visible (outstanding 0).
     """
     schedules = _build_loan_schedules(12, due_start=DUE_START)
     as_of = DUE_START + timedelta(days=7)
@@ -141,22 +146,26 @@ def test_pay_oldest_three_then_recalculate_grace():
         schedules[i].paid_penalty = (
             Decimal("50.00") if before[schedules[i].id].penalty_outstanding > ZERO else ZERO
         )
+        schedules[i].assessed_penalty = schedules[i].paid_penalty
+        schedules[i].paid_on = as_of
+        schedules[i].status = "PAID"
 
     after = _payable_map(
         schedules, grace=5, penalty=Decimal("50.00"), as_of=as_of
     )
     for i in range(3):
         assert after[schedules[i].id].total_payable == ZERO
+        assert after[schedules[i].id].penalty_amount == schedules[i].assessed_penalty
     for i in range(3, 7):
         assert after[schedules[i].id].penalty_outstanding == ZERO
         assert after[schedules[i].id].within_grace is True
         assert after[schedules[i].id].total_payable == AMT
 
 
-def test_pay_oldest_three_longer_arrears_reassigns_penalty():
+def test_pay_oldest_does_not_push_penalty_onto_grace_day():
     """
     10 overdue, grace=5: Days 1–5 penalized, 6–10 grace.
-    Pay Days 1–3 → remaining 7 overdue → Days 4–5 penalized, 6–10 grace.
+    Pay Days 1–3 → Days 6–10 must stay free (no jump). Days 4–5 keep penalty.
     """
     schedules = _build_loan_schedules(15, due_start=DUE_START)
     as_of = DUE_START + timedelta(days=10)  # Day 11; overdue 1–10
@@ -172,14 +181,51 @@ def test_pay_oldest_three_longer_arrears_reassigns_penalty():
         schedules[i].paid_amount = AMT
         schedules[i].paid_principal = AMT
         schedules[i].paid_penalty = Decimal("50.00")
+        schedules[i].assessed_penalty = Decimal("50.00")
+        schedules[i].paid_on = as_of
+        schedules[i].status = "PAID"
 
     after = _payable_map(
         schedules, grace=5, penalty=Decimal("50.00"), as_of=as_of
     )
+    assert after[schedules[0].id].penalty_amount == Decimal("50.00")
+    assert after[schedules[0].id].total_payable == ZERO
     assert after[schedules[3].id].total_payable == Decimal("170.00")
     assert after[schedules[4].id].total_payable == Decimal("170.00")
     for i in range(5, 10):
         assert after[schedules[i].id].penalty_outstanding == ZERO
+        assert after[schedules[i].id].within_grace is True
+
+
+def test_paid_row_shows_assessed_penalty_after_clear():
+    schedules = _build_loan_schedules(10, due_start=DUE_START)
+    as_of = DUE_START + timedelta(days=4)
+    day1 = schedules[0]
+    before = compute_installment_payable(
+        day1,
+        ordered_schedules=schedules,
+        grace_installments=GRACE,
+        penalty_per_installment=PENALTY,
+        as_of=as_of,
+    )
+    assert before.total_payable == Decimal("130.00")
+    day1.paid_amount = AMT
+    day1.paid_principal = AMT
+    day1.paid_penalty = PENALTY
+    day1.assessed_penalty = PENALTY
+    day1.paid_on = as_of
+    day1.status = "PAID"
+    after = compute_installment_payable(
+        day1,
+        ordered_schedules=schedules,
+        grace_installments=GRACE,
+        penalty_per_installment=PENALTY,
+        as_of=as_of,
+    )
+    assert after.total_payable == ZERO
+    assert after.penalty_amount == PENALTY
+    assert after.paid_penalty == PENALTY
+    assert after.penalty_outstanding == ZERO
 
 
 def test_day5_grace_3_oldest_one_penalized():

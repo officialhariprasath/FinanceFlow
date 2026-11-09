@@ -1,4 +1,11 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def business_today() -> date:
+    """Calendar date in IST so paid-on matches the owner's collection day."""
+    return datetime.now(IST).date()
 
 
 def add_months(value: date, months: int) -> date:

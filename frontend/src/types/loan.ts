@@ -121,6 +121,8 @@ export interface UnpaidSchedule {
   penalty_amount?: string;
   paid_penalty?: string;
   penalty_outstanding?: string;
+  total_paid?: string;
+  paid_on?: string | null;
   installment_outstanding?: string;
   total_payable?: string;
   grace_status?: string;
