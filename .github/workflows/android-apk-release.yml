@@ -1,0 +1,90 @@
+name: Android APK Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.2.14)"
+        required: true
+        default: "v1.2.14"
+  push:
+    tags:
+      - "v1.2.*"
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build web + sync Capacitor
+        working-directory: frontend
+        run: |
+          npm run build
+          npx cap sync android
+
+      - name: Assemble debug APK (upload-signed)
+        working-directory: frontend/android
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+
+      - name: Prepare APK artifact
+        id: apk
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then TAG="v1.2.14"; fi
+          NAME="FinanceFlow-${TAG}.apk"
+          # Prefer versioned name without leading v duplication
+          OUT="FinanceFlow-${TAG#v}.apk"
+          if [[ "$OUT" != FinanceFlow-v* ]]; then OUT="FinanceFlow-v${TAG#v}.apk"; fi
+          # Standardize: FinanceFlow-v1.2.14.apk
+          VER="${TAG#v}"
+          OUT="FinanceFlow-v${VER}.apk"
+          SRC="frontend/android/app/build/outputs/apk/debug/app-debug.apk"
+          cp "$SRC" "$OUT"
+          echo "tag=v${VER}" >> "$GITHUB_OUTPUT"
+          echo "apk=$OUT" >> "$GITHUB_OUTPUT"
+          ls -lh "$OUT"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.apk }}
+          path: ${{ steps.apk.outputs.apk }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.apk.outputs.tag }}
+          name: FinanceFlow ${{ steps.apk.outputs.tag }}
+          body: |
+            Android update ${{ steps.apk.outputs.tag }}
+
+            - Calendar-day grace from today
+            - Last due accumulates post-maturity penalty
+            - Loan schedule shows paid total with penalty and Paid on date
+          files: ${{ steps.apk.outputs.apk }}
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
