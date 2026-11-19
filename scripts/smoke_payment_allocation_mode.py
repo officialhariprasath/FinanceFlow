@@ -30,10 +30,23 @@ def main() -> int:
     )
     assert "Next 5" not in modal and "Next 10" not in modal
     assert "amountFollowsSelection" in modal
+    assert "shouldAutoCoverAmount" in modal
     assert "Due left" not in modal and "Penalty left" not in modal
     assert "left in this mode" in modal
     assert "late_fee_amount" in modal
     assert "DUE_ONLY" in modal and "PENALTY_ONLY" in modal
+
+    print("== payment selection helper tests ==")
+    sel = subprocess.run(
+        [
+            "node",
+            str(ROOT / "frontend/src/utils/paymentSelection.test.mjs"),
+        ],
+        cwd=str(ROOT),
+    )
+    if sel.returncode != 0:
+        return sel.returncode
+
     print("frontend_checks_ok")
     print("offline_ok")
     return 0

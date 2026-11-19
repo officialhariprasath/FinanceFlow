@@ -6,6 +6,15 @@ import type { AllocationMode, PaymentCreate } from "../../types/payment";
 import type { UnpaidSchedule } from "../../types/loan";
 import { fmt } from "../../utils/fmt";
 import { useToast } from "../../context/ToastContext";
+import {
+  normalizeScheduleDate,
+  pickDatesForAmount,
+  rowDueOutstanding,
+  rowModeAmount,
+  rowPenaltyOutstanding,
+  shouldAutoCoverAmount,
+  sumPending,
+} from "../../utils/paymentSelection";
 
 const PAYMENT_MODES = ["Cash", "UPI", "Bank Transfer", "Cheque"];
 
@@ -45,30 +54,6 @@ type Preview = {
   lines?: PreviewLine[];
 };
 
-function rowDueOutstanding(row: UnpaidSchedule): number {
-  if (row.installment_outstanding != null && row.installment_outstanding !== "") {
-    return Number(row.installment_outstanding);
-  }
-  const total = Number(row.total_payable ?? row.pending_amount);
-  const penalty = Number(row.penalty_outstanding ?? 0);
-  return Math.max(total - penalty, 0);
-}
-
-function rowPenaltyOutstanding(row: UnpaidSchedule): number {
-  return Number(row.penalty_outstanding ?? 0);
-}
-
-function rowModeAmount(row: UnpaidSchedule, mode: AllocationMode): number {
-  if (mode === "DUE_ONLY") return rowDueOutstanding(row);
-  if (mode === "PENALTY_ONLY") return rowPenaltyOutstanding(row);
-  return Number(row.total_payable ?? row.pending_amount);
-}
-
-/** API may return YYYY-MM-DD or a full ISO datetime — normalize for checkbox matching. */
-function normalizeScheduleDate(value: string): string {
-  return String(value ?? "").slice(0, 10);
-}
-
 function formatShortDate(iso: string): string {
   return new Date(normalizeScheduleDate(iso) + "T00:00:00").toLocaleDateString("en-IN", {
     day: "numeric",
@@ -77,7 +62,7 @@ function formatShortDate(iso: string): string {
 }
 
 function formatWeekdayDate(iso: string): string {
-  return new Date(iso + "T00:00:00").toLocaleDateString("en-IN", {
+  return new Date(normalizeScheduleDate(iso) + "T00:00:00").toLocaleDateString("en-IN", {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -91,35 +76,6 @@ function statusTag(row: UnpaidSchedule): string {
   if (row.status === "OVERDUE") return "Overdue";
   if (row.status === "PARTIAL") return "Partial";
   return row.status;
-}
-
-function sumPending(
-  rows: UnpaidSchedule[],
-  dates: string[],
-  mode: AllocationMode
-): number {
-  return rows
-    .filter((r) => dates.includes(r.schedule_date))
-    .reduce((sum, r) => sum + rowModeAmount(r, mode), 0);
-}
-
-/** Earliest unpaid days whose mode totals cover `target` (or all if target is huge). */
-function pickDatesForAmount(
-  rows: UnpaidSchedule[],
-  target: number,
-  mode: AllocationMode
-): string[] {
-  if (!(target > 0)) return [];
-  let running = 0;
-  const picked: string[] = [];
-  for (const row of rows) {
-    const pending = rowModeAmount(row, mode);
-    if (pending <= 0.009) continue;
-    picked.push(normalizeScheduleDate(row.schedule_date));
-    running += pending;
-    if (running >= target - 0.001) break;
-  }
-  return picked;
 }
 
 function ScheduleRowContent({
@@ -319,11 +275,19 @@ export default function RecordPaymentModal({
     }));
   }, [selectedDates, selectedTotal, isInstallment, allocationMode]);
 
-  // If cash is higher than checked days, auto-check enough days to cover it
-  // (keeps checkboxes aligned with allocation preview spill-forward).
+  // Cover a locked (manual) amount only — never fight Clear / All / uncheck,
+  // which set amountFollowsSelection=true so cash follows the checkboxes.
   useEffect(() => {
     if (!isInstallment || schedulesLoading || unpaidSchedules.length === 0) return;
-    if (!(amountNum > selectedTotal + 0.01)) return;
+    if (
+      !shouldAutoCoverAmount({
+        amountFollowsSelection: amountFollowsSelection.current,
+        amountNum,
+        selectedTotal,
+      })
+    ) {
+      return;
+    }
     const picked = pickDatesForAmount(unpaidSchedules, amountNum, allocationMode);
     if (picked.length === 0) return;
     const same =
@@ -583,7 +547,7 @@ export default function RecordPaymentModal({
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <label
                   className="text-sm font-medium text-slate-700"
-                  data-ff-select-sync="v2"
+                  data-ff-select-sync="v3"
                 >
                   Installments to pay ({selectedDates.length} selected)
                 </label>
