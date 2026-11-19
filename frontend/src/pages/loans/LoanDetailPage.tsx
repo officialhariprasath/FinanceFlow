@@ -758,11 +758,6 @@ export default function LoanDetailPage() {
         <RecordPaymentModal
           loanId={id}
           collectionModel={loan.collection_model ?? "STANDARD"}
-          defaultAmount={
-            loan.collection_model === "DAILY_COLLECTION"
-              ? loan.daily_payment ?? "120"
-              : ""
-          }
           onClose={() => setShowPayment(false)}
           onSuccess={() => {
             setShowPayment(false);

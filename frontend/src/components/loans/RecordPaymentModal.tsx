@@ -98,6 +98,25 @@ function sumPending(
     .reduce((sum, r) => sum + rowModeAmount(r, mode), 0);
 }
 
+/** Earliest unpaid days whose mode totals cover `target` (or all if target is huge). */
+function pickDatesForAmount(
+  rows: UnpaidSchedule[],
+  target: number,
+  mode: AllocationMode
+): string[] {
+  if (!(target > 0)) return [];
+  let running = 0;
+  const picked: string[] = [];
+  for (const row of rows) {
+    const pending = rowModeAmount(row, mode);
+    if (pending <= 0.009) continue;
+    picked.push(row.schedule_date);
+    running += pending;
+    if (running >= target - 0.001) break;
+  }
+  return picked;
+}
+
 function ScheduleRowContent({
   row,
   selected,
@@ -215,27 +234,35 @@ export default function RecordPaymentModal({
         setUnpaidSchedules(rows);
         if (rows.length === 0) return;
 
-        // Default: today if present, else first open day (not every overdue).
-        const todayDate = rows.find((r) => r.is_today)?.schedule_date;
+        // Keep checkboxes in sync with the amount that will actually be applied:
+        // - specific day (collections) → that day only
+        // - default amount → select enough days to cover it
+        // - otherwise → all open days (amount follows selection)
         let initial: string[];
         if (
           defaultScheduleDate &&
           rows.some((r) => r.schedule_date === defaultScheduleDate)
         ) {
           initial = [defaultScheduleDate];
-        } else if (todayDate) {
-          initial = [todayDate];
+          amountFollowsSelection.current = !defaultAmount;
+        } else if (defaultAmount && Number(defaultAmount) > 0) {
+          initial = pickDatesForAmount(rows, Number(defaultAmount), "BOTH");
+          if (initial.length === 0) initial = [rows[0].schedule_date];
+          amountFollowsSelection.current = false;
         } else {
-          initial = [rows[0].schedule_date];
+          initial = rows
+            .filter((r) => rowModeAmount(r, "BOTH") > 0.009)
+            .map((r) => r.schedule_date);
+          if (initial.length === 0) initial = [rows[0].schedule_date];
+          amountFollowsSelection.current = true;
         }
 
-        amountFollowsSelection.current = !defaultAmount;
         setSelectedDates(initial);
         const total = sumPending(rows, initial, "BOTH");
         setForm((prev) => ({
           ...prev,
           payment_date: initial[0],
-          amount_paid: defaultAmount || total.toFixed(2),
+          amount_paid: defaultAmount || (total > 0 ? total.toFixed(2) : ""),
           allocation_mode: "BOTH",
         }));
       })
@@ -314,15 +341,7 @@ export default function RecordPaymentModal({
   function selectFromAmount() {
     const target = Number(form.amount_paid);
     if (!target || target <= 0) return;
-    let running = 0;
-    const picked: string[] = [];
-    for (const row of unpaidSchedules) {
-      const pending = rowModeAmount(row, allocationMode);
-      if (pending <= 0.009) continue;
-      picked.push(row.schedule_date);
-      running += pending;
-      if (running >= target - 0.001) break;
-    }
+    const picked = pickDatesForAmount(unpaidSchedules, target, allocationMode);
     if (picked.length > 0) {
       amountFollowsSelection.current = false; // keep typed amount
       setSelectedDates(picked);
