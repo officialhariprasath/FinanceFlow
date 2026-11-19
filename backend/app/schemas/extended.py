@@ -101,6 +101,14 @@ class OverdueLoanResponse(BaseModel):
     pending_amount: Decimal
 
 
+class DefaultedLoanResponse(BaseModel):
+    loan_id: int
+    customer_id: int
+    customer_name: str
+    remaining_principal: Decimal
+    status: str
+
+
 class WriteOffRequest(BaseModel):
     amount_recovered: Decimal = Field(default=Decimal("0"), ge=0)
     reason: Optional[str] = None

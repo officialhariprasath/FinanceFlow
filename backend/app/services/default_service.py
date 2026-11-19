@@ -28,6 +28,59 @@ def mark_loan_defaulted(db: Session, loan_id: int, finance_owner_id: int, reason
     return loan
 
 
+def reactivate_loan(db: Session, loan_id: int, finance_owner_id: int, reason: str | None = None):
+    """Move a DEFAULTED loan back to ACTIVE so collections/payments can resume."""
+    loan = (
+        db.query(Loan)
+        .filter(Loan.id == loan_id, Loan.finance_owner_id == finance_owner_id)
+        .first()
+    )
+    if loan is None:
+        raise HTTPException(status_code=404, detail="Loan not found.")
+    if loan.status != "DEFAULTED":
+        raise HTTPException(
+            status_code=400,
+            detail="Only defaulted loans can be reactivated.",
+        )
+    loan.status = "ACTIVE"
+    log_audit(
+        db,
+        finance_owner_id,
+        "LOAN_REACTIVATED",
+        "loan",
+        loan_id,
+        reason or "Reactivated from defaulted",
+    )
+    db.commit()
+    db.refresh(loan)
+    return loan
+
+
+def list_defaulted_loans(db: Session, finance_owner_id: int):
+    from backend.app.models.customer import Customer
+
+    rows = (
+        db.query(Loan, Customer)
+        .join(Customer, Loan.customer_id == Customer.id)
+        .filter(
+            Loan.finance_owner_id == finance_owner_id,
+            Loan.status == "DEFAULTED",
+        )
+        .order_by(Loan.id.asc())
+        .all()
+    )
+    return [
+        {
+            "loan_id": loan.id,
+            "customer_id": customer.id,
+            "customer_name": customer.full_name,
+            "remaining_principal": loan.remaining_principal,
+            "status": loan.status,
+        }
+        for loan, customer in rows
+    ]
+
+
 def write_off_loan(
     db: Session,
     loan_id: int,

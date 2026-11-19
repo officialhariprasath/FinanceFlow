@@ -165,8 +165,26 @@ export async function getOverdueLoans(): Promise<OverdueLoan[]> {
   return res.data;
 }
 
+export interface DefaultedLoan {
+  loan_id: number;
+  customer_id: number;
+  customer_name: string;
+  remaining_principal: string;
+  status: string;
+}
+
+export async function getDefaultedLoans(): Promise<DefaultedLoan[]> {
+  const res = await api.get<DefaultedLoan[]>("/defaults/defaulted");
+  return res.data;
+}
+
 export async function markLoanDefaulted(loanId: number, reason?: string) {
   const res = await api.post(`/defaults/${loanId}/mark-defaulted`, { reason });
+  return res.data;
+}
+
+export async function reactivateLoan(loanId: number, reason?: string) {
+  const res = await api.post(`/defaults/${loanId}/reactivate`, { reason });
   return res.data;
 }
 

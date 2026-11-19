@@ -16,9 +16,11 @@ import {
 } from "../../services/loanService";
 import { getLoanPayments, deletePayment } from "../../services/paymentService";
 import { getLoanRenewals } from "../../services/renewalService";
+import { reactivateLoan } from "../../services/extendedService";
 import { fmt } from "../../utils/fmt";
 import StatusChip from "../../components/common/StatusChip";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 import type { LoanResponse, LoanStatementResponse, InterestSummaryResponse, LoanScheduleRow } from "../../types/loan";
 import type { PaymentResponse } from "../../types/payment";
 import type { LoanRenewalResponse } from "../../types/renewal";
@@ -26,8 +28,10 @@ import type { LoanRenewalResponse } from "../../types/renewal";
 export default function LoanDetailPage() {
   const { loanId } = useParams();
   const navigate = useNavigate();
-  const { hasPermission } = useAuth();
+  const toast = useToast();
+  const { hasPermission, session } = useAuth();
   const canEditLoan = hasPermission("loans.edit");
+  const canReactivate = !!session?.is_owner;
   const id = Number(loanId);
 
   const [loan, setLoan] = useState<LoanResponse | null>(null);
@@ -38,6 +42,7 @@ export default function LoanDetailPage() {
   const [renewals, setRenewals] = useState<LoanRenewalResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reactivating, setReactivating] = useState(false);
 
   // Modals
   const [showPayment, setShowPayment] = useState(false);
@@ -93,11 +98,27 @@ export default function LoanDetailPage() {
     }
   }
 
+  async function handleReactivate() {
+    try {
+      setReactivating(true);
+      await reactivateLoan(id, "Reactivated from loan detail");
+      toast.success("Loan reactivated to Active.");
+      await loadAll();
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : "Failed to reactivate loan.");
+    } finally {
+      setReactivating(false);
+    }
+  }
+
   if (loading) return <MainLayout><PageLoading message="Loading loan details..." /></MainLayout>;
   if (error) return <MainLayout><PageError message={error} /></MainLayout>;
   if (!loan) return <MainLayout><PageError message="Loan not found." /></MainLayout>;
 
   const isActive = loan.status === "ACTIVE";
+  const isDefaulted = loan.status === "DEFAULTED";
   const latestPaymentId = payments.length > 0 ? payments[0].id : null;
 
   return (
@@ -134,6 +155,16 @@ export default function LoanDetailPage() {
                   className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
                 >
                   Edit Loan
+                </button>
+              )}
+              {isDefaulted && canReactivate && (
+                <button
+                  type="button"
+                  disabled={reactivating}
+                  onClick={handleReactivate}
+                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                >
+                  {reactivating ? "Reactivating..." : "Reactivate to Active"}
                 </button>
               )}
               {isActive && (

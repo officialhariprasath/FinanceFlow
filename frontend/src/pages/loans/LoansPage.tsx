@@ -122,6 +122,7 @@ export default function LoansPage() {
             >
               <option value="">All Status</option>
               <option value="ACTIVE">Active</option>
+              <option value="DEFAULTED">Defaulted</option>
               <option value="CLOSED">Closed</option>
             </select>
             <div className="flex flex-col gap-1">

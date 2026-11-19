@@ -10,6 +10,7 @@ from backend.app.schemas.extended import (
     AmountRequest,
     AuditLogResponse,
     CapitalWithdrawResponse,
+    DefaultedLoanResponse,
     DefaultRequest,
     ExpenseCreateRequest,
     ExpenseResponse,
@@ -28,8 +29,10 @@ from backend.app.schemas.capital import CapitalTransactionResponse
 from backend.app.services.audit_service import list_audit_logs
 from backend.app.services.capital_service import withdraw_capital
 from backend.app.services.default_service import (
+    list_defaulted_loans,
     list_overdue_loans,
     mark_loan_defaulted,
+    reactivate_loan,
     write_off_loan,
 )
 from backend.app.services.expense_service import (
@@ -209,6 +212,14 @@ def overdue_loans_endpoint(
     return list_overdue_loans(db, ctx.finance_owner_id)
 
 
+@router.get("/defaults/defaulted", response_model=list[DefaultedLoanResponse])
+def defaulted_loans_endpoint(
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_permissions(["loans"])),
+):
+    return list_defaulted_loans(db, ctx.finance_owner_id)
+
+
 @router.post("/defaults/{loan_id}/mark-defaulted")
 def mark_defaulted_endpoint(
     loan_id: int,
@@ -225,6 +236,27 @@ def mark_defaulted_endpoint(
         "Loan marked defaulted",
         f"Loan #{loan_id} was marked as defaulted.",
         "warning",
+    )
+    db.commit()
+    return {"loan_id": loan.id, "status": loan.status}
+
+
+@router.post("/defaults/{loan_id}/reactivate")
+def reactivate_defaulted_endpoint(
+    loan_id: int,
+    payload: DefaultRequest,
+    db: Session = Depends(get_db),
+    owner: FinanceOwner = Depends(get_current_finance_owner),
+):
+    from backend.app.services.notification_service import create_notification
+
+    loan = reactivate_loan(db, loan_id, owner.id, payload.reason)
+    create_notification(
+        db,
+        owner.id,
+        "Loan reactivated",
+        f"Loan #{loan_id} was moved back to active.",
+        "info",
     )
     db.commit()
     return {"loan_id": loan.id, "status": loan.status}
