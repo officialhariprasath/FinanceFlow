@@ -32,6 +32,8 @@ export interface FinanceSettings {
   score_suggest_mult_good?: string | null;
   score_suggest_mult_excellent?: string | null;
   score_baseline_amount?: string | null;
+  score_max_amount?: string | null;
+  score_max_stepup_mult?: string | null;
   /** Set on save when installment loans are backfilled from these settings. */
   penalty_loans_updated?: number | null;
 }

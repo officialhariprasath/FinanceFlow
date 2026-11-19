@@ -1,4 +1,4 @@
-"""Build behavioral / thin-file features for a customer."""
+"""Build CIBIL-style behavioral features for a customer."""
 
 from __future__ import annotations
 
@@ -36,6 +36,7 @@ def build_customer_features(
             Loan.finance_owner_id == finance_owner_id,
             Loan.customer_id == customer_id,
         )
+        .order_by(Loan.issue_date.asc())
         .all()
     )
 
@@ -45,6 +46,7 @@ def build_customer_features(
         schedules = (
             db.query(LoanSchedule)
             .filter(LoanSchedule.loan_id.in_(loan_ids))
+            .order_by(LoanSchedule.schedule_date.asc())
             .all()
         )
 
@@ -64,20 +66,35 @@ def build_customer_features(
     active_loan_count = sum(1 for loan in loans if loan.status == "ACTIVE")
     defaulted_count = sum(1 for loan in loans if loan.status == "DEFAULTED")
 
+    # Prior loan amounts for dynamic suggest: prefer closed successful loans;
+    # if none, use all non-defaulted principals.
+    prior_principals: list[Decimal] = []
+    closed_principals: list[Decimal] = []
     max_successful_principal = ZERO
+    last_closed_principal = ZERO
     first_issue: date | None = None
     basic_loan_completed = 0
+    total_outstanding = ZERO
+    total_principal_all = ZERO
+
     for loan in loans:
+        principal = Decimal(loan.principal_amount)
+        total_principal_all += principal
+        total_outstanding += Decimal(loan.remaining_principal)
         if first_issue is None or loan.issue_date < first_issue:
             first_issue = loan.issue_date
-        principal = Decimal(loan.principal_amount)
+
+        if loan.status != "DEFAULTED":
+            prior_principals.append(principal)
+
         if loan.status == "CLOSED" and (loan.closure_type or "NORMAL") != "WRITE_OFF":
+            closed_principals.append(principal)
+            last_closed_principal = principal
             if principal > max_successful_principal:
                 max_successful_principal = principal
-            # Starter/basic track: closed loan around ₹2,000 (or any closed <= ₹3,000).
             if principal <= Decimal("3000.00"):
                 basic_loan_completed = 1
-        # If still active but nearly fully repaid on a small starter loan, count as basic progress.
+
         if (
             loan.status == "ACTIVE"
             and principal <= Decimal("3000.00")
@@ -85,24 +102,52 @@ def build_customer_features(
         ):
             basic_loan_completed = max(basic_loan_completed, 1)
 
+    avg_prior_principal = None
+    if closed_principals:
+        avg_prior_principal = float(sum(closed_principals) / len(closed_principals))
+    elif prior_principals:
+        avg_prior_principal = float(sum(prior_principals) / len(prior_principals))
+
     paid_schedules = [s for s in schedules if s.paid_on is not None]
+    due_schedules = [s for s in schedules if s.schedule_date <= as_of]
     expected_total = sum((Decimal(s.expected_amount) for s in schedules), ZERO)
+    expected_due = sum((Decimal(s.expected_amount) for s in due_schedules), ZERO)
     paid_total = sum((Decimal(s.paid_amount) for s in schedules), ZERO)
     penalty_paid_total = sum((Decimal(s.paid_penalty or 0) for s in schedules), ZERO)
+    overdue_amount = sum(
+        (
+            Decimal(s.expected_amount) - Decimal(s.paid_amount)
+            for s in schedules
+            if (
+                s.status == "OVERDUE"
+                or (s.paid_on is None and s.schedule_date < as_of and s.status != "PAID")
+            )
+        ),
+        ZERO,
+    )
 
     on_time = 0
     late_days: list[int] = []
     dpd_7 = 0
     dpd_30 = 0
     last_late_on: date | None = None
+    last_paid_on: date | None = None
+    on_time_streak = 0
+    streak_broken = False
 
     for schedule in paid_schedules:
+        if last_paid_on is None or schedule.paid_on > last_paid_on:
+            last_paid_on = schedule.paid_on
         lag = (schedule.paid_on - schedule.schedule_date).days
         if lag <= 0:
             on_time += 1
             late_days.append(0)
+            if not streak_broken:
+                on_time_streak += 1
         else:
             late_days.append(lag)
+            streak_broken = True
+            on_time_streak = 0
             if last_late_on is None or schedule.paid_on > last_late_on:
                 last_late_on = schedule.paid_on
             if lag >= 7:
@@ -110,7 +155,18 @@ def build_customer_features(
             if lag >= 30:
                 dpd_30 += 1
 
+    # Streak from most recent paid schedules backward.
+    on_time_streak = 0
+    for schedule in reversed(paid_schedules):
+        lag = (schedule.paid_on - schedule.schedule_date).days
+        if lag <= 0:
+            on_time_streak += 1
+        else:
+            break
+
     paid_count = len(paid_schedules)
+    due_count = len(due_schedules)
+    total_schedule_count = len(schedules)
     on_time_rate = (on_time / paid_count) if paid_count else None
     late_rate = ((paid_count - on_time) / paid_count) if paid_count else None
     avg_days_late = (sum(late_days) / len(late_days)) if late_days else None
@@ -118,16 +174,33 @@ def build_customer_features(
     dpd_7_rate = (dpd_7 / paid_count) if paid_count else None
     dpd_30_rate = (dpd_30 / paid_count) if paid_count else None
     repayment_ratio = float(paid_total / expected_total) if expected_total > ZERO else None
+    completion_ratio = (
+        float(paid_total / expected_due) if expected_due > ZERO else None
+    )
+    schedule_completion = (
+        (paid_count / total_schedule_count) if total_schedule_count else None
+    )
+    outstanding_ratio = (
+        float(total_outstanding / total_principal_all) if total_principal_all > ZERO else None
+    )
+    overdue_amount_ratio = (
+        float(overdue_amount / expected_due) if expected_due > ZERO else 0.0
+    )
 
     current_overdue_count = sum(
         1
         for s in schedules
-        if s.status == "OVERDUE" or (s.paid_on is None and s.schedule_date < as_of and s.status != "PAID")
+        if s.status == "OVERDUE"
+        or (s.paid_on is None and s.schedule_date < as_of and s.status != "PAID")
     )
 
     days_since_last_late = None
     if last_late_on is not None:
         days_since_last_late = (as_of - last_late_on).days
+
+    days_since_last_payment = None
+    if last_paid_on is not None:
+        days_since_last_payment = (as_of - last_paid_on).days
 
     months_as_customer = 0
     if first_issue is not None:
@@ -136,8 +209,6 @@ def build_customer_features(
             (as_of.year - first_issue.year) * 12 + (as_of.month - first_issue.month),
         )
 
-    # Thin only when there is no loan history at all.
-    # Even 1–2 early payments on a ₹2,000 starter loan should produce a visible basic score.
     if history_depth == 0:
         file_type = "THIN"
     elif paid_count > 0 or closed_loan_count > 0 or basic_loan_completed:
@@ -159,11 +230,22 @@ def build_customer_features(
         "dpd_30_rate": dpd_30_rate,
         "current_overdue_count": current_overdue_count,
         "repayment_ratio": repayment_ratio,
+        "completion_ratio": completion_ratio,
+        "schedule_completion": schedule_completion,
+        "outstanding_ratio": outstanding_ratio,
+        "overdue_amount_ratio": overdue_amount_ratio,
         "penalty_paid_total": _as_float(penalty_paid_total),
         "max_successful_principal": _as_float(max_successful_principal),
+        "last_closed_principal": _as_float(last_closed_principal) or 0.0,
+        "avg_prior_principal": avg_prior_principal,
+        "prior_loan_count": len(closed_principals) or len(prior_principals),
         "months_as_customer": months_as_customer,
         "days_since_last_late": days_since_last_late,
+        "days_since_last_payment": days_since_last_payment,
+        "on_time_streak": on_time_streak,
         "paid_schedule_count": paid_count,
+        "due_schedule_count": due_count,
+        "total_schedule_count": total_schedule_count,
         "basic_loan_completed": basic_loan_completed,
         "file_type": file_type,
         "computed_as_of": as_of.isoformat(),

@@ -69,7 +69,7 @@ export default function CreditScoreCard({
             <span className="font-semibold">{fmt(score.suggested_max_amount)}</span>
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Basic track starts around ₹2,000. Strong repayment opens ₹3,000–₹20,000 suggestions.
+            Suggested = avg of previous loans × score-band multiplier (CIBIL-style). Starter baseline ₹2,000.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

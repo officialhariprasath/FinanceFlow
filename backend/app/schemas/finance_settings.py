@@ -41,6 +41,8 @@ class FinanceSettingsBase(BaseModel):
     score_suggest_mult_good: Optional[Decimal] = Field(None, ge=0)
     score_suggest_mult_excellent: Optional[Decimal] = Field(None, ge=0)
     score_baseline_amount: Optional[Decimal] = Field(None, ge=0)
+    score_max_amount: Optional[Decimal] = Field(None, ge=0)
+    score_max_stepup_mult: Optional[Decimal] = Field(None, ge=0)
 
     @field_validator(
         "daily_grace_installments",

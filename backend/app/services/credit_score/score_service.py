@@ -1,4 +1,4 @@
-"""Compute, persist, and snapshot hybrid credit scores (0–1000)."""
+"""Compute, persist, and snapshot CIBIL-style credit scores (0–1000)."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 
 from backend.app.models.credit_score import CustomerCreditScore, ScorecardDefinition
 from backend.app.models.customer import Customer
-from backend.app.models.finance_settings import FinanceSettings
 from backend.app.services.credit_score.expert_definition import (
     DEFAULT_SCORE_POLICY,
     EXPERT_DEFINITION,
@@ -71,7 +70,11 @@ def get_active_scorecard_definition(
             )
         if row is None:
             return EXPERT_DEFINITION, EXPERT_SCORECARD_VERSION
-        return row.definition_json, row.version
+        # Always prefer CIBIL weighted mode for runtime if old point cards linger.
+        definition = row.definition_json or EXPERT_DEFINITION
+        if definition.get("mode") != "CIBIL_WEIGHTED":
+            return EXPERT_DEFINITION, EXPERT_SCORECARD_VERSION
+        return definition, row.version
     except Exception:
         db.rollback()
         return EXPERT_DEFINITION, EXPERT_SCORECARD_VERSION
@@ -88,7 +91,6 @@ def ensure_platform_expert_scorecard(db: Session) -> None:
             .first()
         )
         if existing is None:
-            # Deactivate older platform expert cards.
             db.query(ScorecardDefinition).filter(
                 ScorecardDefinition.finance_owner_id.is_(None),
                 ScorecardDefinition.is_active.is_(True),
@@ -144,6 +146,7 @@ def _build_score_payload(
                     "feature": "policy",
                 }
             ],
+            "pillars": {},
         }
         file_type = features.get("file_type") or "THIN"
         band = "THIN_FILE"
@@ -158,22 +161,19 @@ def _build_score_payload(
             good_max=int(_setting(settings, "score_band_good_max", 799)),
         )
 
-    # For thick-file borrowers, use max(successful principal, baseline) so
-    # a completed ₹2k basic loan can scale suggestions into ₹3k–₹20k.
-    max_principal = features.get("max_successful_principal") or 0
     baseline = Decimal(str(_setting(settings, "score_baseline_amount", "2000")))
-    suggest_base = max(Decimal(str(max_principal)), baseline) if max_principal else baseline
-    # Cap advisory suggestion at ₹20,000 for this product track.
+    max_amount = Decimal(str(_setting(settings, "score_max_amount", "20000")))
+    stepup = Decimal(str(_setting(settings, "score_max_stepup_mult", "2.0")))
+
     suggest = suggested_max_amount(
-        band,
-        float(suggest_base),
-        baseline,
-        _policy_multipliers(settings),
+        band=band,
+        avg_prior_principal=features.get("avg_prior_principal"),
+        last_closed_principal=features.get("last_closed_principal"),
+        baseline_amount=baseline,
+        multipliers=_policy_multipliers(settings),
+        max_amount=max_amount,
+        max_stepup_mult=stepup,
     )
-    if suggest > Decimal("20000.00"):
-        suggest = Decimal("20000.00")
-    if suggest < baseline and band == "THIN_FILE":
-        suggest = baseline
 
     return {
         "score": result["score"],
@@ -181,7 +181,12 @@ def _build_score_payload(
         "file_type": file_type,
         "suggested_max_amount": suggest,
         "reasons": result["reasons"],
-        "features": features,
+        "features": {
+            **features,
+            "pillars": result.get("pillars") or {},
+            "avg_prior_used": features.get("avg_prior_principal"),
+            "suggest_multiplier_band": band,
+        },
         "scorecard_version": version,
     }
 
@@ -213,7 +218,6 @@ def compute_customer_score(
     payload = _build_score_payload(db, finance_owner_id, customer_id, settings)
     now = datetime.now(timezone.utc)
 
-    # Persist when tables/columns exist; otherwise return in-memory score so UI still works.
     try:
         row = (
             db.query(CustomerCreditScore)
@@ -304,7 +308,6 @@ def snapshot_for_loan(
     finance_owner_id: int,
     customer_id: int,
 ) -> dict:
-    """Return origination fields to stamp onto a new loan (never blocks create)."""
     try:
         row = get_or_compute_customer_score(
             db, finance_owner_id, customer_id, force=True, commit=False

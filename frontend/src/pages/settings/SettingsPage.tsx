@@ -71,11 +71,13 @@ export default function SettingsPage() {
     score_band_fair_max: "649",
     score_band_good_max: "799",
     score_suggest_mult_thin: "1",
-    score_suggest_mult_poor: "1.5",
-    score_suggest_mult_fair: "2.5",
-    score_suggest_mult_good: "5",
-    score_suggest_mult_excellent: "10",
+    score_suggest_mult_poor: "1",
+    score_suggest_mult_fair: "1.5",
+    score_suggest_mult_good: "2",
+    score_suggest_mult_excellent: "2.5",
     score_baseline_amount: "2000",
+    score_max_amount: "20000",
+    score_max_stepup_mult: "2",
   });
 
   useEffect(() => {
@@ -116,11 +118,13 @@ export default function SettingsPage() {
             score_band_fair_max: String(data.score_band_fair_max ?? 649),
             score_band_good_max: String(data.score_band_good_max ?? 799),
             score_suggest_mult_thin: String(data.score_suggest_mult_thin ?? 1),
-            score_suggest_mult_poor: String(data.score_suggest_mult_poor ?? 1.5),
-            score_suggest_mult_fair: String(data.score_suggest_mult_fair ?? 2.5),
-            score_suggest_mult_good: String(data.score_suggest_mult_good ?? 5),
-            score_suggest_mult_excellent: String(data.score_suggest_mult_excellent ?? 10),
+            score_suggest_mult_poor: String(data.score_suggest_mult_poor ?? 1),
+            score_suggest_mult_fair: String(data.score_suggest_mult_fair ?? 1.5),
+            score_suggest_mult_good: String(data.score_suggest_mult_good ?? 2),
+            score_suggest_mult_excellent: String(data.score_suggest_mult_excellent ?? 2.5),
             score_baseline_amount: String(data.score_baseline_amount ?? 2000),
+            score_max_amount: String(data.score_max_amount ?? 20000),
+            score_max_stepup_mult: String(data.score_max_stepup_mult ?? 2),
           });
         }
         setNotifications(await notifPromise);
@@ -228,11 +232,13 @@ export default function SettingsPage() {
         score_band_fair_max: Number(form.score_band_fair_max || 649),
         score_band_good_max: Number(form.score_band_good_max || 799),
         score_suggest_mult_thin: form.score_suggest_mult_thin || "1",
-        score_suggest_mult_poor: form.score_suggest_mult_poor || "1.5",
-        score_suggest_mult_fair: form.score_suggest_mult_fair || "2.5",
-        score_suggest_mult_good: form.score_suggest_mult_good || "5",
-        score_suggest_mult_excellent: form.score_suggest_mult_excellent || "10",
+        score_suggest_mult_poor: form.score_suggest_mult_poor || "1",
+        score_suggest_mult_fair: form.score_suggest_mult_fair || "1.5",
+        score_suggest_mult_good: form.score_suggest_mult_good || "2",
+        score_suggest_mult_excellent: form.score_suggest_mult_excellent || "2.5",
         score_baseline_amount: form.score_baseline_amount || "2000",
+        score_max_amount: form.score_max_amount || "20000",
+        score_max_stepup_mult: form.score_max_stepup_mult || "2",
       });
       const updatedCount = saved?.penalty_loans_updated;
       const backfillNote =
@@ -519,8 +525,9 @@ export default function SettingsPage() {
                 <div className="surface-card p-6">
                   <h2 className="mb-1 font-semibold text-slate-800">Credit Score Policy</h2>
                   <p className="mb-4 text-sm text-slate-500">
-                    Hybrid scorecard is advisory only (0–1000). Suggested next loan never blocks create.
-                    Baseline ₹2,000 is the basic starter track; multipliers scale suggestions toward ₹3,000–₹20,000.
+                    CIBIL-style score (0–1000), advisory only. Suggested next loan =
+                    average of previous loan amounts × band multiplier (e.g. Excellent ×2.5).
+                    New customers use baseline. Never blocks loan create.
                   </p>
                   <label className="mb-4 flex items-center gap-2 text-sm text-slate-700">
                     <input
@@ -534,12 +541,14 @@ export default function SettingsPage() {
                     {inp("Poor band max", "score_band_poor_max", "number")}
                     {inp("Fair band max", "score_band_fair_max", "number")}
                     {inp("Good band max", "score_band_good_max", "number")}
-                    {inp("Thin-file multiplier", "score_suggest_mult_thin", "number")}
-                    {inp("Poor multiplier", "score_suggest_mult_poor", "number")}
+                    {inp("Thin multiplier (on baseline)", "score_suggest_mult_thin", "number")}
+                    {inp("Poor multiplier (on avg loans)", "score_suggest_mult_poor", "number")}
                     {inp("Fair multiplier", "score_suggest_mult_fair", "number")}
                     {inp("Good multiplier", "score_suggest_mult_good", "number")}
-                    {inp("Excellent multiplier", "score_suggest_mult_excellent", "number")}
-                    {inp("Baseline amount (₹)", "score_baseline_amount", "number")}
+                    {inp("Excellent multiplier (e.g. 2.5)", "score_suggest_mult_excellent", "number")}
+                    {inp("Baseline / starter (₹)", "score_baseline_amount", "number")}
+                    {inp("Max suggested (₹)", "score_max_amount", "number")}
+                    {inp("Max step-up vs last closed (×)", "score_max_stepup_mult", "number")}
                   </div>
                   <div className="mt-4">
                     <button
