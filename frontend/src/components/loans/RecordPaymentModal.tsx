@@ -2,12 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPayment, previewPayment } from "../../services/paymentService";
 import { getUnpaidSchedules } from "../../services/loanService";
 import { useAuth } from "../../context/AuthContext";
-import type { PaymentCreate } from "../../types/payment";
+import type { AllocationMode, PaymentCreate } from "../../types/payment";
 import type { UnpaidSchedule } from "../../types/loan";
 import { fmt } from "../../utils/fmt";
 import { useToast } from "../../context/ToastContext";
 
 const PAYMENT_MODES = ["Cash", "UPI", "Bank Transfer", "Cheque"];
+
+const ALLOCATION_OPTIONS: { value: AllocationMode; label: string; hint: string }[] = [
+  { value: "DUE_ONLY", label: "Due only", hint: "Collect installment only; leave penalty" },
+  { value: "PENALTY_ONLY", label: "Penalty only", hint: "Collect penalty only; leave due" },
+  { value: "BOTH", label: "Due + Penalty", hint: "Apply to installment then penalty" },
+];
 
 interface Props {
   loanId: number;
@@ -24,16 +30,39 @@ type PreviewLine = {
   applied_amount: string;
   remaining_pending: string;
   status_after: string;
+  due_applied?: string;
+  penalty_applied?: string;
 };
 
 type Preview = {
   principal_amount: string;
   profit_amount: string;
+  late_fee_amount?: string;
   total_amount: string;
   installment_count?: number;
   unapplied_amount?: string;
+  allocation_mode?: string;
   lines?: PreviewLine[];
 };
+
+function rowDueOutstanding(row: UnpaidSchedule): number {
+  if (row.installment_outstanding != null) {
+    return Number(row.installment_outstanding);
+  }
+  const total = Number(row.total_payable ?? row.pending_amount);
+  const penalty = Number(row.penalty_outstanding ?? 0);
+  return Math.max(total - penalty, 0);
+}
+
+function rowPenaltyOutstanding(row: UnpaidSchedule): number {
+  return Number(row.penalty_outstanding ?? 0);
+}
+
+function rowModeAmount(row: UnpaidSchedule, mode: AllocationMode): number {
+  if (mode === "DUE_ONLY") return rowDueOutstanding(row);
+  if (mode === "PENALTY_ONLY") return rowPenaltyOutstanding(row);
+  return Number(row.total_payable ?? row.pending_amount);
+}
 
 function formatScheduleLabel(row: UnpaidSchedule): string {
   const date = new Date(row.schedule_date + "T00:00:00").toLocaleDateString("en-IN", {
@@ -87,10 +116,14 @@ function formatShortDate(iso: string): string {
   });
 }
 
-function sumPending(rows: UnpaidSchedule[], dates: string[]): number {
+function sumPending(
+  rows: UnpaidSchedule[],
+  dates: string[],
+  mode: AllocationMode = "BOTH"
+): number {
   return rows
     .filter((r) => dates.includes(r.schedule_date))
-    .reduce((sum, r) => sum + Number(r.pending_amount), 0);
+    .reduce((sum, r) => sum + rowModeAmount(r, mode), 0);
 }
 
 export default function RecordPaymentModal({
@@ -110,6 +143,7 @@ export default function RecordPaymentModal({
   const [unpaidSchedules, setUnpaidSchedules] = useState<UnpaidSchedule[]>([]);
   const [schedulesLoading, setSchedulesLoading] = useState(isInstallment);
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [allocationMode, setAllocationMode] = useState<AllocationMode>("BOTH");
 
   const [form, setForm] = useState<PaymentCreate>({
     loan_id: loanId,
@@ -118,6 +152,7 @@ export default function RecordPaymentModal({
     payment_mode: "Cash",
     remarks: "",
     payment_reference: "",
+    allocation_mode: "BOTH",
   });
 
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -126,8 +161,8 @@ export default function RecordPaymentModal({
   const [apiError, setApiError] = useState("");
 
   const selectedTotal = useMemo(
-    () => sumPending(unpaidSchedules, selectedDates),
-    [unpaidSchedules, selectedDates]
+    () => sumPending(unpaidSchedules, selectedDates, allocationMode),
+    [unpaidSchedules, selectedDates, allocationMode]
   );
 
   const amountNum = Number(form.amount_paid) || 0;
@@ -171,11 +206,12 @@ export default function RecordPaymentModal({
         }
 
         setSelectedDates(initial);
-        const total = sumPending(rows, initial);
+        const total = sumPending(rows, initial, "BOTH");
         setForm((prev) => ({
           ...prev,
           payment_date: initial[0],
           amount_paid: defaultAmount || total.toFixed(2),
+          allocation_mode: "BOTH",
         }));
       })
       .catch(() => setUnpaidSchedules([]))
@@ -194,13 +230,15 @@ export default function RecordPaymentModal({
         payment_date: selectedDates[0],
         amount_paid: wasSynced ? selectedTotal.toFixed(2) : prev.amount_paid,
         schedule_dates: selectedDates,
+        allocation_mode: allocationMode,
       };
     });
-  }, [selectedDates, selectedTotal, isInstallment]);
+  }, [selectedDates, selectedTotal, isInstallment, allocationMode]);
 
-  // Overpay spills to the next installment(s) automatically.
+  // Overpay spills to the next installment(s) automatically (due+penalty / due modes).
   useEffect(() => {
     if (!isInstallment || unpaidSchedules.length === 0 || selectedDates.length === 0) return;
+    if (allocationMode === "PENALTY_ONLY") return;
     const target = Number(form.amount_paid);
     if (!target || target <= selectedTotal + 0.01) return;
 
@@ -212,7 +250,7 @@ export default function RecordPaymentModal({
     const picked: string[] = [];
     for (let i = startIdx; i < unpaidSchedules.length; i++) {
       picked.push(unpaidSchedules[i].schedule_date);
-      running += Number(unpaidSchedules[i].pending_amount);
+      running += rowModeAmount(unpaidSchedules[i], allocationMode);
       if (running >= target - 0.001) break;
     }
 
@@ -220,7 +258,14 @@ export default function RecordPaymentModal({
       picked.length === selectedDates.length &&
       picked.every((d, i) => d === selectedDates[i]);
     if (!same) setSelectedDates(picked);
-  }, [form.amount_paid, selectedTotal, unpaidSchedules, selectedDates, isInstallment]);
+  }, [
+    form.amount_paid,
+    selectedTotal,
+    unpaidSchedules,
+    selectedDates,
+    isInstallment,
+    allocationMode,
+  ]);
 
   useEffect(() => {
     if (!isInstallment || !form.amount_paid || Number(form.amount_paid) <= 0) {
@@ -231,10 +276,16 @@ export default function RecordPaymentModal({
       setPreview(null);
       return;
     }
-    previewPayment(loanId, selectedDates[0], form.amount_paid, selectedDates)
+    previewPayment(
+      loanId,
+      selectedDates[0],
+      form.amount_paid,
+      selectedDates,
+      allocationMode
+    )
       .then(setPreview)
       .catch(() => setPreview(null));
-  }, [form.amount_paid, selectedDates, loanId, isInstallment]);
+  }, [form.amount_paid, selectedDates, loanId, isInstallment, allocationMode]);
 
   function toggleDate(scheduleDate: string) {
     setSelectedDates((prev) =>
@@ -244,9 +295,15 @@ export default function RecordPaymentModal({
     );
   }
 
-  function selectNext(count: number) {
-    const dates = unpaidSchedules.slice(0, count).map((r) => r.schedule_date);
-    setSelectedDates(dates);
+  function changeAllocationMode(mode: AllocationMode) {
+    setAllocationMode(mode);
+    const total = sumPending(unpaidSchedules, selectedDates, mode);
+    prevSelectedTotal.current = total;
+    setForm((prev) => ({
+      ...prev,
+      allocation_mode: mode,
+      amount_paid: total > 0 ? total.toFixed(2) : prev.amount_paid,
+    }));
   }
 
   function selectFromAmount() {
@@ -255,7 +312,8 @@ export default function RecordPaymentModal({
     let running = 0;
     const picked: string[] = [];
     for (const row of unpaidSchedules) {
-      const pending = Number(row.pending_amount);
+      const pending = rowModeAmount(row, allocationMode);
+      if (pending <= 0.009 && allocationMode === "PENALTY_ONLY") continue;
       picked.push(row.schedule_date);
       running += pending;
       if (running >= target - 0.001) break;
@@ -289,9 +347,14 @@ export default function RecordPaymentModal({
         ...form,
         payment_reference: form.payment_reference?.trim() || undefined,
         remarks: form.remarks?.trim() || undefined,
-        ...(isInstallment && selectedDates.length > 0
-          ? { schedule_dates: selectedDates, payment_date: selectedDates[0] }
-          : {}),
+        ...(isInstallment
+          ? {
+              allocation_mode: allocationMode,
+              ...(selectedDates.length > 0
+                ? { schedule_dates: selectedDates, payment_date: selectedDates[0] }
+                : {}),
+            }
+          : { allocation_mode: undefined }),
       };
       await createPayment(payload);
       toast.success(isAgent ? "Collection recorded." : "Payment recorded.");
@@ -322,7 +385,7 @@ export default function RecordPaymentModal({
         </h2>
         <p className="mb-4 text-sm text-slate-500">
           {isInstallment
-            ? "Enter cash received. Less than due fills oldest days and leaves the rest pending. More than today spills to the next day(s) as advance."
+            ? "Choose what to collect (due, penalty, or both), then enter cash received."
             : "Interest is allocated first, then principal."}
         </p>
 
@@ -338,8 +401,14 @@ export default function RecordPaymentModal({
               Allocation preview — {preview.installment_count ?? selectedDates.length}{" "}
               installment(s)
               {isPartial ? " (partial)" : isAdvance ? " (advance)" : ""}
+              {" · "}
+              {allocationMode === "DUE_ONLY"
+                ? "Due only"
+                : allocationMode === "PENALTY_ONLY"
+                  ? "Penalty only"
+                  : "Due + Penalty"}
             </p>
-            <div className="mt-2 grid grid-cols-3 gap-2">
+            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
               <div>
                 <p className="text-xs text-slate-500">Principal</p>
                 <p className="font-semibold">{fmt(preview.principal_amount)}</p>
@@ -347,6 +416,12 @@ export default function RecordPaymentModal({
               <div>
                 <p className="text-xs text-slate-500">Profit</p>
                 <p className="font-semibold text-green-700">{fmt(preview.profit_amount)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Penalty</p>
+                <p className="font-semibold text-amber-700">
+                  {fmt(preview.late_fee_amount ?? "0")}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-slate-500">Applied</p>
@@ -363,10 +438,16 @@ export default function RecordPaymentModal({
                     <span className="font-medium">{formatShortDate(line.schedule_date)}</span>
                     <span>
                       {fmt(line.applied_amount)} of {fmt(line.expected_pending)}
+                      {Number(line.due_applied ?? 0) > 0.009 && (
+                        <span> · due {fmt(line.due_applied!)}</span>
+                      )}
+                      {Number(line.penalty_applied ?? 0) > 0.009 && (
+                        <span> · penalty {fmt(line.penalty_applied!)}</span>
+                      )}
                       {Number(line.remaining_pending) > 0.009 && (
                         <span className="text-amber-700 dark:text-amber-300">
                           {" "}
-                          · {fmt(line.remaining_pending)} pending
+                          · {fmt(line.remaining_pending)} left
                         </span>
                       )}
                       {line.status_after === "PAID" && (
@@ -383,25 +464,35 @@ export default function RecordPaymentModal({
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           {isInstallment ? (
             <div>
+              <div className="mb-3">
+                <p className="mb-1.5 text-sm font-medium text-slate-700">Collect</p>
+                <div className="grid grid-cols-3 gap-1 rounded-lg border border-slate-200 p-1 dark:border-slate-600">
+                  {ALLOCATION_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      title={opt.hint}
+                      onClick={() => changeAllocationMode(opt.value)}
+                      className={`cursor-pointer rounded-md px-2 py-2 text-xs font-medium transition ${
+                        allocationMode === opt.value
+                          ? "bg-blue-600 text-white"
+                          : "text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  {ALLOCATION_OPTIONS.find((o) => o.value === allocationMode)?.hint}
+                </p>
+              </div>
+
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <label className="text-sm font-medium text-slate-700">
                   Installments to pay ({selectedDates.length} selected)
                 </label>
                 <div className="flex flex-wrap gap-1">
-                  <button
-                    type="button"
-                    onClick={() => selectNext(5)}
-                    className="rounded border px-2 py-0.5 text-xs hover:bg-slate-50 dark:hover:bg-slate-700/50"
-                  >
-                    Next 5
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => selectNext(10)}
-                    className="rounded border px-2 py-0.5 text-xs hover:bg-slate-50 dark:hover:bg-slate-700/50"
-                  >
-                    Next 10
-                  </button>
                   <button
                     type="button"
                     onClick={() =>
@@ -495,12 +586,18 @@ export default function RecordPaymentModal({
             />
             {isInstallment && selectedDates.length > 0 && (
               <p className="mt-1 text-xs text-slate-500">
-                Selected total {fmt(selectedTotal.toFixed(2))}
+                Selected{" "}
+                {allocationMode === "DUE_ONLY"
+                  ? "due"
+                  : allocationMode === "PENALTY_ONLY"
+                    ? "penalty"
+                    : "payable"}{" "}
+                total {fmt(selectedTotal.toFixed(2))}
                 {isPartial
                   ? " — partial: fills earliest dates first, rest stays pending."
-                  : isAdvance
+                  : isAdvance && allocationMode !== "PENALTY_ONLY"
                     ? " — advance: extra applies to the next day(s); preview shows split."
-                    : " — you can pay less (partial) or more (advance)."}
+                    : " — you can pay less (partial) or the exact selected total."}
               </p>
             )}
             {errors.amount_paid && (

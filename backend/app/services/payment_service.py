@@ -14,7 +14,10 @@ from backend.app.schemas.payment import PaymentCreate
 from backend.app.services.capital_service import (
     record_principal_recovery,
 )
-from backend.app.services.payment_allocation_service import allocate_payment_amount
+from backend.app.services.payment_allocation_service import (
+    allocate_payment_amount,
+    normalize_allocation_mode,
+)
 from backend.app.services.penalty_service import (
     compute_loan_payables_for_loan,
     ensure_loan_penalty_from_settings,
@@ -298,6 +301,7 @@ def _allocate_across_schedules(
     all_schedules: list[LoanSchedule],
     as_of: date | None = None,
     settings=None,
+    allocation_mode: str = "BOTH",
 ) -> tuple[
     Decimal,
     Decimal,
@@ -309,8 +313,13 @@ def _allocate_across_schedules(
 
     Returns total principal, total profit, total penalty, and per-schedule
     breakdown tuples: (schedule, principal, profit, penalty, paid_total).
-    Allocation order per schedule: profit → principal → penalty.
+
+    allocation_mode:
+      BOTH         — profit → principal → penalty
+      DUE_ONLY     — installment only (skip penalty)
+      PENALTY_ONLY — penalty only (skip installment)
     """
+    mode = normalize_allocation_mode(allocation_mode)
     as_of = as_of or date.today()
     payables = compute_loan_payables_for_loan(
         loan, all_schedules, as_of=as_of, settings=settings
@@ -327,7 +336,12 @@ def _allocate_across_schedules(
             break
 
         payable = payables[schedule.id]
-        pending = payable.total_payable
+        if mode == "DUE_ONLY":
+            pending = payable.installment_outstanding
+        elif mode == "PENALTY_ONLY":
+            pending = payable.penalty_outstanding
+        else:
+            pending = payable.total_payable
         if pending <= ZERO:
             continue
 
@@ -345,6 +359,7 @@ def _allocate_across_schedules(
             profit_remaining=profit_remaining,
             principal_remaining=principal_remaining,
             penalty_remaining=penalty_remaining,
+            allocation_mode=mode,
         )
         # Installment portion recorded on paid_amount (excludes penalty).
         installment_paid = (principal_paid + profit_paid).quantize(TWOPLACES)
@@ -388,6 +403,9 @@ def _create_daily_collection_payment(
     all_schedules = _loan_all_schedules(db, loan.id)
     settings = ensure_loan_penalty_from_settings(db, loan)
 
+    allocation_mode = normalize_allocation_mode(
+        getattr(payment, "allocation_mode", None)
+    )
     schedules = _prepare_schedules_for_payment(
         db,
         loan,
@@ -397,13 +415,31 @@ def _create_daily_collection_payment(
         as_of=as_of,
         settings=settings,
     )
-    pending_before_by_id = {
-        s.id: _pending_for(s, loan, all_schedules, as_of, settings) for s in schedules
-    }
+    payables = compute_loan_payables_for_loan(
+        loan, all_schedules, as_of=as_of, settings=settings
+    )
+
+    def _mode_pending(schedule_id: int) -> Decimal:
+        payable = payables.get(schedule_id)
+        if payable is None:
+            return ZERO
+        if allocation_mode == "DUE_ONLY":
+            return payable.installment_outstanding
+        if allocation_mode == "PENALTY_ONLY":
+            return payable.penalty_outstanding
+        return payable.total_payable
+
+    pending_before_by_id = {s.id: _mode_pending(s.id) for s in schedules}
     expected_total = sum(pending_before_by_id.values(), ZERO).quantize(TWOPLACES)
 
     total_principal, total_profit, total_penalty, breakdown = _allocate_across_schedules(
-        amount, schedules, loan, all_schedules, as_of=as_of, settings=settings
+        amount,
+        schedules,
+        loan,
+        all_schedules,
+        as_of=as_of,
+        settings=settings,
+        allocation_mode=allocation_mode,
     )
 
     if total_principal + total_profit + total_penalty <= ZERO:
@@ -648,6 +684,7 @@ def get_payment_preview(
     payment_date: date,
     amount_paid: Decimal,
     schedule_dates: list[date] | None = None,
+    allocation_mode: str | None = "BOTH",
 ):
     loan = (
         db.query(Loan)
@@ -681,12 +718,14 @@ def get_payment_preview(
             "lines": [],
         }
 
+    allocation_mode = normalize_allocation_mode(allocation_mode)
     preview_payment = PaymentCreate(
         loan_id=loan_id,
         payment_date=payment_date,
         amount_paid=amount,
         payment_mode="Cash",
         schedule_dates=schedule_dates,
+        allocation_mode=allocation_mode,
     )
     as_of = date.today()
     mark_overdue_schedules(db, finance_owner_id, as_of)
@@ -701,8 +740,17 @@ def get_payment_preview(
         as_of=as_of,
         settings=settings,
     )
+    payables = compute_loan_payables_for_loan(
+        loan, all_schedules, as_of=as_of, settings=settings
+    )
     total_principal, total_profit, total_penalty, breakdown = _allocate_across_schedules(
-        amount, schedules, loan, all_schedules, as_of=as_of, settings=settings
+        amount,
+        schedules,
+        loan,
+        all_schedules,
+        as_of=as_of,
+        settings=settings,
+        allocation_mode=allocation_mode,
     )
     applied = (total_principal + total_profit + total_penalty).quantize(TWOPLACES)
 
@@ -713,11 +761,19 @@ def get_payment_preview(
 
     lines = []
     for schedule in schedules:
-        pending_before = _pending_for(schedule, loan, all_schedules, as_of, settings)
+        payable = payables.get(schedule.id)
+        if payable is None:
+            continue
+        if allocation_mode == "DUE_ONLY":
+            pending_before = payable.installment_outstanding
+        elif allocation_mode == "PENALTY_ONLY":
+            pending_before = payable.penalty_outstanding
+        else:
+            pending_before = payable.total_payable
         applied_row = applied_by_schedule.get(schedule.id)
         if applied_row is None:
             continue
-        _principal, _profit, penalty_paid, applied_amt = applied_row
+        principal_paid, profit_paid, penalty_paid, applied_amt = applied_row
         applied_amt = applied_amt.quantize(TWOPLACES)
         if applied_amt <= ZERO:
             continue
@@ -728,6 +784,7 @@ def get_payment_preview(
             status_after = "PARTIAL"
         else:
             status_after = schedule.status
+        due_applied = (principal_paid + profit_paid).quantize(TWOPLACES)
         lines.append(
             {
                 "schedule_date": schedule.schedule_date,
@@ -735,6 +792,7 @@ def get_payment_preview(
                 "applied_amount": applied_amt,
                 "remaining_pending": max(remaining, ZERO),
                 "status_after": status_after,
+                "due_applied": due_applied,
                 "penalty_applied": penalty_paid.quantize(TWOPLACES),
             }
         )
@@ -746,6 +804,7 @@ def get_payment_preview(
         "total_amount": applied,
         "installment_count": len(breakdown),
         "unapplied_amount": (amount - applied).quantize(TWOPLACES),
+        "allocation_mode": allocation_mode,
         "lines": lines,
     }
 

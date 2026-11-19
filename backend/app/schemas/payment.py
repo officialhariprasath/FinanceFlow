@@ -25,6 +25,9 @@ class PaymentCreate(BaseModel):
     remarks: Optional[str] = None
     payment_reference: Optional[str] = None
     schedule_dates: Optional[List[date]] = None
+    # BOTH | DUE_ONLY | PENALTY_ONLY — installment daily-collection only.
+    allocation_mode: Optional[str] = "BOTH"
+
     @field_validator("payment_mode", mode="before")
     @classmethod
     def normalize_payment_mode(cls, value):
@@ -37,6 +40,18 @@ class PaymentCreate(BaseModel):
             return _PAYMENT_MODE_MAP[key]
 
         return value
+
+    @field_validator("allocation_mode", mode="before")
+    @classmethod
+    def normalize_allocation_mode(cls, value):
+        if value is None or value == "":
+            return "BOTH"
+        key = str(value).strip().upper()
+        if key in ("DUE_ONLY", "DUE", "INSTALLMENT_ONLY"):
+            return "DUE_ONLY"
+        if key in ("PENALTY_ONLY", "PENALTY"):
+            return "PENALTY_ONLY"
+        return "BOTH"
 
 
 class PaymentResponse(BaseModel):

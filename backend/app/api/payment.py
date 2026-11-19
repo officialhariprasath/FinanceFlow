@@ -51,6 +51,10 @@ def preview_payment_endpoint(
     payment_date: date = Query(...),
     amount_paid: Decimal = Query(...),
     schedule_dates: Optional[List[date]] = Query(None),
+    allocation_mode: Optional[str] = Query(
+        "BOTH",
+        description="BOTH | DUE_ONLY | PENALTY_ONLY",
+    ),
     db: Session = Depends(get_db),
     ctx: AuthContext = Depends(require_permissions(["payments"])),
 ):
@@ -61,6 +65,7 @@ def preview_payment_endpoint(
         payment_date=payment_date,
         amount_paid=amount_paid,
         schedule_dates=schedule_dates,
+        allocation_mode=allocation_mode,
     )
 
 

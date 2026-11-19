@@ -12,6 +12,8 @@ export interface PaymentResponse {
   profit_amount?: string | null;
 }
 
+export type AllocationMode = "BOTH" | "DUE_ONLY" | "PENALTY_ONLY";
+
 export interface PaymentCreate {
   loan_id: number;
   payment_date: string;
@@ -20,4 +22,6 @@ export interface PaymentCreate {
   remarks?: string;
   payment_reference?: string;
   schedule_dates?: string[];
+  /** BOTH (default) | DUE_ONLY | PENALTY_ONLY */
+  allocation_mode?: AllocationMode;
 }

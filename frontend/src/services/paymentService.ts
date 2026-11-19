@@ -12,19 +12,24 @@ export async function previewPayment(
   loanId: number,
   paymentDate: string,
   amountPaid: string,
-  scheduleDates?: string[]
+  scheduleDates?: string[],
+  allocationMode?: string
 ): Promise<{
   principal_amount: string;
   profit_amount: string;
+  late_fee_amount?: string;
   total_amount: string;
   installment_count?: number;
   unapplied_amount?: string;
+  allocation_mode?: string;
   lines?: Array<{
     schedule_date: string;
     expected_pending: string;
     applied_amount: string;
     remaining_pending: string;
     status_after: string;
+    due_applied?: string;
+    penalty_applied?: string;
   }>;
 }> {
   const response = await api.get("/payments/preview", {
@@ -33,6 +38,7 @@ export async function previewPayment(
       payment_date: paymentDate,
       amount_paid: amountPaid,
       ...(scheduleDates?.length ? { schedule_dates: scheduleDates } : {}),
+      ...(allocationMode ? { allocation_mode: allocationMode } : {}),
     },
     paramsSerializer: {
       indexes: null,
