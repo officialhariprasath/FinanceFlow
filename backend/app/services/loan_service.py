@@ -131,12 +131,15 @@ def create_loan(
             )
 
     from backend.app.services.credit_score.score_service import snapshot_for_loan
+    from backend.app.utils.display_codes import allocate_display_code
 
     score_snap = snapshot_for_loan(db, finance_owner_id, loan.customer_id)
+    display_code = allocate_display_code(db, finance_owner_id, "loan")
 
     db_loan = Loan(
         finance_owner_id=finance_owner_id,
         customer_id=loan.customer_id,
+        display_code=display_code,
         principal_amount=principal,
         remaining_principal=principal,
         total_principal_paid=ZERO,

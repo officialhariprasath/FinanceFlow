@@ -363,7 +363,7 @@ export default function CollectionsPage() {
                         <div>
                           <p className="font-semibold">{item.customer_name}</p>
                           <p className="text-xs text-slate-500">{item.customer_phone}</p>
-                          <p className="mt-1 text-xs text-slate-500">Loan #{item.loan_id}</p>
+                          <p className="mt-1 text-xs text-slate-500">{item.display_code || `Loan #${item.loan_id}`}</p>
                           {unassigned && (
                             <p className="mt-1 text-xs font-medium text-amber-800 dark:text-amber-200">
                               Not assigned to any agent

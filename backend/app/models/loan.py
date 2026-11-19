@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Date, DateTime, Numeric
+from sqlalchemy import Column, Integer, String, ForeignKey, Date, DateTime, Numeric, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -8,6 +8,13 @@ from backend.app.database.base import Base
 
 class Loan(Base):
     __tablename__ = "loans"
+    __table_args__ = (
+        UniqueConstraint(
+            "finance_owner_id",
+            "display_code",
+            name="uq_loans_owner_display_code",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
 
@@ -16,6 +23,8 @@ class Loan(Base):
         ForeignKey("finance_owners.id"),
         nullable=False,
     )
+
+    display_code = Column(String(32), nullable=False, index=True)
 
     customer_id = Column(
         Integer,

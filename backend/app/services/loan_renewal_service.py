@@ -92,10 +92,13 @@ def renew_loan(
         # Preserve the original loan for audit purposes.
         loan.status = "RENEWED"
 
+        from backend.app.utils.display_codes import allocate_display_code
+
         # Create a fresh loan that represents the renewed agreement.
         new_loan = Loan(
             customer_id=loan.customer_id,
             finance_owner_id=loan.finance_owner_id,
+            display_code=allocate_display_code(db, finance_owner_id, "loan"),
             parent_loan_id=loan.id,
             principal_amount=new_principal,
             remaining_principal=new_principal,

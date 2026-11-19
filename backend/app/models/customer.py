@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from backend.app.database.base import Base
@@ -10,6 +10,13 @@ class Customer(Base):
     """
 
     __tablename__ = "customers"
+    __table_args__ = (
+        UniqueConstraint(
+            "finance_owner_id",
+            "display_code",
+            name="uq_customers_owner_display_code",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
 
@@ -18,6 +25,8 @@ class Customer(Base):
         ForeignKey("finance_owners.id"),
         nullable=False
     )
+
+    display_code = Column(String(32), nullable=False, index=True)
 
     full_name = Column(String(100), nullable=False)
 

@@ -214,7 +214,7 @@ function CustomerLedgerPage() {
                         onClick={() => navigate(`/loans/${loan.loan_id}`)}
                         className="font-semibold text-blue-600 hover:underline"
                       >
-                        #{loan.loan_id}
+                        {loan.display_code || `#${loan.loan_id}`}
                       </button>
                     </div>
                     <div>

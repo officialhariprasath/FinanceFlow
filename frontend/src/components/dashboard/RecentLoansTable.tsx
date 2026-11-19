@@ -37,7 +37,7 @@ export default function RecentLoansTable({ loans }: { loans: RecentLoanItem[] })
                   onClick={() => navigate(`/loans/${loan.id}`)}
                   className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50"
                 >
-                  <td>#{loan.id}</td>
+                  <td>{loan.display_code || `#${loan.id}`}</td>
                   <td className="font-medium">{loan.customer_name || `#${loan.customer_id}`}</td>
                   <td className="text-right">{fmt(loan.principal_amount)}</td>
                   <td className="text-right">{fmt(loan.remaining_principal)}</td>

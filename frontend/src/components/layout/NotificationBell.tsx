@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { useAuth } from "../../context/AuthContext";
 import {
   getNotificationCount,
   getNotifications,
@@ -17,14 +16,13 @@ function levelClass(level: string) {
 
 export default function NotificationBell() {
   const navigate = useNavigate();
-  const { session } = useAuth();
   const [open, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const auditPath = session?.is_owner ? "/audit" : "/settings";
+  const allPath = "/notifications";
 
   const refresh = useCallback(async () => {
     try {
@@ -101,7 +99,7 @@ export default function NotificationBell() {
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
             <p className="font-semibold text-slate-800 dark:text-slate-100">Notifications</p>
             <Link
-              to={auditPath}
+              to={allPath}
               onClick={() => setOpen(false)}
               className="text-xs text-blue-700 hover:underline dark:text-blue-400"
             >

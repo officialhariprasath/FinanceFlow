@@ -9,6 +9,7 @@ export interface LedgerPayment {
 
 export interface LedgerLoan {
   loan_id: number;
+  display_code?: string;
   principal_amount: string;
   remaining_principal: string;
   total_principal_paid: string;
@@ -23,6 +24,7 @@ export interface LedgerLoan {
 
 export interface LedgerCustomer {
   id: number;
+  display_code?: string;
   full_name: string;
   phone: string;
   permanent_address?: string | null;

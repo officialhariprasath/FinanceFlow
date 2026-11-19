@@ -13,6 +13,7 @@ class CustomerCreate(BaseModel):
 
 class CustomerResponse(BaseModel):
     id: int
+    display_code: str
     full_name: str
     phone: str
     permanent_address: Optional[str] = None
@@ -22,6 +23,7 @@ class CustomerResponse(BaseModel):
 
 class CustomerListResponse(BaseModel):
     id: int
+    display_code: str
     full_name: str
 
     class Config:
@@ -48,6 +50,7 @@ class CustomerLedgerLoanResponse(BaseModel):
     """
 
     loan_id: int
+    display_code: str = ""
     principal_amount: Decimal
     remaining_principal: Decimal
     total_principal_paid: Decimal

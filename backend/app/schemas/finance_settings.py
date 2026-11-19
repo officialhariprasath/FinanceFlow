@@ -46,6 +46,20 @@ class FinanceSettingsBase(BaseModel):
     score_max_amount: Optional[Decimal] = Field(None, ge=0)
     score_max_stepup_mult: Optional[Decimal] = Field(None, ge=0)
 
+    customer_code_prefix: Optional[str] = Field(None, min_length=2, max_length=12)
+    loan_code_prefix: Optional[str] = Field(None, min_length=2, max_length=12)
+    code_number_padding: Optional[int] = Field(None, ge=3, le=8)
+
+    @field_validator("customer_code_prefix", "loan_code_prefix", mode="before")
+    @classmethod
+    def normalize_code_prefix(cls, value):
+        if value is None or value == "":
+            return value
+        text = str(value).strip().upper()
+        if not text.isalnum() or not (2 <= len(text) <= 12):
+            raise ValueError("Prefix must be 2–12 letters or digits (e.g. VMFC).")
+        return text
+
     @field_validator(
         "daily_grace_installments",
         "weekly_grace_installments",
@@ -103,6 +117,8 @@ class FinanceSettingsUpdate(FinanceSettingsBase):
 class FinanceSettingsResponse(FinanceSettingsBase):
     id: int
     finance_owner_id: int
+    customer_code_next: int = 1
+    loan_code_next: int = 1
     # Populated on PUT when installment loans are backfilled from settings.
     penalty_loans_updated: Optional[int] = None
 

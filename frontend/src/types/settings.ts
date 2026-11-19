@@ -34,6 +34,11 @@ export interface FinanceSettings {
   score_baseline_amount?: string | null;
   score_max_amount?: string | null;
   score_max_stepup_mult?: string | null;
+  customer_code_prefix?: string | null;
+  loan_code_prefix?: string | null;
+  code_number_padding?: number | null;
+  customer_code_next?: number | null;
+  loan_code_next?: number | null;
   /** Set on save when installment loans are backfilled from these settings. */
   penalty_loans_updated?: number | null;
 }

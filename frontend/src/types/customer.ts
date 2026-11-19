@@ -1,5 +1,6 @@
 export interface Customer {
   id: number;
+  display_code?: string;
   full_name: string;
   phone: string;
   permanent_address: string;

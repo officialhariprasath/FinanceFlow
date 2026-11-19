@@ -184,6 +184,7 @@ def get_today_collections(
         items.append(
             {
                 "loan_id": loan.id,
+                "display_code": getattr(loan, "display_code", None) or f"#{loan.id}",
                 "customer_id": customer.id,
                 "customer_name": customer.full_name,
                 "customer_phone": customer.phone,

@@ -394,7 +394,7 @@ export default function LoansPage() {
                       <p className="font-semibold text-slate-800 dark:text-slate-100">
                         {customerMap[loan.customer_id] ?? `Customer #${loan.customer_id}`}
                       </p>
-                      <p className="text-xs text-slate-500">Loan #{loan.id}</p>
+                      <p className="text-xs text-slate-500">{loan.display_code || `Loan #${loan.id}`}</p>
                     </div>
                     <StatusChip status={displayStatus(loan)} />
                   </div>
@@ -477,7 +477,7 @@ export default function LoansPage() {
                         onClick={() => navigate(`/loans/${loan.id}`)}
                         className="cursor-pointer border-t hover:bg-slate-50 dark:hover:bg-slate-700/50"
                       >
-                        <td className="px-4 py-3 font-medium">#{loan.id}</td>
+                        <td className="px-4 py-3 font-medium">{loan.display_code || `#${loan.id}`}</td>
                         <td className="px-4 py-3 table-cell-strong">
                           {customerMap[loan.customer_id] ?? `Customer #${loan.customer_id}`}
                         </td>

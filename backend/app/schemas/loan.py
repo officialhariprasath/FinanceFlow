@@ -67,6 +67,7 @@ class LoanUpdate(BaseModel):
 
 class LoanResponse(BaseModel):
     id: int
+    display_code: str
     customer_id: int
     principal_amount: Decimal
     remaining_principal: Decimal

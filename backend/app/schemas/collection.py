@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 class CollectionItemResponse(BaseModel):
     loan_id: int
+    display_code: str = ""
     customer_id: int
     customer_name: str
     customer_phone: str

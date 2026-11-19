@@ -222,7 +222,7 @@ export default function LoanDetailPage() {
         <Breadcrumbs
           items={[
             { label: "Loans", to: "/loans" },
-            { label: statement?.customer_name ?? `Loan #${loan.id}` },
+            { label: statement?.customer_name ?? (loan.display_code || `Loan #${loan.id}`) },
           ]}
         />
 
@@ -230,7 +230,7 @@ export default function LoanDetailPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="page-title">Loan #{loan.id}</h1>
+                <h1 className="page-title">{loan.display_code || `Loan #${loan.id}`}</h1>
                 <StatusChip status={statusShown} />
               </div>
               {statement && (

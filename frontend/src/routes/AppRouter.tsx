@@ -13,6 +13,7 @@ import LoanDetailPage from "../pages/loans/LoanDetailPage";
 import PaymentsPage from "../pages/payments/PaymentsPage";
 import RenewalsPage from "../pages/renewals/RenewalsPage";
 import SettingsPage from "../pages/settings/SettingsPage";
+import NotificationsPage from "../pages/notifications/NotificationsPage";
 import CapitalPage from "../pages/capital/CapitalPage";
 import ProfitPage from "../pages/profit/ProfitPage";
 import LedgersPage from "../pages/ledgers/LedgersPage";
@@ -162,6 +163,10 @@ export default function AppRouter() {
         <Route
           path="/renewals"
           element={<ProtectedRoute><RenewalsPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/notifications"
+          element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>}
         />
         <Route
           path="/settings"

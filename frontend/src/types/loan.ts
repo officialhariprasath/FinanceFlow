@@ -3,6 +3,7 @@ export type LoanStatus = "ACTIVE" | "CLOSED" | "RENEWED" | "DEFAULTED";
 
 export interface LoanResponse {
   id: number;
+  display_code?: string;
   customer_id: number;
   principal_amount: string;
   remaining_principal: string;

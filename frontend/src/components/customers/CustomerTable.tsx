@@ -92,7 +92,7 @@ function CustomerTable({
                   key={customer.id}
                   className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50"
                 >
-                  <td className="text-muted">{customer.id}</td>
+                  <td className="text-muted">{customer.display_code || `#${customer.id}`}</td>
                   <td className="font-medium text-slate-800 dark:text-slate-100">
                     {customer.full_name}
                   </td>

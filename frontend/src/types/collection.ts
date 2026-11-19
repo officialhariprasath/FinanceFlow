@@ -1,5 +1,6 @@
 export interface CollectionItem {
   loan_id: number;
+  display_code?: string;
   customer_id: number;
   customer_name: string;
   customer_phone: string;

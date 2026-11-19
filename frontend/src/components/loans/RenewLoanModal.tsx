@@ -52,7 +52,7 @@ export default function RenewLoanModal({ loan, onClose, onSuccess }: Props) {
   return (
     <div className="modal-backdrop">
       <div className="modal-panel max-w-md">
-        <h2 className="mb-2 text-xl font-semibold text-slate-800 dark:text-slate-100">Renew Loan #{loan.id}</h2>
+        <h2 className="mb-2 text-xl font-semibold text-slate-800 dark:text-slate-100">Renew {loan.display_code || `Loan #${loan.id}`}</h2>
         <p className="mb-4 text-sm text-slate-500">
           Current due date: <strong>{loan.due_date}</strong> · Rate: <strong>{loan.interest_rate}</strong>
         </p>

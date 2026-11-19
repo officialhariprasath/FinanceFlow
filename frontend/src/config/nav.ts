@@ -108,6 +108,7 @@ export const PAGE_TITLES: Record<string, string> = {
   "/simulation": "Lending Simulation",
   "/reconciliation": "Reconciliation",
   "/audit": "Audit",
+  "/notifications": "Notifications",
   "/agents": "Manage Agents",
   "/agent-settlements": "Agent Settlements",
   "/renewals": "Renewals",

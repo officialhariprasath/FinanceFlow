@@ -28,6 +28,9 @@ def create_customer(
     """
     Create a new customer for the authenticated finance owner.
     """
+    from backend.app.utils.display_codes import allocate_display_code
+
+    display_code = allocate_display_code(db, finance_owner_id, "customer")
 
     db_customer = Customer(
         full_name=customer.full_name,
@@ -35,6 +38,7 @@ def create_customer(
         permanent_address=customer.permanent_address,
         temporary_address=customer.temporary_address,
         finance_owner_id=finance_owner_id,
+        display_code=display_code,
     )
 
     db.add(db_customer)
@@ -68,7 +72,7 @@ def get_customer_names(
     """
 
     return (
-        db.query(Customer.id, Customer.full_name)
+        db.query(Customer.id, Customer.display_code, Customer.full_name)
         .filter(Customer.finance_owner_id == finance_owner_id)
         .order_by(Customer.full_name)
         .all()
@@ -80,7 +84,7 @@ def search_customers(
     query: str,
 ):
     """
-    Search customers by name or phone.
+    Search customers by name, phone, or display code.
     """
 
     return (
@@ -90,6 +94,7 @@ def search_customers(
             or_(
                 Customer.full_name.ilike(f"%{query}%"),
                 Customer.phone.ilike(f"%{query}%"),
+                Customer.display_code.ilike(f"%{query}%"),
             ),
         )
         .order_by(Customer.full_name)
@@ -263,6 +268,7 @@ def get_customer_ledger(
         ledger_loans.append(
             CustomerLedgerLoanResponse(
                 loan_id=loan.id,
+                display_code=getattr(loan, "display_code", None) or f"#{loan.id}",
                 principal_amount=loan.principal_amount,
                 remaining_principal=loan.remaining_principal,
                 total_principal_paid=loan.total_principal_paid,

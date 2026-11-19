@@ -104,6 +104,13 @@ class FinanceSettings(Base):
     score_max_amount = Column(Numeric(12, 2), nullable=False, default=20000)
     score_max_stepup_mult = Column(Numeric(8, 4), nullable=False, default=2.0)
 
+    # Display codes: VMFC0001 / VMFL0001 (padding grows after 9999 → VMFL10000).
+    customer_code_prefix = Column(String(12), nullable=False, default="VMFC")
+    loan_code_prefix = Column(String(12), nullable=False, default="VMFL")
+    code_number_padding = Column(Integer, nullable=False, default=4)
+    customer_code_next = Column(Integer, nullable=False, default=1)
+    loan_code_next = Column(Integer, nullable=False, default=1)
+
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
