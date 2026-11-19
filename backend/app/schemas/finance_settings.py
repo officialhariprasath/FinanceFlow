@@ -1,7 +1,9 @@
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+
+from backend.app.services.credit_score.band_policy import validate_score_band_cutoffs
 
 
 class FinanceSettingsBase(BaseModel):
@@ -74,6 +76,24 @@ class FinanceSettingsBase(BaseModel):
         if amount < 0:
             raise ValueError("Penalty per installment must be >= 0")
         return amount
+
+    @model_validator(mode="after")
+    def score_bands_contiguous(self):
+        # Only validate when all three cutoffs are present (partial PATCH merges later).
+        if (
+            self.score_band_poor_max is not None
+            and self.score_band_fair_max is not None
+            and self.score_band_good_max is not None
+        ):
+            try:
+                validate_score_band_cutoffs(
+                    self.score_band_poor_max,
+                    self.score_band_fair_max,
+                    self.score_band_good_max,
+                )
+            except ValueError as exc:
+                raise ValueError(str(exc)) from exc
+        return self
 
 
 class FinanceSettingsUpdate(FinanceSettingsBase):

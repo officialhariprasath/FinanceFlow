@@ -77,6 +77,28 @@ def update_finance_settings(
 
     update_data = settings_data.model_dump(exclude_unset=True)
 
+    # Validate contiguous score bands against merged (existing + incoming) cutoffs.
+    band_keys = (
+        "score_band_poor_max",
+        "score_band_fair_max",
+        "score_band_good_max",
+    )
+    if any(k in update_data for k in band_keys):
+        from backend.app.services.credit_score.band_policy import (
+            validate_score_band_cutoffs,
+        )
+
+        merged_poor = update_data.get("score_band_poor_max", settings.score_band_poor_max)
+        merged_fair = update_data.get("score_band_fair_max", settings.score_band_fair_max)
+        merged_good = update_data.get("score_band_good_max", settings.score_band_good_max)
+        try:
+            validate_score_band_cutoffs(merged_poor, merged_fair, merged_good)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
     for field, value in update_data.items():
         setattr(settings, field, value)
 

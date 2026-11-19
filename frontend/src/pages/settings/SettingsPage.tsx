@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import MainLayout from "../../components/layout/MainLayout";
@@ -22,6 +22,26 @@ import {
 import { isNativeApp, platformLabel } from "../../utils/platform";
 import { useAppUpdateContext } from "../../components/common/AppUpdateProvider";
 import type { FinanceSettings } from "../../types/settings";
+
+const SCORE_SCALE_MAX = 1000;
+
+function validateScoreBands(poorMax: number, fairMax: number, goodMax: number): string | null {
+  if (
+    !Number.isFinite(poorMax) ||
+    !Number.isFinite(fairMax) ||
+    !Number.isFinite(goodMax)
+  ) {
+    return "Enter valid score band To values (0–1000).";
+  }
+  if (!(0 <= poorMax && poorMax < fairMax && fairMax < goodMax && goodMax < SCORE_SCALE_MAX)) {
+    return (
+      `Score bands must be contiguous with no gaps: ` +
+      `0 ≤ Poor To < Fair To < Good To < ${SCORE_SCALE_MAX} ` +
+      `(Excellent then runs to ${SCORE_SCALE_MAX}).`
+    );
+  }
+  return null;
+}
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -79,6 +99,23 @@ export default function SettingsPage() {
     score_max_amount: "20000",
     score_max_stepup_mult: "2",
   });
+
+  const scoreBandError = useMemo(
+    () =>
+      validateScoreBands(
+        Number(form.score_band_poor_max),
+        Number(form.score_band_fair_max),
+        Number(form.score_band_good_max)
+      ),
+    [form.score_band_poor_max, form.score_band_fair_max, form.score_band_good_max]
+  );
+
+  const poorTo = Number(form.score_band_poor_max);
+  const fairTo = Number(form.score_band_fair_max);
+  const goodTo = Number(form.score_band_good_max);
+  const fairFrom = Number.isFinite(poorTo) ? poorTo + 1 : "—";
+  const goodFrom = Number.isFinite(fairTo) ? fairTo + 1 : "—";
+  const excellentFrom = Number.isFinite(goodTo) ? goodTo + 1 : "—";
 
   useEffect(() => {
     async function load() {
@@ -199,6 +236,15 @@ export default function SettingsPage() {
       setSaving(true);
       setSaveError("");
       setSuccess("");
+      const bandErr = validateScoreBands(
+        Number(form.score_band_poor_max),
+        Number(form.score_band_fair_max),
+        Number(form.score_band_good_max)
+      );
+      if (bandErr) {
+        setSaveError(bandErr);
+        return;
+      }
       const saved = await updateSettings({
         business_name: form.business_name || null,
         owner_name: form.owner_name || null,
@@ -537,15 +583,152 @@ export default function SettingsPage() {
                     />
                     Enable credit scoring
                   </label>
+
+                  <div className="mb-4 overflow-x-auto rounded-lg border border-slate-200">
+                    <table className="min-w-full text-left text-sm">
+                      <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2">Level</th>
+                          <th className="px-3 py-2">From</th>
+                          <th className="px-3 py-2">To</th>
+                          <th className="px-3 py-2">Multiplier</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        <tr>
+                          <td className="px-3 py-2 font-medium text-slate-800">Thin file</td>
+                          <td className="px-3 py-2 text-slate-400">—</td>
+                          <td className="px-3 py-2 text-slate-400">file status</td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              step="any"
+                              min={0}
+                              value={form.score_suggest_mult_thin}
+                              onChange={(e) =>
+                                setForm({ ...form, score_suggest_mult_thin: e.target.value })
+                              }
+                              className="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                            />
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 font-medium text-slate-800">Poor</td>
+                          <td className="px-3 py-2 text-slate-600">0</td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              min={0}
+                              max={SCORE_SCALE_MAX - 3}
+                              value={form.score_band_poor_max}
+                              onChange={(e) =>
+                                setForm({ ...form, score_band_poor_max: e.target.value })
+                              }
+                              className="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              step="any"
+                              min={0}
+                              value={form.score_suggest_mult_poor}
+                              onChange={(e) =>
+                                setForm({ ...form, score_suggest_mult_poor: e.target.value })
+                              }
+                              className="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                            />
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 font-medium text-slate-800">Fair</td>
+                          <td className="px-3 py-2 text-slate-600">{fairFrom}</td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              min={0}
+                              max={SCORE_SCALE_MAX - 2}
+                              value={form.score_band_fair_max}
+                              onChange={(e) =>
+                                setForm({ ...form, score_band_fair_max: e.target.value })
+                              }
+                              className="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              step="any"
+                              min={0}
+                              value={form.score_suggest_mult_fair}
+                              onChange={(e) =>
+                                setForm({ ...form, score_suggest_mult_fair: e.target.value })
+                              }
+                              className="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                            />
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 font-medium text-slate-800">Good</td>
+                          <td className="px-3 py-2 text-slate-600">{goodFrom}</td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              min={0}
+                              max={SCORE_SCALE_MAX - 1}
+                              value={form.score_band_good_max}
+                              onChange={(e) =>
+                                setForm({ ...form, score_band_good_max: e.target.value })
+                              }
+                              className="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              step="any"
+                              min={0}
+                              value={form.score_suggest_mult_good}
+                              onChange={(e) =>
+                                setForm({ ...form, score_suggest_mult_good: e.target.value })
+                              }
+                              className="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                            />
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 font-medium text-slate-800">Excellent</td>
+                          <td className="px-3 py-2 text-slate-600">{excellentFrom}</td>
+                          <td className="px-3 py-2 text-slate-600">{SCORE_SCALE_MAX}</td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              step="any"
+                              min={0}
+                              value={form.score_suggest_mult_excellent}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  score_suggest_mult_excellent: e.target.value,
+                                })
+                              }
+                              className="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                            />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  {scoreBandError ? (
+                    <p className="mb-4 text-sm text-red-600">{scoreBandError}</p>
+                  ) : (
+                    <p className="mb-4 text-xs text-slate-500">
+                      From values auto-fill as previous To + 1 so bands stay contiguous
+                      (no gaps like 151–174). Thin file is status-based, not a score range.
+                    </p>
+                  )}
+
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    {inp("Poor band max", "score_band_poor_max", "number")}
-                    {inp("Fair band max", "score_band_fair_max", "number")}
-                    {inp("Good band max", "score_band_good_max", "number")}
-                    {inp("Thin multiplier (on baseline)", "score_suggest_mult_thin", "number")}
-                    {inp("Poor multiplier (on avg loans)", "score_suggest_mult_poor", "number")}
-                    {inp("Fair multiplier", "score_suggest_mult_fair", "number")}
-                    {inp("Good multiplier", "score_suggest_mult_good", "number")}
-                    {inp("Excellent multiplier (e.g. 2.5)", "score_suggest_mult_excellent", "number")}
                     {inp("Baseline / starter (₹)", "score_baseline_amount", "number")}
                     {inp("Max suggested (₹)", "score_max_amount", "number")}
                     {inp("Max step-up vs last closed (×)", "score_max_stepup_mult", "number")}
@@ -598,7 +781,7 @@ export default function SettingsPage() {
 
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || Boolean(scoreBandError)}
                   className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                 >
                   {saving ? "Saving..." : "Save Settings"}

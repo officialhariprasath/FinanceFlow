@@ -5,6 +5,12 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
+from backend.app.services.credit_score.band_policy import (
+    SCORE_SCALE_MAX,
+    SCORE_SCALE_MIN,
+    band_ranges_from_cutoffs,
+    validate_score_band_cutoffs,
+)
 from backend.app.services.credit_score.expert_definition import (
     CIBIL_WEIGHTS,
     EXPERT_DEFINITION,
@@ -365,6 +371,11 @@ def resolve_band(
 ) -> str:
     if file_type == "THIN":
         return "THIN_FILE"
+    # Soft-validate: if cutoffs are broken, fall back to defaults rather than crash scoring.
+    try:
+        validate_score_band_cutoffs(poor_max, fair_max, good_max)
+    except ValueError:
+        poor_max, fair_max, good_max = 499, 649, 799
     if score <= poor_max:
         return "POOR"
     if score <= fair_max:

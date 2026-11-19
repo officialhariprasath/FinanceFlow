@@ -2,6 +2,12 @@
 
 from decimal import Decimal
 
+import pytest
+
+from backend.app.services.credit_score.band_policy import (
+    band_ranges_from_cutoffs,
+    validate_score_band_cutoffs,
+)
 from backend.app.services.credit_score.scorecard_engine import (
     apply_scorecard,
     resolve_band,
@@ -80,6 +86,31 @@ def test_stepup_cap_limits_jump():
         Decimal("2.0"),
     )
     assert amount == Decimal("10000.00")
+
+
+def test_contiguous_bands_ok():
+    validate_score_band_cutoffs(499, 649, 799)
+    ranges = band_ranges_from_cutoffs(499, 649, 799)
+    assert ranges["POOR"] == (0, 499)
+    assert ranges["FAIR"] == (500, 649)
+    assert ranges["GOOD"] == (650, 799)
+    assert ranges["EXCELLENT"] == (800, 1000)
+
+
+def test_gap_or_overlap_rejected():
+    with pytest.raises(ValueError):
+        # gap would appear if Fair started at 175 after Poor ended 150 — cutoffs must rise strictly
+        validate_score_band_cutoffs(150, 140, 300)
+    with pytest.raises(ValueError):
+        validate_score_band_cutoffs(100, 100, 300)  # overlap / zero-width Fair
+    with pytest.raises(ValueError):
+        validate_score_band_cutoffs(499, 649, 1000)  # Excellent needs room
+
+
+def test_band_boundaries():
+    assert resolve_band(499, "THICK", 499, 649, 799) == "POOR"
+    assert resolve_band(500, "THICK", 499, 649, 799) == "FAIR"
+    assert resolve_band(800, "THICK", 499, 649, 799) == "EXCELLENT"
 
 
 def test_cibil_score_rewards_strong_history():
