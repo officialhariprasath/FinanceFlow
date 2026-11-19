@@ -84,6 +84,7 @@ class CustomerCreditScoreSummary(BaseModel):
     scorecard_version: str | None = None
     computed_at: Optional[str] = None
     advisory_only: bool = True
+    score_max: int = 1000
 
 
 class CustomerLedgerResponse(BaseModel):

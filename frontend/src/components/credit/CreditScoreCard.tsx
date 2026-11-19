@@ -62,10 +62,14 @@ export default function CreditScoreCard({
           </p>
           <p className={`mt-3 font-bold text-slate-900 dark:text-slate-100 ${compact ? "text-3xl" : "text-4xl"}`}>
             {score.score}
+            <span className="ml-1 text-lg font-medium text-slate-500">/ 1000</span>
           </p>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            Suggested max (advisory):{" "}
+            Suggested next loan (advisory):{" "}
             <span className="font-semibold">{fmt(score.suggested_max_amount)}</span>
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Basic track starts around ₹2,000. Strong repayment opens ₹3,000–₹20,000 suggestions.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

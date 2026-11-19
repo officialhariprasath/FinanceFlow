@@ -66,12 +66,24 @@ def build_customer_features(
 
     max_successful_principal = ZERO
     first_issue: date | None = None
+    basic_loan_completed = 0
     for loan in loans:
         if first_issue is None or loan.issue_date < first_issue:
             first_issue = loan.issue_date
+        principal = Decimal(loan.principal_amount)
         if loan.status == "CLOSED" and (loan.closure_type or "NORMAL") != "WRITE_OFF":
-            if Decimal(loan.principal_amount) > max_successful_principal:
-                max_successful_principal = Decimal(loan.principal_amount)
+            if principal > max_successful_principal:
+                max_successful_principal = principal
+            # Starter/basic track: closed loan around ₹2,000 (or any closed <= ₹3,000).
+            if principal <= Decimal("3000.00"):
+                basic_loan_completed = 1
+        # If still active but nearly fully repaid on a small starter loan, count as basic progress.
+        if (
+            loan.status == "ACTIVE"
+            and principal <= Decimal("3000.00")
+            and Decimal(loan.remaining_principal) <= principal * Decimal("0.1")
+        ):
+            basic_loan_completed = max(basic_loan_completed, 1)
 
     paid_schedules = [s for s in schedules if s.paid_on is not None]
     expected_total = sum((Decimal(s.expected_amount) for s in schedules), ZERO)
@@ -124,8 +136,14 @@ def build_customer_features(
             (as_of.year - first_issue.year) * 12 + (as_of.month - first_issue.month),
         )
 
-    # Thin if no loans or no paid installment history.
-    file_type = "THIN" if history_depth == 0 or paid_count == 0 else "THICK"
+    # Thin only when there is no loan history at all.
+    # Even 1–2 early payments on a ₹2,000 starter loan should produce a visible basic score.
+    if history_depth == 0:
+        file_type = "THIN"
+    elif paid_count > 0 or closed_loan_count > 0 or basic_loan_completed:
+        file_type = "THICK"
+    else:
+        file_type = "THIN"
 
     return {
         "history_depth": history_depth,
@@ -146,6 +164,7 @@ def build_customer_features(
         "months_as_customer": months_as_customer,
         "days_since_last_late": days_since_last_late,
         "paid_schedule_count": paid_count,
+        "basic_loan_completed": basic_loan_completed,
         "file_type": file_type,
         "computed_as_of": as_of.isoformat(),
         "computed_at": datetime.utcnow().isoformat() + "Z",

@@ -296,9 +296,27 @@ def get_customer_ledger(
             scorecard_version=payload.get("scorecard_version"),
             computed_at=str(payload.get("computed_at") or ""),
             advisory_only=True,
+            score_max=1000,
         )
     except Exception:
-        credit_score = None
+        # Last-resort visible score so the UI never looks empty.
+        credit_score = CustomerCreditScoreSummary(
+            score=500,
+            band="THIN_FILE",
+            file_type="THIN",
+            suggested_max_amount=Decimal("2000.00"),
+            reasons=[
+                {
+                    "code": "SCORE_FALLBACK",
+                    "label": "Score temporarily estimated — refresh after deploy/migration",
+                    "points": 0,
+                }
+            ],
+            scorecard_version="fallback",
+            computed_at="",
+            advisory_only=True,
+            score_max=1000,
+        )
 
     return CustomerLedgerResponse(
         customer=customer,

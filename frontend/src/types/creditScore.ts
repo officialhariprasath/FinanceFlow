@@ -16,6 +16,7 @@ export interface CreditScore {
   scorecard_version?: string | null;
   computed_at?: string | null;
   advisory_only?: boolean;
+  score_max?: number;
 }
 
 export type CreditScoreBand =

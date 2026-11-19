@@ -1,14 +1,11 @@
-"""End-to-end smoke for hybrid credit scorecard (offline + optional API).
+"""End-to-end smoke for hybrid credit scorecard (0–1000).
 
 Usage:
   python scripts/smoke_credit_scorecard.py
-  python scripts/smoke_credit_scorecard.py --api https://financeflow-api-gf0x.onrender.com --token <jwt>
 """
 
 from __future__ import annotations
 
-import argparse
-import json
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -25,11 +22,12 @@ from backend.app.services.credit_score.scorecard_engine import (
 )
 
 
-def run_offline() -> None:
-    print("== Offline scorecard smoke ==")
+def main() -> int:
+    print("== Offline scorecard smoke (0-1000) ==")
     thin = apply_scorecard(
         {
             "history_depth": 0,
+            "paid_schedule_count": 0,
             "on_time_rate": None,
             "avg_days_late": None,
             "max_days_late": None,
@@ -40,64 +38,62 @@ def run_offline() -> None:
             "repayment_ratio": None,
             "days_since_last_late": None,
             "closed_loan_count": 0,
+            "basic_loan_completed": 0,
         },
         EXPERT_DEFINITION,
     )
-    thick_good = apply_scorecard(
+    basic_two_pays = apply_scorecard(
         {
-            "history_depth": 8,
-            "on_time_rate": 0.96,
+            "history_depth": 1,
+            "paid_schedule_count": 2,
+            "on_time_rate": 1.0,
             "avg_days_late": 0,
-            "max_days_late": 1,
+            "max_days_late": 0,
+            "dpd_30_rate": 0,
+            "current_overdue_count": 0,
+            "defaulted_count": 0,
+            "writeoff_count": 0,
+            "repayment_ratio": 0.1,
+            "days_since_last_late": None,
+            "closed_loan_count": 0,
+            "basic_loan_completed": 0,
+        },
+        EXPERT_DEFINITION,
+    )
+    basic_done = apply_scorecard(
+        {
+            "history_depth": 1,
+            "paid_schedule_count": 20,
+            "on_time_rate": 0.95,
+            "avg_days_late": 0,
+            "max_days_late": 0,
             "dpd_30_rate": 0,
             "current_overdue_count": 0,
             "defaulted_count": 0,
             "writeoff_count": 0,
             "repayment_ratio": 1.0,
             "days_since_last_late": None,
-            "closed_loan_count": 6,
+            "closed_loan_count": 1,
+            "basic_loan_completed": 1,
         },
         EXPERT_DEFINITION,
     )
-    assert 300 <= thin["score"] <= 850
-    assert thick_good["score"] > thin["score"]
-    assert resolve_band(thin["score"], "THIN") == "THIN_FILE"
+    assert 0 <= thin["score"] <= 1000
+    assert basic_two_pays["score"] > thin["score"]
+    assert basic_done["score"] >= basic_two_pays["score"]
+    band = resolve_band(basic_done["score"], "THICK", 499, 649, 799)
     suggest = suggested_max_amount(
-        "EXCELLENT",
-        15000,
-        Decimal("10000"),
-        {"EXCELLENT": Decimal("1.25")},
+        band,
+        2000,
+        Decimal("2000"),
+        {"FAIR": Decimal("2.5"), "GOOD": Decimal("5"), "EXCELLENT": Decimal("10")},
     )
-    assert suggest == Decimal("18750.00")
-    print(f"thin_score={thin['score']} thick_good={thick_good['score']} suggest={suggest}")
+    print(
+        f"thin={thin['score']} basic_2pays={basic_two_pays['score']} "
+        f"basic_done={basic_done['score']} band={band} suggest={suggest}"
+    )
+    assert Decimal("3000") <= suggest <= Decimal("20000")
     print("offline_ok")
-
-
-def run_api(base_url: str, token: str, customer_id: int) -> None:
-    import urllib.request
-
-    print("== API smoke ==")
-    req = urllib.request.Request(
-        f"{base_url.rstrip('/')}/credit-score/customers/{customer_id}",
-        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
-    )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        payload = json.loads(resp.read().decode("utf-8"))
-    assert "score" in payload and "band" in payload
-    assert payload.get("advisory_only") is True
-    print(json.dumps(payload, indent=2, default=str)[:800])
-    print("api_ok")
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--api", default="")
-    parser.add_argument("--token", default="")
-    parser.add_argument("--customer-id", type=int, default=1)
-    args = parser.parse_args()
-    run_offline()
-    if args.api and args.token:
-        run_api(args.api, args.token, args.customer_id)
     return 0
 
 

@@ -67,15 +67,15 @@ export default function SettingsPage() {
     monthly_grace_installments: "0",
     monthly_penalty_per_installment: "0",
     score_enabled: true,
-    score_band_poor_max: "579",
-    score_band_fair_max: "669",
-    score_band_good_max: "739",
-    score_suggest_mult_thin: "0.5",
-    score_suggest_mult_poor: "0.5",
-    score_suggest_mult_fair: "0.8",
-    score_suggest_mult_good: "1",
-    score_suggest_mult_excellent: "1.25",
-    score_baseline_amount: "10000",
+    score_band_poor_max: "499",
+    score_band_fair_max: "649",
+    score_band_good_max: "799",
+    score_suggest_mult_thin: "1",
+    score_suggest_mult_poor: "1.5",
+    score_suggest_mult_fair: "2.5",
+    score_suggest_mult_good: "5",
+    score_suggest_mult_excellent: "10",
+    score_baseline_amount: "2000",
   });
 
   useEffect(() => {
@@ -112,15 +112,15 @@ export default function SettingsPage() {
             monthly_grace_installments: String(data.monthly_grace_installments ?? 0),
             monthly_penalty_per_installment: String(data.monthly_penalty_per_installment ?? 0),
             score_enabled: data.score_enabled !== false,
-            score_band_poor_max: String(data.score_band_poor_max ?? 579),
-            score_band_fair_max: String(data.score_band_fair_max ?? 669),
-            score_band_good_max: String(data.score_band_good_max ?? 739),
-            score_suggest_mult_thin: String(data.score_suggest_mult_thin ?? 0.5),
-            score_suggest_mult_poor: String(data.score_suggest_mult_poor ?? 0.5),
-            score_suggest_mult_fair: String(data.score_suggest_mult_fair ?? 0.8),
-            score_suggest_mult_good: String(data.score_suggest_mult_good ?? 1),
-            score_suggest_mult_excellent: String(data.score_suggest_mult_excellent ?? 1.25),
-            score_baseline_amount: String(data.score_baseline_amount ?? 10000),
+            score_band_poor_max: String(data.score_band_poor_max ?? 499),
+            score_band_fair_max: String(data.score_band_fair_max ?? 649),
+            score_band_good_max: String(data.score_band_good_max ?? 799),
+            score_suggest_mult_thin: String(data.score_suggest_mult_thin ?? 1),
+            score_suggest_mult_poor: String(data.score_suggest_mult_poor ?? 1.5),
+            score_suggest_mult_fair: String(data.score_suggest_mult_fair ?? 2.5),
+            score_suggest_mult_good: String(data.score_suggest_mult_good ?? 5),
+            score_suggest_mult_excellent: String(data.score_suggest_mult_excellent ?? 10),
+            score_baseline_amount: String(data.score_baseline_amount ?? 2000),
           });
         }
         setNotifications(await notifPromise);
@@ -224,15 +224,15 @@ export default function SettingsPage() {
         monthly_grace_installments: Number(form.monthly_grace_installments || 0),
         monthly_penalty_per_installment: form.monthly_penalty_per_installment || "0",
         score_enabled: form.score_enabled,
-        score_band_poor_max: Number(form.score_band_poor_max || 579),
-        score_band_fair_max: Number(form.score_band_fair_max || 669),
-        score_band_good_max: Number(form.score_band_good_max || 739),
-        score_suggest_mult_thin: form.score_suggest_mult_thin || "0.5",
-        score_suggest_mult_poor: form.score_suggest_mult_poor || "0.5",
-        score_suggest_mult_fair: form.score_suggest_mult_fair || "0.8",
-        score_suggest_mult_good: form.score_suggest_mult_good || "1",
-        score_suggest_mult_excellent: form.score_suggest_mult_excellent || "1.25",
-        score_baseline_amount: form.score_baseline_amount || "10000",
+        score_band_poor_max: Number(form.score_band_poor_max || 499),
+        score_band_fair_max: Number(form.score_band_fair_max || 649),
+        score_band_good_max: Number(form.score_band_good_max || 799),
+        score_suggest_mult_thin: form.score_suggest_mult_thin || "1",
+        score_suggest_mult_poor: form.score_suggest_mult_poor || "1.5",
+        score_suggest_mult_fair: form.score_suggest_mult_fair || "2.5",
+        score_suggest_mult_good: form.score_suggest_mult_good || "5",
+        score_suggest_mult_excellent: form.score_suggest_mult_excellent || "10",
+        score_baseline_amount: form.score_baseline_amount || "2000",
       });
       const updatedCount = saved?.penalty_loans_updated;
       const backfillNote =
@@ -519,8 +519,8 @@ export default function SettingsPage() {
                 <div className="surface-card p-6">
                   <h2 className="mb-1 font-semibold text-slate-800">Credit Score Policy</h2>
                   <p className="mb-4 text-sm text-slate-500">
-                    Hybrid scorecard is advisory only. Suggested max amount never blocks a new loan.
-                    Band cutoffs use a 300–850 scale. Multipliers apply to baseline or past successful principal.
+                    Hybrid scorecard is advisory only (0–1000). Suggested next loan never blocks create.
+                    Baseline ₹2,000 is the basic starter track; multipliers scale suggestions toward ₹3,000–₹20,000.
                   </p>
                   <label className="mb-4 flex items-center gap-2 text-sm text-slate-700">
                     <input

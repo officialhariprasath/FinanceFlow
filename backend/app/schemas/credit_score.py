@@ -13,7 +13,7 @@ class CreditScoreReason(BaseModel):
 
 
 class CreditScoreResponse(BaseModel):
-    customer_id: int
+    customer_id: Optional[int] = None
     score: int
     band: str
     file_type: str
@@ -23,6 +23,7 @@ class CreditScoreResponse(BaseModel):
     scorecard_version: str
     computed_at: Optional[datetime] = None
     advisory_only: bool = True
+    score_max: int = 1000
 
     model_config = ConfigDict(from_attributes=True)
 

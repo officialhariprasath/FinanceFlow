@@ -32,9 +32,9 @@ class FinanceSettingsBase(BaseModel):
     monthly_penalty_per_installment: Optional[Decimal] = Field(None, ge=0)
 
     score_enabled: Optional[bool] = None
-    score_band_poor_max: Optional[int] = Field(None, ge=300, le=850)
-    score_band_fair_max: Optional[int] = Field(None, ge=300, le=850)
-    score_band_good_max: Optional[int] = Field(None, ge=300, le=850)
+    score_band_poor_max: Optional[int] = Field(None, ge=0, le=1000)
+    score_band_fair_max: Optional[int] = Field(None, ge=0, le=1000)
+    score_band_good_max: Optional[int] = Field(None, ge=0, le=1000)
     score_suggest_mult_thin: Optional[Decimal] = Field(None, ge=0)
     score_suggest_mult_poor: Optional[Decimal] = Field(None, ge=0)
     score_suggest_mult_fair: Optional[Decimal] = Field(None, ge=0)

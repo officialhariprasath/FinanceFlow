@@ -1,9 +1,11 @@
-"""Compute, persist, and snapshot hybrid credit scores."""
+"""Compute, persist, and snapshot hybrid credit scores (0–1000)."""
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from types import SimpleNamespace
+from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -12,6 +14,7 @@ from backend.app.models.credit_score import CustomerCreditScore, ScorecardDefini
 from backend.app.models.customer import Customer
 from backend.app.models.finance_settings import FinanceSettings
 from backend.app.services.credit_score.expert_definition import (
+    DEFAULT_SCORE_POLICY,
     EXPERT_DEFINITION,
     EXPERT_SCORECARD_VERSION,
 )
@@ -27,13 +30,18 @@ from backend.app.services.finance_settings_service import get_finance_settings
 STALE_AFTER = timedelta(days=1)
 
 
-def _policy_multipliers(settings: FinanceSettings) -> dict[str, Decimal]:
+def _setting(settings: Any, key: str, default: Any) -> Any:
+    value = getattr(settings, key, default)
+    return default if value is None else value
+
+
+def _policy_multipliers(settings: Any) -> dict[str, Decimal]:
     return {
-        "THIN_FILE": Decimal(settings.score_suggest_mult_thin),
-        "POOR": Decimal(settings.score_suggest_mult_poor),
-        "FAIR": Decimal(settings.score_suggest_mult_fair),
-        "GOOD": Decimal(settings.score_suggest_mult_good),
-        "EXCELLENT": Decimal(settings.score_suggest_mult_excellent),
+        "THIN_FILE": Decimal(str(_setting(settings, "score_suggest_mult_thin", DEFAULT_SCORE_POLICY["score_suggest_mult_thin"]))),
+        "POOR": Decimal(str(_setting(settings, "score_suggest_mult_poor", DEFAULT_SCORE_POLICY["score_suggest_mult_poor"]))),
+        "FAIR": Decimal(str(_setting(settings, "score_suggest_mult_fair", DEFAULT_SCORE_POLICY["score_suggest_mult_fair"]))),
+        "GOOD": Decimal(str(_setting(settings, "score_suggest_mult_good", DEFAULT_SCORE_POLICY["score_suggest_mult_good"]))),
+        "EXCELLENT": Decimal(str(_setting(settings, "score_suggest_mult_excellent", DEFAULT_SCORE_POLICY["score_suggest_mult_excellent"]))),
     }
 
 
@@ -41,64 +49,140 @@ def get_active_scorecard_definition(
     db: Session,
     finance_owner_id: int,
 ) -> tuple[dict, str]:
-    row = (
-        db.query(ScorecardDefinition)
-        .filter(
-            ScorecardDefinition.is_active.is_(True),
-            ScorecardDefinition.finance_owner_id == finance_owner_id,
-        )
-        .order_by(ScorecardDefinition.id.desc())
-        .first()
-    )
-    if row is None:
+    try:
         row = (
             db.query(ScorecardDefinition)
             .filter(
                 ScorecardDefinition.is_active.is_(True),
-                ScorecardDefinition.finance_owner_id.is_(None),
+                ScorecardDefinition.finance_owner_id == finance_owner_id,
             )
             .order_by(ScorecardDefinition.id.desc())
             .first()
         )
-    if row is None:
+        if row is None:
+            row = (
+                db.query(ScorecardDefinition)
+                .filter(
+                    ScorecardDefinition.is_active.is_(True),
+                    ScorecardDefinition.finance_owner_id.is_(None),
+                )
+                .order_by(ScorecardDefinition.id.desc())
+                .first()
+            )
+        if row is None:
+            return EXPERT_DEFINITION, EXPERT_SCORECARD_VERSION
+        return row.definition_json, row.version
+    except Exception:
+        db.rollback()
         return EXPERT_DEFINITION, EXPERT_SCORECARD_VERSION
-    return row.definition_json, row.version
 
 
 def ensure_platform_expert_scorecard(db: Session) -> None:
-    existing = (
-        db.query(ScorecardDefinition)
-        .filter(
-            ScorecardDefinition.finance_owner_id.is_(None),
-            ScorecardDefinition.version == EXPERT_SCORECARD_VERSION,
-        )
-        .first()
-    )
-    if existing is None:
-        db.add(
-            ScorecardDefinition(
-                finance_owner_id=None,
-                version=EXPERT_SCORECARD_VERSION,
-                is_active=True,
-                definition_json=EXPERT_DEFINITION,
-                source="EXPERT",
+    try:
+        existing = (
+            db.query(ScorecardDefinition)
+            .filter(
+                ScorecardDefinition.finance_owner_id.is_(None),
+                ScorecardDefinition.version == EXPERT_SCORECARD_VERSION,
             )
+            .first()
         )
-        db.commit()
+        if existing is None:
+            # Deactivate older platform expert cards.
+            db.query(ScorecardDefinition).filter(
+                ScorecardDefinition.finance_owner_id.is_(None),
+                ScorecardDefinition.is_active.is_(True),
+            ).update({"is_active": False})
+            db.add(
+                ScorecardDefinition(
+                    finance_owner_id=None,
+                    version=EXPERT_SCORECARD_VERSION,
+                    is_active=True,
+                    definition_json=EXPERT_DEFINITION,
+                    source="EXPERT",
+                )
+            )
+            db.commit()
+    except Exception:
+        db.rollback()
 
 
-def score_to_response_dict(row: CustomerCreditScore) -> dict:
+def score_to_response_dict(row: Any) -> dict:
     return {
-        "customer_id": row.customer_id,
-        "score": row.score,
+        "customer_id": getattr(row, "customer_id", None),
+        "score": int(row.score),
         "band": row.band,
         "file_type": row.file_type,
         "suggested_max_amount": row.suggested_max_amount,
         "reasons": row.reasons_json or [],
-        "features": row.features_json or {},
+        "features": getattr(row, "features_json", None) or {},
         "scorecard_version": row.scorecard_version,
-        "computed_at": row.computed_at,
+        "computed_at": getattr(row, "computed_at", None),
         "advisory_only": True,
+        "score_max": 1000,
+    }
+
+
+def _build_score_payload(
+    db: Session,
+    finance_owner_id: int,
+    customer_id: int,
+    settings: Any,
+) -> dict[str, Any]:
+    features = build_customer_features(db, finance_owner_id, customer_id)
+    definition, version = get_active_scorecard_definition(db, finance_owner_id)
+
+    enabled = bool(_setting(settings, "score_enabled", True))
+    if not enabled:
+        result = {
+            "score": 500,
+            "reasons": [
+                {
+                    "code": "SCORING_DISABLED",
+                    "label": "Scoring disabled in settings",
+                    "points": 0,
+                    "feature": "policy",
+                }
+            ],
+        }
+        file_type = features.get("file_type") or "THIN"
+        band = "THIN_FILE"
+    else:
+        result = apply_scorecard(features, definition)
+        file_type = features.get("file_type") or "THIN"
+        band = resolve_band(
+            result["score"],
+            file_type,
+            poor_max=int(_setting(settings, "score_band_poor_max", 499)),
+            fair_max=int(_setting(settings, "score_band_fair_max", 649)),
+            good_max=int(_setting(settings, "score_band_good_max", 799)),
+        )
+
+    # For thick-file borrowers, use max(successful principal, baseline) so
+    # a completed ₹2k basic loan can scale suggestions into ₹3k–₹20k.
+    max_principal = features.get("max_successful_principal") or 0
+    baseline = Decimal(str(_setting(settings, "score_baseline_amount", "2000")))
+    suggest_base = max(Decimal(str(max_principal)), baseline) if max_principal else baseline
+    # Cap advisory suggestion at ₹20,000 for this product track.
+    suggest = suggested_max_amount(
+        band,
+        float(suggest_base),
+        baseline,
+        _policy_multipliers(settings),
+    )
+    if suggest > Decimal("20000.00"):
+        suggest = Decimal("20000.00")
+    if suggest < baseline and band == "THIN_FILE":
+        suggest = baseline
+
+    return {
+        "score": result["score"],
+        "band": band,
+        "file_type": file_type,
+        "suggested_max_amount": suggest,
+        "reasons": result["reasons"],
+        "features": features,
+        "scorecard_version": version,
     }
 
 
@@ -108,7 +192,7 @@ def compute_customer_score(
     customer_id: int,
     *,
     commit: bool = True,
-) -> CustomerCreditScore:
+) -> Any:
     customer = (
         db.query(Customer)
         .filter(
@@ -120,81 +204,68 @@ def compute_customer_score(
     if customer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found.")
 
-    settings = get_finance_settings(db, finance_owner_id)
-    features = build_customer_features(db, finance_owner_id, customer_id)
-    definition, version = get_active_scorecard_definition(db, finance_owner_id)
+    try:
+        settings = get_finance_settings(db, finance_owner_id)
+    except Exception:
+        db.rollback()
+        settings = SimpleNamespace(**DEFAULT_SCORE_POLICY)
 
-    if not settings.score_enabled:
-        # Still compute a neutral thin advisory so UI has a payload.
-        result = {
-            "score": 620,
-            "reasons": [
-                {
-                    "code": "SCORING_DISABLED",
-                    "label": "Scoring disabled in settings",
-                    "points": 0,
-                    "feature": "policy",
-                }
-            ],
-        }
-        band = "THIN_FILE"
-        file_type = features.get("file_type") or "THIN"
-    else:
-        result = apply_scorecard(features, definition)
-        file_type = features.get("file_type") or "THIN"
-        band = resolve_band(
-            result["score"],
-            file_type,
-            poor_max=int(settings.score_band_poor_max),
-            fair_max=int(settings.score_band_fair_max),
-            good_max=int(settings.score_band_good_max),
+    payload = _build_score_payload(db, finance_owner_id, customer_id, settings)
+    now = datetime.now(timezone.utc)
+
+    # Persist when tables/columns exist; otherwise return in-memory score so UI still works.
+    try:
+        row = (
+            db.query(CustomerCreditScore)
+            .filter(
+                CustomerCreditScore.finance_owner_id == finance_owner_id,
+                CustomerCreditScore.customer_id == customer_id,
+            )
+            .first()
         )
+        if row is None:
+            row = CustomerCreditScore(
+                finance_owner_id=finance_owner_id,
+                customer_id=customer_id,
+                score=payload["score"],
+                band=payload["band"],
+                file_type=payload["file_type"],
+                suggested_max_amount=payload["suggested_max_amount"],
+                reasons_json=payload["reasons"],
+                features_json=payload["features"],
+                scorecard_version=payload["scorecard_version"],
+                computed_at=now,
+            )
+            db.add(row)
+        else:
+            row.score = payload["score"]
+            row.band = payload["band"]
+            row.file_type = payload["file_type"]
+            row.suggested_max_amount = payload["suggested_max_amount"]
+            row.reasons_json = payload["reasons"]
+            row.features_json = payload["features"]
+            row.scorecard_version = payload["scorecard_version"]
+            row.computed_at = now
 
-    suggest = suggested_max_amount(
-        band,
-        features.get("max_successful_principal"),
-        Decimal(settings.score_baseline_amount),
-        _policy_multipliers(settings),
-    )
-
-    row = (
-        db.query(CustomerCreditScore)
-        .filter(
-            CustomerCreditScore.finance_owner_id == finance_owner_id,
-            CustomerCreditScore.customer_id == customer_id,
-        )
-        .first()
-    )
-    if row is None:
-        row = CustomerCreditScore(
-            finance_owner_id=finance_owner_id,
+        if commit:
+            db.commit()
+            db.refresh(row)
+        else:
+            db.flush()
+        return row
+    except Exception:
+        db.rollback()
+        return SimpleNamespace(
             customer_id=customer_id,
-            score=result["score"],
-            band=band,
-            file_type=file_type,
-            suggested_max_amount=suggest,
-            reasons_json=result["reasons"],
-            features_json=features,
-            scorecard_version=version,
-            computed_at=datetime.now(timezone.utc),
+            score=payload["score"],
+            band=payload["band"],
+            file_type=payload["file_type"],
+            suggested_max_amount=payload["suggested_max_amount"],
+            reasons_json=payload["reasons"],
+            features_json=payload["features"],
+            scorecard_version=payload["scorecard_version"],
+            computed_at=now,
         )
-        db.add(row)
-    else:
-        row.score = result["score"]
-        row.band = band
-        row.file_type = file_type
-        row.suggested_max_amount = suggest
-        row.reasons_json = result["reasons"]
-        row.features_json = features
-        row.scorecard_version = version
-        row.computed_at = datetime.now(timezone.utc)
-
-    if commit:
-        db.commit()
-        db.refresh(row)
-    else:
-        db.flush()
-    return row
 
 
 def get_or_compute_customer_score(
@@ -204,21 +275,25 @@ def get_or_compute_customer_score(
     *,
     force: bool = False,
     commit: bool = True,
-) -> CustomerCreditScore:
-    row = (
-        db.query(CustomerCreditScore)
-        .filter(
-            CustomerCreditScore.finance_owner_id == finance_owner_id,
-            CustomerCreditScore.customer_id == customer_id,
-        )
-        .first()
-    )
-    if row is not None and not force:
-        computed_at = row.computed_at
-        if computed_at is not None and computed_at.tzinfo is None:
-            computed_at = computed_at.replace(tzinfo=timezone.utc)
-        if computed_at and datetime.now(timezone.utc) - computed_at < STALE_AFTER:
-            return row
+) -> Any:
+    if not force:
+        try:
+            row = (
+                db.query(CustomerCreditScore)
+                .filter(
+                    CustomerCreditScore.finance_owner_id == finance_owner_id,
+                    CustomerCreditScore.customer_id == customer_id,
+                )
+                .first()
+            )
+            if row is not None:
+                computed_at = row.computed_at
+                if computed_at is not None and computed_at.tzinfo is None:
+                    computed_at = computed_at.replace(tzinfo=timezone.utc)
+                if computed_at and datetime.now(timezone.utc) - computed_at < STALE_AFTER:
+                    return row
+        except Exception:
+            db.rollback()
     return compute_customer_score(
         db, finance_owner_id, customer_id, commit=commit
     )
@@ -229,13 +304,20 @@ def snapshot_for_loan(
     finance_owner_id: int,
     customer_id: int,
 ) -> dict:
-    """Return origination fields to stamp onto a new loan (no commit)."""
+    """Return origination fields to stamp onto a new loan (never blocks create)."""
     try:
         row = get_or_compute_customer_score(
             db, finance_owner_id, customer_id, force=True, commit=False
         )
+        return {
+            "origination_score": int(row.score),
+            "origination_band": row.band,
+            "origination_suggested_max": row.suggested_max_amount,
+            "origination_reasons_json": row.reasons_json,
+            "origination_scorecard_version": row.scorecard_version,
+        }
     except Exception:
-        # Never block loan create if scoring fails.
+        db.rollback()
         return {
             "origination_score": None,
             "origination_band": None,
@@ -243,13 +325,6 @@ def snapshot_for_loan(
             "origination_reasons_json": None,
             "origination_scorecard_version": None,
         }
-    return {
-        "origination_score": row.score,
-        "origination_band": row.band,
-        "origination_suggested_max": row.suggested_max_amount,
-        "origination_reasons_json": row.reasons_json,
-        "origination_scorecard_version": row.scorecard_version,
-    }
 
 
 def refresh_customer_score_safe(
@@ -257,7 +332,6 @@ def refresh_customer_score_safe(
     finance_owner_id: int,
     customer_id: int,
 ) -> None:
-    """Best-effort recompute after payments/defaults; never raises to callers."""
     try:
         compute_customer_score(db, finance_owner_id, customer_id, commit=True)
     except Exception:

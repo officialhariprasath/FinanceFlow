@@ -16,7 +16,5 @@ python-jose[cryptography]==3.5.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 
-# Hybrid credit scorecard (runtime uses expert JSON; scorecardpy for optional recalibrate)
-pandas==2.2.3
-scikit-learn==1.5.2
-scorecardpy==0.1.9.7
+# Optional (Settings → Recalibrate only). Runtime scorecard uses expert JSON — no ML deps required.
+# pip install pandas scikit-learn scorecardpy

@@ -92,15 +92,15 @@ class FinanceSettings(Base):
 
     # Hybrid credit scorecard policy (advisory only).
     score_enabled = Column(Boolean, nullable=False, default=True)
-    score_band_poor_max = Column(Integer, nullable=False, default=579)
-    score_band_fair_max = Column(Integer, nullable=False, default=669)
-    score_band_good_max = Column(Integer, nullable=False, default=739)
-    score_suggest_mult_thin = Column(Numeric(8, 4), nullable=False, default=0.5)
-    score_suggest_mult_poor = Column(Numeric(8, 4), nullable=False, default=0.5)
-    score_suggest_mult_fair = Column(Numeric(8, 4), nullable=False, default=0.8)
-    score_suggest_mult_good = Column(Numeric(8, 4), nullable=False, default=1.0)
-    score_suggest_mult_excellent = Column(Numeric(8, 4), nullable=False, default=1.25)
-    score_baseline_amount = Column(Numeric(12, 2), nullable=False, default=10000)
+    score_band_poor_max = Column(Integer, nullable=False, default=499)
+    score_band_fair_max = Column(Integer, nullable=False, default=649)
+    score_band_good_max = Column(Integer, nullable=False, default=799)
+    score_suggest_mult_thin = Column(Numeric(8, 4), nullable=False, default=1.0)
+    score_suggest_mult_poor = Column(Numeric(8, 4), nullable=False, default=1.5)
+    score_suggest_mult_fair = Column(Numeric(8, 4), nullable=False, default=2.5)
+    score_suggest_mult_good = Column(Numeric(8, 4), nullable=False, default=5.0)
+    score_suggest_mult_excellent = Column(Numeric(8, 4), nullable=False, default=10.0)
+    score_baseline_amount = Column(Numeric(12, 2), nullable=False, default=2000)
 
     created_at = Column(
         DateTime(timezone=True),
