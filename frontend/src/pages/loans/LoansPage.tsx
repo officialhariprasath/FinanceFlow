@@ -185,6 +185,7 @@ export default function LoansPage() {
                   <th className="text-right">Principal</th>
                   <th className="text-right">Remaining</th>
                   <th className="text-center">Status</th>
+                  <th className="text-center">Orig. score</th>
                   <th className="text-center">Issue Date</th>
                   <th className="text-center">Due Date</th>
                   {canEditLoan && <th className="text-right">Actions</th>}
@@ -210,6 +211,18 @@ export default function LoansPage() {
                     <td className="px-4 py-3 text-right">{fmt(loan.remaining_principal)}</td>
                     <td className="px-4 py-3 text-center">
                       <StatusChip status={loan.status} />
+                    </td>
+                    <td className="px-4 py-3 text-center text-xs">
+                      {loan.origination_score != null ? (
+                        <span className="inline-flex flex-col items-center gap-0.5">
+                          <span className="font-semibold">{loan.origination_score}</span>
+                          <span className="text-slate-500">
+                            {(loan.origination_band || "").replace(/_/g, " ") || "—"}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center">{loan.issue_date}</td>
                     <td className="px-4 py-3 text-center">{loan.due_date}</td>

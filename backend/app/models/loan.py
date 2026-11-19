@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Date, DateTime, Numeric
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -176,6 +177,13 @@ class Loan(Base):
         nullable=False,
         default=0,
     )
+
+    # Advisory credit score frozen at loan creation.
+    origination_score = Column(Integer, nullable=True)
+    origination_band = Column(String(30), nullable=True)
+    origination_suggested_max = Column(Numeric(12, 2), nullable=True)
+    origination_reasons_json = Column(JSON, nullable=True)
+    origination_scorecard_version = Column(String(40), nullable=True)
 
     finance_owner = relationship(
         "FinanceOwner",

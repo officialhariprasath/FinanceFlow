@@ -32,6 +32,11 @@ export interface LoanResponse {
   total_profit_paid?: string | null;
   grace_installments?: number;
   penalty_per_installment?: string;
+  origination_score?: number | null;
+  origination_band?: string | null;
+  origination_suggested_max?: string | null;
+  origination_reasons_json?: { code: string; label: string; points: number }[] | null;
+  origination_scorecard_version?: string | null;
 }
 
 export interface LoanCreate {

@@ -1,4 +1,5 @@
 from sqlalchemy import (
+    Boolean,
     Column,
     Integer,
     String,
@@ -88,6 +89,18 @@ class FinanceSettings(Base):
     bi_weekly_penalty_per_installment = Column(Numeric(12, 2), nullable=False, default=0)
     monthly_grace_installments = Column(Integer, nullable=False, default=0)
     monthly_penalty_per_installment = Column(Numeric(12, 2), nullable=False, default=0)
+
+    # Hybrid credit scorecard policy (advisory only).
+    score_enabled = Column(Boolean, nullable=False, default=True)
+    score_band_poor_max = Column(Integer, nullable=False, default=579)
+    score_band_fair_max = Column(Integer, nullable=False, default=669)
+    score_band_good_max = Column(Integer, nullable=False, default=739)
+    score_suggest_mult_thin = Column(Numeric(8, 4), nullable=False, default=0.5)
+    score_suggest_mult_poor = Column(Numeric(8, 4), nullable=False, default=0.5)
+    score_suggest_mult_fair = Column(Numeric(8, 4), nullable=False, default=0.8)
+    score_suggest_mult_good = Column(Numeric(8, 4), nullable=False, default=1.0)
+    score_suggest_mult_excellent = Column(Numeric(8, 4), nullable=False, default=1.25)
+    score_baseline_amount = Column(Numeric(12, 2), nullable=False, default=10000)
 
     created_at = Column(
         DateTime(timezone=True),

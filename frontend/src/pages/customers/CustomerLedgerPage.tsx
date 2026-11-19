@@ -4,20 +4,25 @@ import { useNavigate, useParams } from "react-router-dom";
 import MainLayout from "../../components/layout/MainLayout";
 import CustomerForm from "../../components/customers/CustomerForm";
 import NewLoanModal from "../../components/loans/NewLoanModal";
+import CreditScoreCard from "../../components/credit/CreditScoreCard";
 
 import {
   getCustomerLedger,
   updateCustomer,
 } from "../../services/customerService";
+import { refreshCustomerCreditScore } from "../../services/creditScoreService";
 
 import type { CustomerLedger } from "../../types/ledger";
 import type { CustomerCreate } from "../../types/customer";
+import type { CreditScore } from "../../types/creditScore";
 import { fmt } from "../../utils/fmt";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 
 function CustomerLedgerPage() {
   const { customerId } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const { hasPermission } = useAuth();
   const canCreateLoan = hasPermission("loans.create");
   const canEditCustomer = hasPermission("customers.edit");
@@ -25,6 +30,7 @@ function CustomerLedgerPage() {
   const [ledger, setLedger] = useState<CustomerLedger | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshingScore, setRefreshingScore] = useState(false);
 
   const [showEditForm, setShowEditForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -62,6 +68,21 @@ function CustomerLedgerPage() {
       setEditError(typeof detail === "string" ? detail : "Failed to update customer.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleRefreshScore() {
+    if (!customerId) return;
+    try {
+      setRefreshingScore(true);
+      await refreshCustomerCreditScore(Number(customerId));
+      await loadLedger();
+      toast.success("Credit score refreshed.");
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : "Failed to refresh score.");
+    } finally {
+      setRefreshingScore(false);
     }
   }
 
@@ -142,6 +163,19 @@ function CustomerLedgerPage() {
             </div>
           </div>
         </div>
+
+        <CreditScoreCard
+          score={
+            ledger.credit_score
+              ? ({
+                  ...ledger.credit_score,
+                  reasons: ledger.credit_score.reasons || [],
+                } as CreditScore)
+              : null
+          }
+          onRefresh={canEditCustomer ? handleRefreshScore : undefined}
+          refreshing={refreshingScore}
+        />
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

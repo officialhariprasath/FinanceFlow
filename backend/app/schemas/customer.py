@@ -75,6 +75,17 @@ class CustomerLedgerSummaryResponse(BaseModel):
     total_outstanding: Decimal
 
 
+class CustomerCreditScoreSummary(BaseModel):
+    score: int
+    band: str
+    file_type: str
+    suggested_max_amount: Decimal
+    reasons: list = []
+    scorecard_version: str | None = None
+    computed_at: Optional[str] = None
+    advisory_only: bool = True
+
+
 class CustomerLedgerResponse(BaseModel):
     """
     Complete customer ledger.
@@ -83,3 +94,4 @@ class CustomerLedgerResponse(BaseModel):
     customer: CustomerResponse
     summary: CustomerLedgerSummaryResponse
     loans: List[CustomerLedgerLoanResponse]
+    credit_score: CustomerCreditScoreSummary | None = None

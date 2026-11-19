@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from backend.app.models.customer import Customer
 from backend.app.schemas.customer import (
     CustomerCreate,
+    CustomerCreditScoreSummary,
     CustomerLedgerPaymentResponse,
     CustomerLedgerLoanResponse,
     CustomerLedgerSummaryResponse,
@@ -275,6 +276,30 @@ def get_customer_ledger(
             )
         )
 
+    credit_score = None
+    try:
+        from backend.app.services.credit_score.score_service import (
+            get_or_compute_customer_score,
+            score_to_response_dict,
+        )
+
+        score_row = get_or_compute_customer_score(
+            db, finance_owner_id, customer_id, commit=True
+        )
+        payload = score_to_response_dict(score_row)
+        credit_score = CustomerCreditScoreSummary(
+            score=payload["score"],
+            band=payload["band"],
+            file_type=payload["file_type"],
+            suggested_max_amount=payload["suggested_max_amount"],
+            reasons=payload.get("reasons") or [],
+            scorecard_version=payload.get("scorecard_version"),
+            computed_at=str(payload.get("computed_at") or ""),
+            advisory_only=True,
+        )
+    except Exception:
+        credit_score = None
+
     return CustomerLedgerResponse(
         customer=customer,
         summary=CustomerLedgerSummaryResponse(
@@ -288,4 +313,5 @@ def get_customer_ledger(
             total_outstanding=remaining_principal + accrued_interest,
         ),
         loans=ledger_loans,
+        credit_score=credit_score,
     )

@@ -1,0 +1,152 @@
+"""Build behavioral / thin-file features for a customer."""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Any
+
+from sqlalchemy.orm import Session
+
+from backend.app.models.financeflow_extended import LoanWriteOff
+from backend.app.models.loan import Loan
+from backend.app.models.loan_schedule import LoanSchedule
+
+
+ZERO = Decimal("0.00")
+
+
+def _as_float(value: Decimal | float | int | None) -> float | None:
+    if value is None:
+        return None
+    return float(value)
+
+
+def build_customer_features(
+    db: Session,
+    finance_owner_id: int,
+    customer_id: int,
+    as_of: date | None = None,
+) -> dict[str, Any]:
+    as_of = as_of or date.today()
+
+    loans = (
+        db.query(Loan)
+        .filter(
+            Loan.finance_owner_id == finance_owner_id,
+            Loan.customer_id == customer_id,
+        )
+        .all()
+    )
+
+    loan_ids = [loan.id for loan in loans]
+    schedules: list[LoanSchedule] = []
+    if loan_ids:
+        schedules = (
+            db.query(LoanSchedule)
+            .filter(LoanSchedule.loan_id.in_(loan_ids))
+            .all()
+        )
+
+    writeoff_count = 0
+    if loan_ids:
+        writeoff_count = (
+            db.query(LoanWriteOff)
+            .filter(
+                LoanWriteOff.finance_owner_id == finance_owner_id,
+                LoanWriteOff.loan_id.in_(loan_ids),
+            )
+            .count()
+        )
+
+    history_depth = len(loans)
+    closed_loan_count = sum(1 for loan in loans if loan.status == "CLOSED")
+    active_loan_count = sum(1 for loan in loans if loan.status == "ACTIVE")
+    defaulted_count = sum(1 for loan in loans if loan.status == "DEFAULTED")
+
+    max_successful_principal = ZERO
+    first_issue: date | None = None
+    for loan in loans:
+        if first_issue is None or loan.issue_date < first_issue:
+            first_issue = loan.issue_date
+        if loan.status == "CLOSED" and (loan.closure_type or "NORMAL") != "WRITE_OFF":
+            if Decimal(loan.principal_amount) > max_successful_principal:
+                max_successful_principal = Decimal(loan.principal_amount)
+
+    paid_schedules = [s for s in schedules if s.paid_on is not None]
+    expected_total = sum((Decimal(s.expected_amount) for s in schedules), ZERO)
+    paid_total = sum((Decimal(s.paid_amount) for s in schedules), ZERO)
+    penalty_paid_total = sum((Decimal(s.paid_penalty or 0) for s in schedules), ZERO)
+
+    on_time = 0
+    late_days: list[int] = []
+    dpd_7 = 0
+    dpd_30 = 0
+    last_late_on: date | None = None
+
+    for schedule in paid_schedules:
+        lag = (schedule.paid_on - schedule.schedule_date).days
+        if lag <= 0:
+            on_time += 1
+            late_days.append(0)
+        else:
+            late_days.append(lag)
+            if last_late_on is None or schedule.paid_on > last_late_on:
+                last_late_on = schedule.paid_on
+            if lag >= 7:
+                dpd_7 += 1
+            if lag >= 30:
+                dpd_30 += 1
+
+    paid_count = len(paid_schedules)
+    on_time_rate = (on_time / paid_count) if paid_count else None
+    late_rate = ((paid_count - on_time) / paid_count) if paid_count else None
+    avg_days_late = (sum(late_days) / len(late_days)) if late_days else None
+    max_days_late = max(late_days) if late_days else None
+    dpd_7_rate = (dpd_7 / paid_count) if paid_count else None
+    dpd_30_rate = (dpd_30 / paid_count) if paid_count else None
+    repayment_ratio = float(paid_total / expected_total) if expected_total > ZERO else None
+
+    current_overdue_count = sum(
+        1
+        for s in schedules
+        if s.status == "OVERDUE" or (s.paid_on is None and s.schedule_date < as_of and s.status != "PAID")
+    )
+
+    days_since_last_late = None
+    if last_late_on is not None:
+        days_since_last_late = (as_of - last_late_on).days
+
+    months_as_customer = 0
+    if first_issue is not None:
+        months_as_customer = max(
+            0,
+            (as_of.year - first_issue.year) * 12 + (as_of.month - first_issue.month),
+        )
+
+    # Thin if no loans or no paid installment history.
+    file_type = "THIN" if history_depth == 0 or paid_count == 0 else "THICK"
+
+    return {
+        "history_depth": history_depth,
+        "closed_loan_count": closed_loan_count,
+        "active_loan_count": active_loan_count,
+        "defaulted_count": defaulted_count,
+        "writeoff_count": writeoff_count,
+        "on_time_rate": on_time_rate,
+        "late_rate": late_rate,
+        "avg_days_late": avg_days_late,
+        "max_days_late": max_days_late,
+        "dpd_7_rate": dpd_7_rate,
+        "dpd_30_rate": dpd_30_rate,
+        "current_overdue_count": current_overdue_count,
+        "repayment_ratio": repayment_ratio,
+        "penalty_paid_total": _as_float(penalty_paid_total),
+        "max_successful_principal": _as_float(max_successful_principal),
+        "months_as_customer": months_as_customer,
+        "days_since_last_late": days_since_last_late,
+        "paid_schedule_count": paid_count,
+        "file_type": file_type,
+        "computed_as_of": as_of.isoformat(),
+        "computed_at": datetime.utcnow().isoformat() + "Z",
+    }

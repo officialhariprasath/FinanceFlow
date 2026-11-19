@@ -25,6 +25,9 @@ def mark_loan_defaulted(db: Session, loan_id: int, finance_owner_id: int, reason
     log_audit(db, finance_owner_id, "LOAN_DEFAULTED", "loan", loan_id, reason or "")
     db.commit()
     db.refresh(loan)
+    from backend.app.services.credit_score.score_service import refresh_customer_score_safe
+
+    refresh_customer_score_safe(db, finance_owner_id, loan.customer_id)
     return loan
 
 
@@ -53,6 +56,9 @@ def reactivate_loan(db: Session, loan_id: int, finance_owner_id: int, reason: st
     )
     db.commit()
     db.refresh(loan)
+    from backend.app.services.credit_score.score_service import refresh_customer_score_safe
+
+    refresh_customer_score_safe(db, finance_owner_id, loan.customer_id)
     return loan
 
 
@@ -144,6 +150,9 @@ def write_off_loan(
     )
     db.commit()
     db.refresh(write_off)
+    from backend.app.services.credit_score.score_service import refresh_customer_score_safe
+
+    refresh_customer_score_safe(db, finance_owner_id, loan.customer_id)
     return write_off
 
 

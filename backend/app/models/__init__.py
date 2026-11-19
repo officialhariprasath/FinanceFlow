@@ -18,3 +18,4 @@ from .agent_customer_assignment import AgentCustomerAssignment
 from .financeflow_extended import Expense, AuditLog, Notification, LoanWriteOff
 from .email_otp import EmailOtp
 from .owner_cash_account import OwnerCashAccount, OwnerCashTransaction
+from .credit_score import CustomerCreditScore, ScorecardDefinition

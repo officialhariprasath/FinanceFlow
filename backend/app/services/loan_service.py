@@ -130,6 +130,10 @@ def create_loan(
                 detail="Due date must be after issue date.",
             )
 
+    from backend.app.services.credit_score.score_service import snapshot_for_loan
+
+    score_snap = snapshot_for_loan(db, finance_owner_id, loan.customer_id)
+
     db_loan = Loan(
         finance_owner_id=finance_owner_id,
         customer_id=loan.customer_id,
@@ -156,6 +160,11 @@ def create_loan(
         total_profit_paid=ZERO,
         grace_installments=grace_installments,
         penalty_per_installment=penalty_per_installment,
+        origination_score=score_snap.get("origination_score"),
+        origination_band=score_snap.get("origination_band"),
+        origination_suggested_max=score_snap.get("origination_suggested_max"),
+        origination_reasons_json=score_snap.get("origination_reasons_json"),
+        origination_scorecard_version=score_snap.get("origination_scorecard_version"),
     )
 
     db.add(db_loan)

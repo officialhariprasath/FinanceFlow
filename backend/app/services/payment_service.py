@@ -634,6 +634,10 @@ def create_payment(
     db.commit()
     db.refresh(db_payment)
 
+    from backend.app.services.credit_score.score_service import refresh_customer_score_safe
+
+    refresh_customer_score_safe(db, finance_owner_id, loan.customer_id)
+
     return db_payment
 
 

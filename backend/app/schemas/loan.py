@@ -99,6 +99,12 @@ class LoanResponse(BaseModel):
     grace_installments: int = 0
     penalty_per_installment: Decimal = Decimal("0.00")
 
+    origination_score: int | None = None
+    origination_band: str | None = None
+    origination_suggested_max: Decimal | None = None
+    origination_reasons_json: list | dict | None = None
+    origination_scorecard_version: str | None = None
+
     model_config = ConfigDict(from_attributes=True)
 
 class LoanStatementPaymentResponse(BaseModel):

@@ -31,6 +31,17 @@ class FinanceSettingsBase(BaseModel):
     monthly_grace_installments: Optional[int] = Field(None, ge=0)
     monthly_penalty_per_installment: Optional[Decimal] = Field(None, ge=0)
 
+    score_enabled: Optional[bool] = None
+    score_band_poor_max: Optional[int] = Field(None, ge=300, le=850)
+    score_band_fair_max: Optional[int] = Field(None, ge=300, le=850)
+    score_band_good_max: Optional[int] = Field(None, ge=300, le=850)
+    score_suggest_mult_thin: Optional[Decimal] = Field(None, ge=0)
+    score_suggest_mult_poor: Optional[Decimal] = Field(None, ge=0)
+    score_suggest_mult_fair: Optional[Decimal] = Field(None, ge=0)
+    score_suggest_mult_good: Optional[Decimal] = Field(None, ge=0)
+    score_suggest_mult_excellent: Optional[Decimal] = Field(None, ge=0)
+    score_baseline_amount: Optional[Decimal] = Field(None, ge=0)
+
     @field_validator(
         "daily_grace_installments",
         "weekly_grace_installments",

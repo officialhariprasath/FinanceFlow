@@ -7,6 +7,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { useTheme } from "../../context/ThemeContext";
 import { getSettings, updateSettings } from "../../services/settingsService";
+import { recalibrateCreditScorecard } from "../../services/creditScoreService";
 import {
   getNotifications,
   markNotificationRead,
@@ -41,6 +42,7 @@ export default function SettingsPage() {
   const [backupMeta, setBackupMeta] = useState<BackupMeta | null>(null);
   const [backingUp, setBackingUp] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [recalibrating, setRecalibrating] = useState(false);
 
   const [form, setForm] = useState({
     business_name: "",
@@ -64,6 +66,16 @@ export default function SettingsPage() {
     bi_weekly_penalty_per_installment: "0",
     monthly_grace_installments: "0",
     monthly_penalty_per_installment: "0",
+    score_enabled: true,
+    score_band_poor_max: "579",
+    score_band_fair_max: "669",
+    score_band_good_max: "739",
+    score_suggest_mult_thin: "0.5",
+    score_suggest_mult_poor: "0.5",
+    score_suggest_mult_fair: "0.8",
+    score_suggest_mult_good: "1",
+    score_suggest_mult_excellent: "1.25",
+    score_baseline_amount: "10000",
   });
 
   useEffect(() => {
@@ -99,6 +111,16 @@ export default function SettingsPage() {
             ),
             monthly_grace_installments: String(data.monthly_grace_installments ?? 0),
             monthly_penalty_per_installment: String(data.monthly_penalty_per_installment ?? 0),
+            score_enabled: data.score_enabled !== false,
+            score_band_poor_max: String(data.score_band_poor_max ?? 579),
+            score_band_fair_max: String(data.score_band_fair_max ?? 669),
+            score_band_good_max: String(data.score_band_good_max ?? 739),
+            score_suggest_mult_thin: String(data.score_suggest_mult_thin ?? 0.5),
+            score_suggest_mult_poor: String(data.score_suggest_mult_poor ?? 0.5),
+            score_suggest_mult_fair: String(data.score_suggest_mult_fair ?? 0.8),
+            score_suggest_mult_good: String(data.score_suggest_mult_good ?? 1),
+            score_suggest_mult_excellent: String(data.score_suggest_mult_excellent ?? 1.25),
+            score_baseline_amount: String(data.score_baseline_amount ?? 10000),
           });
         }
         setNotifications(await notifPromise);
@@ -201,6 +223,16 @@ export default function SettingsPage() {
         bi_weekly_penalty_per_installment: form.bi_weekly_penalty_per_installment || "0",
         monthly_grace_installments: Number(form.monthly_grace_installments || 0),
         monthly_penalty_per_installment: form.monthly_penalty_per_installment || "0",
+        score_enabled: form.score_enabled,
+        score_band_poor_max: Number(form.score_band_poor_max || 579),
+        score_band_fair_max: Number(form.score_band_fair_max || 669),
+        score_band_good_max: Number(form.score_band_good_max || 739),
+        score_suggest_mult_thin: form.score_suggest_mult_thin || "0.5",
+        score_suggest_mult_poor: form.score_suggest_mult_poor || "0.5",
+        score_suggest_mult_fair: form.score_suggest_mult_fair || "0.8",
+        score_suggest_mult_good: form.score_suggest_mult_good || "1",
+        score_suggest_mult_excellent: form.score_suggest_mult_excellent || "1.25",
+        score_baseline_amount: form.score_baseline_amount || "10000",
       });
       const updatedCount = saved?.penalty_loans_updated;
       const backfillNote =
@@ -231,7 +263,7 @@ export default function SettingsPage() {
     return null;
   }
 
-  function inp(label: string, key: keyof typeof form, type = "text") {
+  function inp(label: string, key: Exclude<keyof typeof form, "score_enabled">, type = "text") {
     return (
       <div>
         <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
@@ -481,6 +513,61 @@ export default function SettingsPage() {
                         {inp("Penalty Per Day / Installment (₹)", penaltyKey, "number")}
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                <div className="surface-card p-6">
+                  <h2 className="mb-1 font-semibold text-slate-800">Credit Score Policy</h2>
+                  <p className="mb-4 text-sm text-slate-500">
+                    Hybrid scorecard is advisory only. Suggested max amount never blocks a new loan.
+                    Band cutoffs use a 300–850 scale. Multipliers apply to baseline or past successful principal.
+                  </p>
+                  <label className="mb-4 flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={form.score_enabled}
+                      onChange={(e) => setForm({ ...form, score_enabled: e.target.checked })}
+                    />
+                    Enable credit scoring
+                  </label>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    {inp("Poor band max", "score_band_poor_max", "number")}
+                    {inp("Fair band max", "score_band_fair_max", "number")}
+                    {inp("Good band max", "score_band_good_max", "number")}
+                    {inp("Thin-file multiplier", "score_suggest_mult_thin", "number")}
+                    {inp("Poor multiplier", "score_suggest_mult_poor", "number")}
+                    {inp("Fair multiplier", "score_suggest_mult_fair", "number")}
+                    {inp("Good multiplier", "score_suggest_mult_good", "number")}
+                    {inp("Excellent multiplier", "score_suggest_mult_excellent", "number")}
+                    {inp("Baseline amount (₹)", "score_baseline_amount", "number")}
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      disabled={recalibrating}
+                      onClick={async () => {
+                        try {
+                          setRecalibrating(true);
+                          const result = await recalibrateCreditScorecard();
+                          toast.success(
+                            `Scorecard recalibrated (${result.version}). Good=${result.good}, Bad=${result.bad}.`
+                          );
+                        } catch (err: unknown) {
+                          const detail = (err as { response?: { data?: { detail?: string } } })
+                            ?.response?.data?.detail;
+                          toast.error(
+                            typeof detail === "string"
+                              ? detail
+                              : "Recalibration failed or not enough labeled history."
+                          );
+                        } finally {
+                          setRecalibrating(false);
+                        }
+                      }}
+                      className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      {recalibrating ? "Recalibrating…" : "Recalibrate scorecard"}
+                    </button>
                   </div>
                 </div>
 

@@ -40,8 +40,20 @@ export interface LedgerSummary {
   total_outstanding: string;
 }
 
+export interface LedgerCreditScore {
+  score: number;
+  band: string;
+  file_type: string;
+  suggested_max_amount: string;
+  reasons?: { code: string; label: string; points: number; feature?: string }[];
+  scorecard_version?: string | null;
+  computed_at?: string | null;
+  advisory_only?: boolean;
+}
+
 export interface CustomerLedger {
   customer: LedgerCustomer;
   summary: LedgerSummary;
   loans: LedgerLoan[];
+  credit_score?: LedgerCreditScore | null;
 }

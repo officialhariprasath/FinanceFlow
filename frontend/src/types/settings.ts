@@ -22,6 +22,16 @@ export interface FinanceSettings {
   bi_weekly_penalty_per_installment?: string | null;
   monthly_grace_installments?: number | null;
   monthly_penalty_per_installment?: string | null;
+  score_enabled?: boolean | null;
+  score_band_poor_max?: number | null;
+  score_band_fair_max?: number | null;
+  score_band_good_max?: number | null;
+  score_suggest_mult_thin?: string | null;
+  score_suggest_mult_poor?: string | null;
+  score_suggest_mult_fair?: string | null;
+  score_suggest_mult_good?: string | null;
+  score_suggest_mult_excellent?: string | null;
+  score_baseline_amount?: string | null;
   /** Set on save when installment loans are backfilled from these settings. */
   penalty_loans_updated?: number | null;
 }

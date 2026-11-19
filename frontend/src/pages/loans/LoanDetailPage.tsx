@@ -235,6 +235,18 @@ export default function LoanDetailPage() {
                 ]
               : []),
             ["Closure Type", loan.closure_type || "—"],
+            [
+              "Origination score",
+              loan.origination_score != null
+                ? `${loan.origination_score} (${(loan.origination_band || "—").replace(/_/g, " ")})`
+                : "—",
+            ],
+            [
+              "Suggested max at booking",
+              loan.origination_suggested_max != null
+                ? fmt(loan.origination_suggested_max)
+                : "—",
+            ],
           ].map(([label, value]) => (
             <div key={label} className="surface-card p-4">
               <p className="text-xs text-slate-500">{label}</p>
@@ -242,6 +254,34 @@ export default function LoanDetailPage() {
             </div>
           ))}
         </div>
+
+        {Array.isArray(loan.origination_reasons_json) &&
+          loan.origination_reasons_json.length > 0 && (
+            <div className="surface-card p-5">
+              <h2 className="section-title">Score at loan creation (frozen)</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Advisory reasons captured when this loan was booked.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {loan.origination_reasons_json.map((r) => (
+                  <li key={`${r.code}-${r.points}`} className="flex justify-between text-sm">
+                    <span>{r.label}</span>
+                    <span
+                      className={
+                        r.points > 0
+                          ? "text-green-700"
+                          : r.points < 0
+                            ? "text-red-700"
+                            : "text-slate-500"
+                      }
+                    >
+                      {r.points > 0 ? `+${r.points}` : r.points}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
         {/* Interest summary */}
         {interest && (
