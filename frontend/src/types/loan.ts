@@ -1,5 +1,5 @@
 export type InterestMethod = "PERCENTAGE" | "RUPEES_PER_100";
-export type LoanStatus = "ACTIVE" | "CLOSED" | "RENEWED";
+export type LoanStatus = "ACTIVE" | "CLOSED" | "RENEWED" | "DEFAULTED";
 
 export interface LoanResponse {
   id: number;

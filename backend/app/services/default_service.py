@@ -140,6 +140,7 @@ def write_off_loan(
     db.add(write_off)
     loan.remaining_principal = ZERO
     loan.status = "CLOSED"
+    loan.closure_type = "WRITE_OFF"
     log_audit(
         db,
         finance_owner_id,

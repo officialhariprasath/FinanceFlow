@@ -43,12 +43,33 @@ export async function getCustomerLoans(
 }
 
 export async function searchLoans(params: {
+  customer_name?: string;
   mobile_number?: string;
   status?: string;
   from_date?: string;
   to_date?: string;
 }): Promise<LoanResponse[]> {
   const response = await api.get<LoanResponse[]>("/loans/search", { params });
+  return response.data;
+}
+
+export interface LoansPortfolioSummary {
+  active_count: number;
+  overdue_count: number;
+  due_today_count: number;
+  defaulted_count: number;
+  closed_count: number;
+  renewed_count: number;
+  loan_count: number;
+  total_principal_collected: string;
+  total_interest_collected: string;
+  total_penalties_scheduled: string;
+  total_penalties_collected: string;
+  total_collected: string;
+}
+
+export async function getLoansPortfolioSummary(): Promise<LoansPortfolioSummary> {
+  const response = await api.get<LoansPortfolioSummary>("/loans/portfolio-summary");
   return response.data;
 }
 

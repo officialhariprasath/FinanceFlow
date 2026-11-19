@@ -14,9 +14,10 @@ export function statusToKind(status: string): StatusKind {
   const s = status.toUpperCase();
   if (s === "PAID" || s === "COMPLETED" || s === "APPROVED") return "paid";
   if (s === "REJECTED") return "rejected";
-  if (s === "OVERDUE" || s === "DEFAULTED") return "overdue";
+  if (s === "OVERDUE" || s === "DEFAULTED" || s === "WRITE_OFF") return "overdue";
   if (s === "PARTIAL") return "partial";
   if (s === "PENDING" || s === "PENDING_VERIFICATION") return "pending";
+  if (s === "ACTIVE" || s === "RENEWED") return "paid";
   return "neutral";
 }
 

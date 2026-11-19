@@ -23,6 +23,7 @@ from backend.app.services.loan_service import (
     update_loan,
     get_loans_by_customer,
     search_loans,
+    get_loans_portfolio_summary,
     get_loans_due_this_month,
     get_loans_due_by_month,
     get_interest_summary,
@@ -100,10 +101,25 @@ def search_loans_endpoint(
     return search_loans(
         db=db,
         finance_owner_id=ctx.finance_owner_id,
+        customer_name=customer_name,
         mobile_number=mobile_number,
         status_filter=status_filter,
         from_date=from_date,
         to_date=to_date,
+    )
+
+
+@router.get(
+    "/portfolio-summary",
+    summary="Loans portfolio KPI + collection totals",
+)
+def loans_portfolio_summary_endpoint(
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_permissions(["loans"])),
+):
+    return get_loans_portfolio_summary(
+        db=db,
+        finance_owner_id=ctx.finance_owner_id,
     )
 
 

@@ -459,15 +459,26 @@ def search_loans(
         )
     )
 
+    if customer_name and customer_name.strip():
+        query = query.filter(
+            Customer.full_name.ilike(f"%{customer_name.strip()}%")
+        )
+
     if mobile_number:
         query = query.filter(
             Customer.phone.ilike(f"%{mobile_number}%")
         )
 
-    if status_filter:
+    status_upper = (status_filter or "").strip().upper()
+    if status_upper == "WRITE_OFF":
         query = query.filter(
-            Loan.status == status_filter.upper()
+            Loan.status == "CLOSED",
+            Loan.closure_type == "WRITE_OFF",
         )
+    elif status_upper == "RENEWED":
+        query = query.filter(Loan.status == "RENEWED")
+    elif status_upper:
+        query = query.filter(Loan.status == status_upper)
 
     if from_date:
         query = query.filter(
@@ -483,6 +494,112 @@ def search_loans(
         query.order_by(Loan.issue_date.desc())
         .all()
     )
+
+
+def get_loans_portfolio_summary(
+    db: Session,
+    finance_owner_id: int,
+) -> dict:
+    """KPI counts + collected totals (principal, interest/profit, penalties)."""
+    from sqlalchemy import func
+
+    from backend.app.models.enums import CollectionModel, ScheduleStatus  # noqa: PLC0415
+    from backend.app.models.loan_schedule import LoanSchedule  # noqa: PLC0415
+
+    today = date.today()
+
+    loans = (
+        db.query(Loan)
+        .filter(Loan.finance_owner_id == finance_owner_id)
+        .all()
+    )
+
+    active_count = 0
+    defaulted_count = 0
+    closed_count = 0
+    renewed_count = 0
+    total_principal_collected = Decimal("0.00")
+    total_interest_collected = Decimal("0.00")
+
+    for loan in loans:
+        status = (loan.status or "").upper()
+        if status == "ACTIVE":
+            active_count += 1
+        elif status == "DEFAULTED":
+            defaulted_count += 1
+        elif status == "CLOSED":
+            closed_count += 1
+        elif status == "RENEWED":
+            renewed_count += 1
+        total_principal_collected += Decimal(loan.total_principal_paid or 0)
+        # Installment loans mirror profit into total_interest_paid — do not double-count.
+        total_interest_collected += Decimal(loan.total_interest_paid or 0)
+
+    penalty_row = (
+        db.query(
+            func.coalesce(func.sum(LoanSchedule.assessed_penalty), 0),
+            func.coalesce(func.sum(LoanSchedule.paid_penalty), 0),
+        )
+        .join(Loan, LoanSchedule.loan_id == Loan.id)
+        .filter(Loan.finance_owner_id == finance_owner_id)
+        .one()
+    )
+    total_penalties_scheduled = Decimal(str(penalty_row[0])).quantize(Decimal("0.01"))
+    total_penalties_collected = Decimal(str(penalty_row[1])).quantize(Decimal("0.01"))
+
+    overdue_loan_ids = {
+        row[0]
+        for row in (
+            db.query(LoanSchedule.loan_id)
+            .join(Loan, LoanSchedule.loan_id == Loan.id)
+            .filter(
+                Loan.finance_owner_id == finance_owner_id,
+                Loan.status == "ACTIVE",
+                Loan.collection_model == CollectionModel.DAILY_COLLECTION.value,
+                LoanSchedule.status == ScheduleStatus.OVERDUE.value,
+            )
+            .distinct()
+            .all()
+        )
+    }
+
+    due_today_loan_ids = {
+        row[0]
+        for row in (
+            db.query(LoanSchedule.loan_id)
+            .join(Loan, LoanSchedule.loan_id == Loan.id)
+            .filter(
+                Loan.finance_owner_id == finance_owner_id,
+                Loan.status == "ACTIVE",
+                Loan.collection_model == CollectionModel.DAILY_COLLECTION.value,
+                LoanSchedule.schedule_date == today,
+                LoanSchedule.status != ScheduleStatus.PAID.value,
+            )
+            .distinct()
+            .all()
+        )
+    }
+
+    total_collected = (
+        total_principal_collected
+        + total_interest_collected
+        + total_penalties_collected
+    ).quantize(Decimal("0.01"))
+
+    return {
+        "active_count": active_count,
+        "overdue_count": len(overdue_loan_ids),
+        "due_today_count": len(due_today_loan_ids),
+        "defaulted_count": defaulted_count,
+        "closed_count": closed_count,
+        "renewed_count": renewed_count,
+        "loan_count": len(loans),
+        "total_principal_collected": total_principal_collected.quantize(Decimal("0.01")),
+        "total_interest_collected": total_interest_collected.quantize(Decimal("0.01")),
+        "total_penalties_scheduled": total_penalties_scheduled,
+        "total_penalties_collected": total_penalties_collected,
+        "total_collected": total_collected,
+    }
 
 def get_loans_due_this_month(
     db: Session,

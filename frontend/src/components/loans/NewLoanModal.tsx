@@ -1,22 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 
-
-
 import { createLoan } from "../../services/loanService";
 import { getAgents } from "../../services/agentService";
 import type { Agent } from "../../types/agent";
-
 import { createCustomer } from "../../services/customerService";
-
 import { getCapitalSummary } from "../../services/capitalService";
-
+import { getCustomerCreditScore, refreshCustomerCreditScore } from "../../services/creditScoreService";
+import CreditScoreCard from "../credit/CreditScoreCard";
 import api from "../../api/axios";
-
 import type { LoanCreate } from "../../types/loan";
-
 import type { CustomerCreate } from "../../types/customer";
-
+import type { CreditScore } from "../../types/creditScore";
 import { fmt } from "../../utils/fmt";
 
 import {
@@ -107,7 +102,9 @@ export default function NewLoanModal({
 
   );
 
-
+  const [creditScore, setCreditScore] = useState<CreditScore | null>(null);
+  const [scoreLoading, setScoreLoading] = useState(false);
+  const [scoreRefreshing, setScoreRefreshing] = useState(false);
 
   const [newCustomer, setNewCustomer] = useState<CustomerCreate>({
 
@@ -189,6 +186,14 @@ export default function NewLoanModal({
 
 
   useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  useEffect(() => {
 
     api
 
@@ -213,6 +218,30 @@ export default function NewLoanModal({
       .catch(() => {});
 
   }, []);
+
+  useEffect(() => {
+    const customerId =
+      mode === "existing" ? selectedCustomerId || preselectedCustomerId || 0 : 0;
+    if (!customerId) {
+      setCreditScore(null);
+      return;
+    }
+    let cancelled = false;
+    setScoreLoading(true);
+    getCustomerCreditScore(customerId)
+      .then((score) => {
+        if (!cancelled) setCreditScore(score);
+      })
+      .catch(() => {
+        if (!cancelled) setCreditScore(null);
+      })
+      .finally(() => {
+        if (!cancelled) setScoreLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, selectedCustomerId, preselectedCustomerId]);
 
 
 
@@ -530,6 +559,32 @@ export default function NewLoanModal({
 
                   </select>
 
+                )}
+
+                {(selectedCustomerId > 0 || preselectedCustomerId) && (
+                  <div className="mt-3">
+                    {scoreLoading ? (
+                      <p className="text-sm text-slate-500">Loading credit score…</p>
+                    ) : (
+                      <CreditScoreCard
+                        score={creditScore}
+                        compact
+                        refreshing={scoreRefreshing}
+                        onRefresh={async () => {
+                          const cid = selectedCustomerId || preselectedCustomerId || 0;
+                          if (!cid) return;
+                          try {
+                            setScoreRefreshing(true);
+                            setCreditScore(await refreshCustomerCreditScore(cid));
+                          } catch {
+                            // keep prior
+                          } finally {
+                            setScoreRefreshing(false);
+                          }
+                        }}
+                      />
+                    )}
+                  </div>
                 )}
 
               </div>
