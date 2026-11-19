@@ -1,7 +1,7 @@
 {
-  "versionCode": 17,
-  "versionName": "1.2.14",
-  "apkUrl": "https://github.com/officialhariprasath/FinanceFlow/releases/download/v1.2.14/FinanceFlow-v1.2.14.apk",
-  "notes": "Calendar-day grace from today; last due accumulates post-maturity penalty. Loan schedule shows paid total with penalty and Paid on date.",
+  "versionCode": 18,
+  "versionName": "1.2.15",
+  "apkUrl": "https://github.com/officialhariprasath/FinanceFlow/releases/download/v1.2.15/FinanceFlow-v1.2.15.apk",
+  "notes": "Loans UX: live name search, KPIs, collected totals (principal+interest+penalties), mobile cards, credit score on new loan/detail, mark default/write-off on detail, schedule jump/filter. CIBIL-style score + contiguous band settings.",
   "force": false
 }
