@@ -64,8 +64,13 @@ function rowModeAmount(row: UnpaidSchedule, mode: AllocationMode): number {
   return Number(row.total_payable ?? row.pending_amount);
 }
 
+/** API may return YYYY-MM-DD or a full ISO datetime — normalize for checkbox matching. */
+function normalizeScheduleDate(value: string): string {
+  return String(value ?? "").slice(0, 10);
+}
+
 function formatShortDate(iso: string): string {
-  return new Date(iso + "T00:00:00").toLocaleDateString("en-IN", {
+  return new Date(normalizeScheduleDate(iso) + "T00:00:00").toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
   });
@@ -110,7 +115,7 @@ function pickDatesForAmount(
   for (const row of rows) {
     const pending = rowModeAmount(row, mode);
     if (pending <= 0.009) continue;
-    picked.push(row.schedule_date);
+    picked.push(normalizeScheduleDate(row.schedule_date));
     running += pending;
     if (running >= target - 0.001) break;
   }
@@ -231,38 +236,66 @@ export default function RecordPaymentModal({
     setSchedulesLoading(true);
     getUnpaidSchedules(loanId)
       .then((rows) => {
-        setUnpaidSchedules(rows);
-        if (rows.length === 0) return;
+        if (rows.length === 0) {
+          setUnpaidSchedules([]);
+          return;
+        }
 
-        // Keep checkboxes in sync with the amount that will actually be applied:
-        // - specific day (collections) → that day only
-        // - default amount → select enough days to cover it
-        // - otherwise → all open days (amount follows selection)
+        // Prefer every open day so checkboxes match the calculated total.
+        // If a cash amount / single collection day is provided, cover that amount.
+        const normalizedRows = rows.map((r) => ({
+          ...r,
+          schedule_date: normalizeScheduleDate(r.schedule_date),
+        }));
+        setUnpaidSchedules(normalizedRows);
+
+        const targetAmount = Number(defaultAmount);
+        const defaultDay = defaultScheduleDate
+          ? normalizeScheduleDate(defaultScheduleDate)
+          : "";
         let initial: string[];
-        if (
-          defaultScheduleDate &&
-          rows.some((r) => r.schedule_date === defaultScheduleDate)
-        ) {
-          initial = [defaultScheduleDate];
-          amountFollowsSelection.current = !defaultAmount;
-        } else if (defaultAmount && Number(defaultAmount) > 0) {
-          initial = pickDatesForAmount(rows, Number(defaultAmount), "BOTH");
-          if (initial.length === 0) initial = [rows[0].schedule_date];
+        if (targetAmount > 0) {
+          initial = pickDatesForAmount(normalizedRows, targetAmount, "BOTH");
+          if (
+            defaultDay &&
+            normalizedRows.some((r) => r.schedule_date === defaultDay) &&
+            !initial.includes(defaultDay)
+          ) {
+            initial = Array.from(new Set([defaultDay, ...initial])).sort();
+          }
+          if (initial.length === 0) {
+            initial = defaultDay
+              ? [defaultDay]
+              : [normalizedRows[0].schedule_date];
+          }
           amountFollowsSelection.current = false;
+        } else if (
+          defaultDay &&
+          normalizedRows.some((r) => r.schedule_date === defaultDay)
+        ) {
+          initial = [defaultDay];
+          amountFollowsSelection.current = true;
         } else {
-          initial = rows
+          initial = normalizedRows
             .filter((r) => rowModeAmount(r, "BOTH") > 0.009)
             .map((r) => r.schedule_date);
-          if (initial.length === 0) initial = [rows[0].schedule_date];
+          if (initial.length === 0) {
+            initial = [normalizedRows[0].schedule_date];
+          }
           amountFollowsSelection.current = true;
         }
 
         setSelectedDates(initial);
-        const total = sumPending(rows, initial, "BOTH");
+        const total = sumPending(normalizedRows, initial, "BOTH");
         setForm((prev) => ({
           ...prev,
           payment_date: initial[0],
-          amount_paid: defaultAmount || (total > 0 ? total.toFixed(2) : ""),
+          amount_paid:
+            targetAmount > 0
+              ? Number(defaultAmount).toFixed(2)
+              : total > 0
+                ? total.toFixed(2)
+                : "",
           allocation_mode: "BOTH",
         }));
       })
@@ -285,6 +318,28 @@ export default function RecordPaymentModal({
         : prev.amount_paid,
     }));
   }, [selectedDates, selectedTotal, isInstallment, allocationMode]);
+
+  // If cash is higher than checked days, auto-check enough days to cover it
+  // (keeps checkboxes aligned with allocation preview spill-forward).
+  useEffect(() => {
+    if (!isInstallment || schedulesLoading || unpaidSchedules.length === 0) return;
+    if (!(amountNum > selectedTotal + 0.01)) return;
+    const picked = pickDatesForAmount(unpaidSchedules, amountNum, allocationMode);
+    if (picked.length === 0) return;
+    const same =
+      picked.length === selectedDates.length &&
+      picked.every((d, i) => d === selectedDates[i]);
+    if (same) return;
+    setSelectedDates(picked);
+  }, [
+    isInstallment,
+    schedulesLoading,
+    unpaidSchedules,
+    amountNum,
+    selectedTotal,
+    allocationMode,
+    selectedDates,
+  ]);
 
   useEffect(() => {
     if (!isInstallment || !form.amount_paid || Number(form.amount_paid) <= 0) {
@@ -526,7 +581,10 @@ export default function RecordPaymentModal({
               </div>
 
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <label className="text-sm font-medium text-slate-700">
+                <label
+                  className="text-sm font-medium text-slate-700"
+                  data-ff-select-sync="v2"
+                >
                   Installments to pay ({selectedDates.length} selected)
                 </label>
                 <div className="flex flex-wrap gap-1">
@@ -554,7 +612,9 @@ export default function RecordPaymentModal({
               ) : (
                 <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border p-2">
                   {unpaidSchedules.map((row) => {
-                    const selected = selectedDates.includes(row.schedule_date);
+                    const selected = selectedDates.includes(
+                      normalizeScheduleDate(row.schedule_date)
+                    );
                     const modeAmt = rowModeAmount(row, allocationMode);
                     return (
                       <label
