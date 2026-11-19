@@ -712,9 +712,11 @@ def get_payment_preview(
         return {
             "principal_amount": principal_paid.quantize(TWOPLACES),
             "profit_amount": interest_paid.quantize(TWOPLACES),
+            "late_fee_amount": ZERO,
             "total_amount": total,
             "installment_count": 1,
             "unapplied_amount": (amount - total).quantize(TWOPLACES),
+            "allocation_mode": None,
             "lines": [],
         }
 

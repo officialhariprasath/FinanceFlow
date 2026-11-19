@@ -128,10 +128,6 @@ function ScheduleRowContent({
       ? "text-amber-700 dark:text-amber-300"
       : "text-green-700 dark:text-green-300";
 
-  const pendingBits: string[] = [];
-  if (due > 0.009) pendingBits.push(`Due left ${fmt(due)}`);
-  if (penalty > 0.009) pendingBits.push(`Penalty left ${fmt(penalty)}`);
-
   return (
     <span className="min-w-0 flex-1">
       <span className="block font-medium text-slate-800 dark:text-slate-100">
@@ -149,9 +145,6 @@ function ScheduleRowContent({
           = {fmt(payable)} payable
         </span>
       </p>
-      {pendingBits.length > 0 && (
-        <p className="mt-0.5 text-[11px] text-slate-500">{pendingBits.join(" · ")}</p>
-      )}
       {mode === "DUE_ONLY" && due <= 0.009 && penalty > 0.009 && (
         <p className="mt-0.5 text-[11px] text-amber-700">Due cleared — only penalty left</p>
       )}
@@ -459,36 +452,30 @@ export default function RecordPaymentModal({
                 <p className="font-semibold">{fmt(preview.total_amount)}</p>
               </div>
             </div>
-            {preview.lines && preview.lines.length > 0 && (
-              <ul className="mt-3 space-y-1 border-t border-blue-100 pt-2 dark:border-blue-900">
-                {preview.lines.map((line) => (
-                  <li
-                    key={line.schedule_date}
-                    className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-blue-900 dark:text-blue-100"
-                  >
-                    <span className="font-medium">{formatShortDate(line.schedule_date)}</span>
-                    <span>
-                      {fmt(line.applied_amount)} of {fmt(line.expected_pending)}
-                      {Number(line.due_applied ?? 0) > 0.009 && (
-                        <span className="text-green-700"> · due {fmt(line.due_applied!)}</span>
-                      )}
-                      {Number(line.penalty_applied ?? 0) > 0.009 && (
-                        <span className="text-amber-700">
-                          {" "}
-                          · penalty {fmt(line.penalty_applied!)}
+            {preview.lines &&
+              preview.lines.some((line) => Number(line.remaining_pending) > 0.009) && (
+                <ul className="mt-3 space-y-1 border-t border-blue-100 pt-2 dark:border-blue-900">
+                  {preview.lines
+                    .filter((line) => Number(line.remaining_pending) > 0.009)
+                    .map((line) => (
+                      <li
+                        key={line.schedule_date}
+                        className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-blue-900 dark:text-blue-100"
+                      >
+                        <span className="font-medium">
+                          {formatShortDate(line.schedule_date)}
                         </span>
-                      )}
-                      {Number(line.remaining_pending) > 0.009 && (
-                        <span className="text-amber-700 dark:text-amber-300">
-                          {" "}
-                          · {fmt(line.remaining_pending)} left in this mode
+                        <span>
+                          {fmt(line.applied_amount)} of {fmt(line.expected_pending)}
+                          <span className="text-amber-700 dark:text-amber-300">
+                            {" "}
+                            · {fmt(line.remaining_pending)} left in this mode
+                          </span>
                         </span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+                      </li>
+                    ))}
+                </ul>
+              )}
           </div>
         )}
 

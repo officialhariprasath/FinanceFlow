@@ -30,7 +30,9 @@ def main() -> int:
     )
     assert "Next 5" not in modal and "Next 10" not in modal
     assert "amountFollowsSelection" in modal
-    assert "Due left" in modal and "Penalty left" in modal
+    assert "Due left" not in modal and "Penalty left" not in modal
+    assert "left in this mode" in modal
+    assert "late_fee_amount" in modal
     assert "DUE_ONLY" in modal and "PENALTY_ONLY" in modal
     print("frontend_checks_ok")
     print("offline_ok")

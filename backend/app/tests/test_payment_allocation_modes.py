@@ -6,10 +6,12 @@ and partial / leftover component cases).
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 import pytest
 
+from backend.app.schemas.payment_allocation import PaymentAllocationPreviewResponse
 from backend.app.services.payment_allocation_service import (
     allocate_payment_amount,
     normalize_allocation_mode,
@@ -292,3 +294,42 @@ def test_multi_day_both_fills_due_then_penalty_then_next():
     assert applied[0][2] == Decimal("50.00")
     assert applied[1][0] + applied[1][1] == Decimal("20.00")
     assert applied[1][2] == ZERO
+
+
+# ---------- preview response schema (API must not strip penalty) ----------
+
+
+def test_preview_response_exposes_late_fee_for_penalty_only():
+    """PENALTY_ONLY preview must keep late_fee_amount so UI does not show ₹0."""
+    principal, profit, penalty = _alloc("50", "PENALTY_ONLY")
+    assert principal == ZERO
+    assert profit == ZERO
+    assert penalty == PENALTY
+
+    payload = {
+        "principal_amount": principal,
+        "profit_amount": profit,
+        "late_fee_amount": penalty,
+        "total_amount": penalty,
+        "installment_count": 1,
+        "unapplied_amount": ZERO,
+        "allocation_mode": "PENALTY_ONLY",
+        "lines": [
+            {
+                "schedule_date": date(2025, 10, 29),
+                "expected_pending": PENALTY,
+                "applied_amount": PENALTY,
+                "remaining_pending": ZERO,
+                "status_after": "PAID",
+                "due_applied": ZERO,
+                "penalty_applied": PENALTY,
+            }
+        ],
+    }
+    parsed = PaymentAllocationPreviewResponse.model_validate(payload)
+    dumped = parsed.model_dump()
+    assert dumped["late_fee_amount"] == PENALTY
+    assert dumped["total_amount"] == PENALTY
+    assert dumped["allocation_mode"] == "PENALTY_ONLY"
+    assert dumped["lines"][0]["penalty_applied"] == PENALTY
+    assert dumped["lines"][0]["due_applied"] == ZERO
