@@ -7,6 +7,11 @@ export async function getCustomers(): Promise<Customer[]> {
   return response.data;
 }
 
+export async function getCustomer(customerId: number): Promise<Customer> {
+  const response = await api.get<Customer>(`/customers/${customerId}`);
+  return response.data;
+}
+
 export async function createCustomer(data: CustomerCreate): Promise<Customer> {
   const response = await api.post<Customer>("/customers/", data);
   return response.data;

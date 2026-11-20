@@ -11,19 +11,22 @@ import {
 import { useAuth } from "./AuthContext";
 import { getFinanceFlowDashboard } from "../services/financeflowDashboardService";
 import { getMyWallet } from "../services/agentWalletService";
+import { getPendingApprovalCount } from "../services/loanApprovalService";
 
 interface NavBadges {
   pendingSettlements: number;
   agentPendingSettlement: boolean;
+  pendingApprovals: number;
   refresh: () => void;
 }
 
 const NavBadgesContext = createContext<NavBadges | null>(null);
 
 export function NavBadgesProvider({ children }: { children: ReactNode }) {
-  const { session, isAuthenticated } = useAuth();
+  const { session, isAuthenticated, hasPermission } = useAuth();
   const [pendingSettlements, setPendingSettlements] = useState(0);
   const [agentPendingSettlement, setAgentPendingSettlement] = useState(false);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
 
   const refresh = useCallback(async () => {
     if (!isAuthenticated || !session) return;
@@ -37,10 +40,19 @@ export function NavBadgesProvider({ children }: { children: ReactNode }) {
         setAgentPendingSettlement(!!w.has_pending_settlement);
         setPendingSettlements(0);
       }
+      if (session.is_owner || hasPermission("loans.approve") || hasPermission("loans")) {
+        try {
+          setPendingApprovals(await getPendingApprovalCount());
+        } catch {
+          setPendingApprovals(0);
+        }
+      } else {
+        setPendingApprovals(0);
+      }
     } catch {
       // non-critical
     }
-  }, [isAuthenticated, session]);
+  }, [isAuthenticated, session, hasPermission]);
 
   useEffect(() => {
     refresh();
@@ -49,8 +61,8 @@ export function NavBadgesProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ pendingSettlements, agentPendingSettlement, refresh }),
-    [pendingSettlements, agentPendingSettlement, refresh]
+    () => ({ pendingSettlements, agentPendingSettlement, pendingApprovals, refresh }),
+    [pendingSettlements, agentPendingSettlement, pendingApprovals, refresh]
   );
 
   return (

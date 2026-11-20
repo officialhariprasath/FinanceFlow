@@ -108,6 +108,7 @@ export default function SettingsPage() {
     code_number_padding: "4",
     customer_code_next: 1,
     loan_code_next: 1,
+    require_loan_approval: false,
   });
 
   const sections = useMemo(() => {
@@ -211,6 +212,7 @@ export default function SettingsPage() {
             code_number_padding: String(data.code_number_padding ?? 4),
             customer_code_next: data.customer_code_next ?? 1,
             loan_code_next: data.loan_code_next ?? 1,
+            require_loan_approval: data.require_loan_approval === true,
           });
         }
         setBackupMeta(await getBackupMeta());
@@ -345,6 +347,7 @@ export default function SettingsPage() {
         customer_code_prefix: prefix.toUpperCase(),
         loan_code_prefix: loanPrefix.toUpperCase(),
         code_number_padding: padding,
+        require_loan_approval: form.require_loan_approval,
       });
       setForm((prev) => ({
         ...prev,
@@ -591,6 +594,25 @@ export default function SettingsPage() {
                         {inp("Default Grace Period (days)", "default_grace_period", "number")}
                         {inp("Maturity Alert Days", "maturity_alert_days", "number")}
                       </div>
+                      <label className="mt-6 flex items-start gap-3 rounded-lg border border-slate-200 p-4">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={form.require_loan_approval}
+                          onChange={(e) =>
+                            setForm({ ...form, require_loan_approval: e.target.checked })
+                          }
+                        />
+                        <span>
+                          <span className="block font-medium text-slate-800">
+                            All new loans need approval
+                          </span>
+                          <span className="text-sm text-slate-500">
+                            Agents submit requests instead of creating live loans. Owner can still
+                            create instantly. Existing loans are unchanged.
+                          </span>
+                        </span>
+                      </label>
                     </div>
                   )}
 

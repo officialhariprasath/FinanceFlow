@@ -26,7 +26,7 @@ function Chevron({ open }: { open: boolean }) {
 
 function Sidebar({ onNavigate }: Props) {
   const { session, hasPermission } = useAuth();
-  const { pendingSettlements, agentPendingSettlement } = useNavBadges();
+  const { pendingSettlements, agentPendingSettlement, pendingApprovals } = useNavBadges();
   const location = useLocation();
 
   function filterItem(item: NavItem): boolean {
@@ -80,6 +80,9 @@ function Sidebar({ onNavigate }: Props) {
     }
     if (to === "/settlements" && agentPendingSettlement) {
       return "!";
+    }
+    if (to === "/approvals" && pendingApprovals > 0) {
+      return pendingApprovals > 9 ? "9+" : String(pendingApprovals);
     }
     return null;
   }

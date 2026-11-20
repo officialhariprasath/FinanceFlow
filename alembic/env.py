@@ -29,6 +29,7 @@ from backend.app.models.owner_cash_account import OwnerCashAccount, OwnerCashTra
 from backend.app.models.email_otp import EmailOtp
 from backend.app.models.loan_renewal import LoanRenewal
 from backend.app.models.finance_settings import FinanceSettings
+from backend.app.models.loan_approval import LoanApprovalRequest
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

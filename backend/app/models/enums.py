@@ -73,6 +73,13 @@ class Permission(str, Enum):
     CUSTOMERS_DELETE = "customers.delete"
     LOANS_CREATE = "loans.create"
     LOANS_EDIT = "loans.edit"
+    LOANS_APPROVE = "loans.approve"
+
+
+class LoanApprovalStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
 
 
 class WalletChannel(str, Enum):

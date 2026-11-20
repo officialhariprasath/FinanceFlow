@@ -111,6 +111,9 @@ class FinanceSettings(Base):
     customer_code_next = Column(Integer, nullable=False, default=1)
     loan_code_next = Column(Integer, nullable=False, default=1)
 
+    # When true, non-owner creates must go through loan approval requests.
+    require_loan_approval = Column(Boolean, nullable=False, default=False)
+
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

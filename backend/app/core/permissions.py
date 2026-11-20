@@ -21,6 +21,7 @@ ROLE_DEFAULT_PERMISSIONS: dict[str, list[str]] = {
         Permission.LOANS.value,
         Permission.LOANS_CREATE.value,
         Permission.LOANS_EDIT.value,
+        Permission.LOANS_APPROVE.value,
         Permission.PAYMENTS.value,
         Permission.SETTLEMENTS.value,
         Permission.CAPITAL.value,

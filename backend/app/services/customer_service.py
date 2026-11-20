@@ -20,6 +20,37 @@ from decimal import Decimal
 from datetime import date
 
 
+_KYC_ATTRS = (
+    "id_type",
+    "id_number",
+    "alternate_phone",
+    "date_of_birth",
+    "gender",
+    "occupation",
+    "business_name",
+    "monthly_income",
+    "area_landmark",
+    "house_ownership",
+    "guarantor_name",
+    "guarantor_phone",
+    "reference1_name",
+    "reference1_phone",
+    "reference2_name",
+    "reference2_phone",
+    "has_other_loans",
+    "other_loans_emi",
+)
+
+
+def _apply_customer_fields(db_customer: Customer, data: CustomerCreate) -> None:
+    db_customer.full_name = data.full_name
+    db_customer.phone = data.phone
+    db_customer.permanent_address = data.permanent_address
+    db_customer.temporary_address = data.temporary_address
+    for attr in _KYC_ATTRS:
+        setattr(db_customer, attr, getattr(data, attr, None))
+
+
 def create_customer(
     db: Session,
     customer: CustomerCreate,
@@ -33,13 +64,10 @@ def create_customer(
     display_code = allocate_display_code(db, finance_owner_id, "customer")
 
     db_customer = Customer(
-        full_name=customer.full_name,
-        phone=customer.phone,
-        permanent_address=customer.permanent_address,
-        temporary_address=customer.temporary_address,
         finance_owner_id=finance_owner_id,
         display_code=display_code,
     )
+    _apply_customer_fields(db_customer, customer)
 
     db.add(db_customer)
     db.commit()
@@ -144,10 +172,7 @@ def update_customer(
         finance_owner_id=finance_owner_id,
     )
 
-    customer.full_name = data.full_name
-    customer.phone = data.phone
-    customer.permanent_address = data.permanent_address
-    customer.temporary_address = data.temporary_address
+    _apply_customer_fields(customer, data)
 
     db.commit()
     db.refresh(customer)

@@ -33,6 +33,7 @@ from backend.app.api.admin_wipe import router as admin_wipe_router
 from backend.app.api.admin_db_export import router as admin_db_export_router
 from backend.app.api.owner_cash import router as owner_cash_router
 from backend.app.api.credit_score import router as credit_score_router
+from backend.app.api.loan_approval import router as loan_approval_router
 
 # -----------------------------
 # FastAPI Application
@@ -77,6 +78,7 @@ app.include_router(admin_wipe_router)
 app.include_router(admin_db_export_router)
 app.include_router(owner_cash_router)
 app.include_router(credit_score_router)
+app.include_router(loan_approval_router)
 
 # -----------------------------
 # Root Endpoint

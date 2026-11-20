@@ -13,6 +13,7 @@ from backend.app.schemas.customer import (
 from backend.app.services.customer_service import (
     create_customer,
     get_customers,
+    get_customer_by_id,
     get_customer_names,
     search_customers,
     get_customer_ledger,
@@ -90,6 +91,22 @@ def get_customer_names_endpoint(
         db=db,
         finance_owner_id=ctx.finance_owner_id,
     )
+
+@router.get(
+    "/{customer_id}",
+    response_model=CustomerResponse,
+)
+def get_customer_endpoint(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    ctx: AuthContext = Depends(require_permissions(["customers"])),
+):
+    return get_customer_by_id(
+        db=db,
+        customer_id=customer_id,
+        finance_owner_id=ctx.finance_owner_id,
+    )
+
 
 @router.put(
     "/{customer_id}",

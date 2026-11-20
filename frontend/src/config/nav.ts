@@ -46,6 +46,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/customers", label: "Customers", permission: "customers" },
       { to: "/loans", label: "Loans", permission: "loans" },
+      { to: "/approvals", label: "Approvals", permission: "loans" },
       { to: "/payments", label: "Payments", permission: "payments" },
       { to: "/renewals", label: "Renewals", permission: "loans" },
       { to: "/defaults", label: "Defaults", permission: "loans", ownerOnly: true },
@@ -98,6 +99,7 @@ export const PAGE_TITLES: Record<string, string> = {
   "/settlements": "My Settlement",
   "/customers": "Customers",
   "/loans": "Loans",
+  "/approvals": "Loan Approvals",
   "/payments": "Payments",
   "/capital": "Capital",
   "/profit": "Profit",

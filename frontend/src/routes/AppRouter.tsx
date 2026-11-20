@@ -12,6 +12,7 @@ import LoansPage from "../pages/loans/LoansPage";
 import LoanDetailPage from "../pages/loans/LoanDetailPage";
 import PaymentsPage from "../pages/payments/PaymentsPage";
 import RenewalsPage from "../pages/renewals/RenewalsPage";
+import LoanApprovalsPage from "../pages/approvals/LoanApprovalsPage";
 import SettingsPage from "../pages/settings/SettingsPage";
 import NotificationsPage from "../pages/notifications/NotificationsPage";
 import CapitalPage from "../pages/capital/CapitalPage";
@@ -155,6 +156,10 @@ export default function AppRouter() {
         <Route
           path="/loans/:loanId"
           element={<ProtectedRoute><LoanDetailPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/approvals"
+          element={<ProtectedRoute><LoanApprovalsPage /></ProtectedRoute>}
         />
         <Route
           path="/payments"

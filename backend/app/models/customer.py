@@ -1,4 +1,13 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 
 from backend.app.database.base import Base
@@ -38,6 +47,26 @@ class Customer(Base):
 
     permanent_address = Column(String(300), nullable=True)
     temporary_address = Column(String(300), nullable=True)
+
+    # KYC (nullable — existing customers stay empty until edited)
+    id_type = Column(String(20), nullable=True)
+    id_number = Column(String(50), nullable=True)
+    alternate_phone = Column(String(15), nullable=True)
+    date_of_birth = Column(Date, nullable=True)
+    gender = Column(String(20), nullable=True)
+    occupation = Column(String(30), nullable=True)
+    business_name = Column(String(150), nullable=True)
+    monthly_income = Column(Numeric(12, 2), nullable=True)
+    area_landmark = Column(String(200), nullable=True)
+    house_ownership = Column(String(20), nullable=True)
+    guarantor_name = Column(String(100), nullable=True)
+    guarantor_phone = Column(String(15), nullable=True)
+    reference1_name = Column(String(100), nullable=True)
+    reference1_phone = Column(String(15), nullable=True)
+    reference2_name = Column(String(100), nullable=True)
+    reference2_phone = Column(String(15), nullable=True)
+    has_other_loans = Column(Boolean, nullable=True)
+    other_loans_emi = Column(Numeric(12, 2), nullable=True)
 
     finance_owner = relationship(
         "FinanceOwner",

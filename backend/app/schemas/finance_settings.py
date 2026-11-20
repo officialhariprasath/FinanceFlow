@@ -50,6 +50,8 @@ class FinanceSettingsBase(BaseModel):
     loan_code_prefix: Optional[str] = Field(None, min_length=2, max_length=12)
     code_number_padding: Optional[int] = Field(None, ge=3, le=8)
 
+    require_loan_approval: Optional[bool] = None
+
     @field_validator("customer_code_prefix", "loan_code_prefix", mode="before")
     @classmethod
     def normalize_code_prefix(cls, value):
