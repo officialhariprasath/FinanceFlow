@@ -53,7 +53,7 @@ def request(method, path, data=None, token=None, form=False):
             headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=180) as resp:
             raw = resp.read().decode()
             return resp.status, json.loads(raw) if raw else {}
     except urllib.error.HTTPError as e:
@@ -78,17 +78,23 @@ def check(name: str, condition: bool, detail="") -> bool:
 
 def login(email, password, agent=False):
     path = "/agents/login" if agent else "/finance-owners/login"
-    status, resp = request(
-        "POST", path, f"username={email}&password={password}", form=True
-    )
-    if status != 200:
-        raise RuntimeError(f"Login failed ({email}): {status} {resp}")
-    return resp["access_token"]
+    last = None
+    for attempt in range(1, 4):
+        status, resp = request(
+            "POST", path, f"username={email}&password={password}", form=True
+        )
+        if status == 200:
+            return resp["access_token"]
+        last = (status, resp)
+        # Render free tier cold-start / transient timeouts
+        time.sleep(5 * attempt)
+    raise RuntimeError(f"Login failed ({email}): {last[0]} {last[1]}")
 
 
 def phone(n: int) -> str:
-    # 10-digit unique-ish mobiles in 9xxxxxxxxx range
-    return f"9{int(SUFFIX):07d}{n % 10}"
+    # Always exactly 10 digits (9 + 8 + 1), unique per run/n
+    body = f"{int(SUFFIX) % 100_000_000:08d}"
+    return f"9{body}{n % 10}"
 
 
 def full_kyc_payload(name: str, primary: str) -> dict:
@@ -193,30 +199,34 @@ def main():
             one,
         )
 
+    # Resolve an agent early (required when agents exist on this tenant)
+    agent_id = None
+    s, agents = request("GET", "/agents/", token=owner)
+    if s == 200 and isinstance(agents, list) and agents:
+        agent_id = agents[0].get("id")
+
     # --- Owner live create still works ---
     if cust_id:
         today = date.today().isoformat()
         due = (date.today() + timedelta(days=9)).isoformat()
-        s, live = request(
-            "POST",
-            "/loans/",
-            {
-                "customer_id": cust_id,
-                "principal_amount": "1000",
-                "interest_method": "DAILY_COLLECTION",
-                "interest_rate": "0",
-                "issue_date": today,
-                "due_date": due,
-                "collection_model": "DAILY_COLLECTION",
-                "collection_frequency": "DAILY",
-                "installment_count": 10,
-                "due_start_date": today,
-                "daily_payment": "120.00",
-                "daily_principal": "100.00",
-                "daily_profit": "20.00",
-            },
-            token=owner,
-        )
+        live_payload = {
+            "customer_id": cust_id,
+            "principal_amount": "1000",
+            "interest_method": "DAILY_COLLECTION",
+            "interest_rate": "0",
+            "issue_date": today,
+            "due_date": due,
+            "collection_model": "DAILY_COLLECTION",
+            "collection_frequency": "DAILY",
+            "installment_count": 10,
+            "due_start_date": today,
+            "daily_payment": "120.00",
+            "daily_principal": "100.00",
+            "daily_profit": "20.00",
+        }
+        if agent_id:
+            live_payload["collection_agent_id"] = agent_id
+        s, live = request("POST", "/loans/", live_payload, token=owner)
         check(
             "Owner live create still works",
             s == 201 and live.get("status") == "ACTIVE",
@@ -277,12 +287,6 @@ def main():
     )
     cust2_id = cust2.get("id") if s == 201 else None
     check("Second KYC customer for approval", bool(cust2_id), cust2)
-
-    agent_id = None
-    if agent_token:
-        s, agents = request("GET", "/agents/", token=owner)
-        if s == 200 and isinstance(agents, list) and agents:
-            agent_id = agents[0].get("id")
 
     req_id = None
     if cust2_id:
