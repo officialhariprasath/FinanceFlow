@@ -72,7 +72,7 @@ export default function CustomerFormPage() {
 
   return (
     <MainLayout>
-      <div className="mx-auto max-w-3xl space-y-4">
+      <div className="mx-auto w-full max-w-4xl space-y-4 px-1 sm:px-0">
         <button
           type="button"
           className="text-sm text-blue-600 hover:underline"
@@ -80,18 +80,20 @@ export default function CustomerFormPage() {
         >
           ← Back
         </button>
-        <h1 className="page-title">
-          {isEdit
-            ? "Edit customer"
-            : after === "new-loan"
-              ? "New borrower"
-              : "Add customer"}
-        </h1>
-        <p className="page-subtitle">
-          {after === "new-loan"
-            ? "Save the borrower, then continue to create their loan."
-            : "Complete borrower KYC. Required fields follow Settings → Borrower form."}
-        </p>
+        <div className="hidden md:block">
+          <h1 className="page-title">
+            {isEdit
+              ? "Edit customer"
+              : after === "new-loan"
+                ? "New borrower"
+                : "Add customer"}
+          </h1>
+          <p className="page-subtitle">
+            {after === "new-loan"
+              ? "Save the borrower, then continue to create their loan."
+              : "Complete borrower KYC. Required fields follow Settings → Borrower form."}
+          </p>
+        </div>
         {error && (
           <div className="rounded-lg alert-error border p-3 text-sm text-red-700">
             {error}

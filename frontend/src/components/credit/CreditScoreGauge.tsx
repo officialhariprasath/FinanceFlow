@@ -30,9 +30,18 @@ export default function CreditScoreGauge({
   const value = score?.score ?? 0;
 
   useEffect(() => {
+    // Needle always starts at 0, then animates to the live score.
     setAnimated(0);
-    const t = window.setTimeout(() => setAnimated(clampScore(value)), 40);
-    return () => window.clearTimeout(t);
+    let raf2 = 0;
+    const raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        setAnimated(clampScore(value));
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      window.cancelAnimationFrame(raf2);
+    };
   }, [value]);
 
   // Extra top pad so tick labels don't clip; pivot near bottom
@@ -132,7 +141,7 @@ export default function CreditScoreGauge({
           );
         })}
 
-        {/* Score in hollow (drawn under needle so arc stays visible) */}
+        {/* Score only — scale ends already show 0 and 1000 */}
         <text
           x={cx}
           y={scoreY}
@@ -142,16 +151,6 @@ export default function CreditScoreGauge({
           style={{ fontSize: scoreFont, fontWeight: 700 }}
         >
           {score.score}
-        </text>
-        <text
-          x={cx}
-          y={scoreY + scoreFont * 0.55}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fill="#94a3b8"
-          style={{ fontSize: Math.max(11, size * 0.042), fontWeight: 500 }}
-        >
-          / {SCORE_MAX}
         </text>
 
         <line
@@ -164,7 +163,7 @@ export default function CreditScoreGauge({
           strokeLinecap="round"
           style={{
             transition:
-              "x2 0.9s cubic-bezier(0.22,1,0.36,1), y2 0.9s cubic-bezier(0.22,1,0.36,1)",
+              "x2 1.15s cubic-bezier(0.22,1,0.36,1), y2 1.15s cubic-bezier(0.22,1,0.36,1)",
           }}
         />
         <circle cx={cx} cy={cy} r={size * 0.038} fill="#0f172a" />

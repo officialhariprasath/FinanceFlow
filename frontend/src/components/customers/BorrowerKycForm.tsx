@@ -408,105 +408,16 @@ export default function BorrowerKycForm({
   }
 
   const fieldCls = (key: string) =>
-    `input-field px-4 py-3 ${errors[key] ? "input-field-error" : ""}`;
-
-  function AddressBlock({
-    prefix,
-    title,
-  }: {
-    prefix: "" | "temp_";
-    title: string;
-  }) {
-    const line1 = prefix ? "temp_addr_line1" : "addr_line1";
-    const line2 = prefix ? "temp_addr_line2" : "addr_line2";
-    const city = prefix ? "temp_city" : "city";
-    const state = prefix ? "temp_state" : "state";
-    const postal = prefix ? "temp_postal_code" : "postal_code";
-    const comment = prefix ? "temp_address_comment" : "address_comment";
-    const ruleKey = (k: string) => (prefix ? k : k);
-
-    return (
-      <div className="space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-600">
-        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{title}</p>
-        {enabled("addr_line1") && (
-          <Field label="Address" required={!prefix && required("addr_line1")} error={errors[line1]}>
-            <input
-              className={fieldCls(line1)}
-              value={form[line1 as keyof FormState] as string}
-              onChange={(e) => setField(line1 as keyof FormState, e.target.value)}
-            />
-          </Field>
-        )}
-        {enabled("addr_line2") && (
-          <Field label="Street address line 2" error={errors[line2]}>
-            <input
-              className={fieldCls(line2)}
-              value={form[line2 as keyof FormState] as string}
-              onChange={(e) => setField(line2 as keyof FormState, e.target.value)}
-            />
-          </Field>
-        )}
-        <div className="grid gap-3 sm:grid-cols-2">
-          {enabled("city") && (
-            <Field label="City" required={!prefix && required("city")} error={errors[city]}>
-              <input
-                className={fieldCls(city)}
-                value={form[city as keyof FormState] as string}
-                onChange={(e) => setField(city as keyof FormState, e.target.value)}
-              />
-            </Field>
-          )}
-          {enabled("state") && (
-            <Field
-              label="State / Province"
-              required={!prefix && required("state")}
-              error={errors[state]}
-            >
-              <input
-                className={fieldCls(state)}
-                value={form[state as keyof FormState] as string}
-                onChange={(e) => setField(state as keyof FormState, e.target.value)}
-              />
-            </Field>
-          )}
-        </div>
-        {enabled("postal_code") && (
-          <Field
-            label="Postal / Zip Code"
-            required={!prefix && required("postal_code")}
-            error={errors[postal]}
-          >
-            <input
-              className={fieldCls(postal)}
-              value={form[postal as keyof FormState] as string}
-              onChange={(e) => setField(postal as keyof FormState, e.target.value)}
-            />
-          </Field>
-        )}
-        {enabled("address_comment") && (
-          <Field label="Comment" error={errors[comment]}>
-            <textarea
-              rows={2}
-              className={fieldCls(comment)}
-              value={form[comment as keyof FormState] as string}
-              onChange={(e) => setField(comment as keyof FormState, e.target.value)}
-            />
-          </Field>
-        )}
-        {/* silence unused */}
-        {false && ruleKey("addr_line1")}
-      </div>
-    );
-  }
+    `input-field w-full px-4 py-3 ${errors[key] ? "input-field-error" : ""}`;
 
   const shell = embedded
     ? "space-y-4"
-    : "surface-card flex max-h-[90dvh] flex-col overflow-hidden p-0";
+    : "surface-card flex flex-col overflow-hidden p-0 md:shadow-sm";
 
   return (
     <div className={shell}>
       {!embedded && (
-        <div className="shrink-0 border-b border-slate-200 px-6 py-4 dark:border-slate-700">
+        <div className="shrink-0 border-b border-slate-200 px-5 py-4 sm:px-8 dark:border-slate-700">
           <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">
             {initialData ? "Edit borrower" : "Add borrower"}
           </h2>
@@ -522,7 +433,7 @@ export default function BorrowerKycForm({
         </p>
       )}
 
-      <div className="flex items-center gap-2 px-6 pt-4">
+      <div className={`flex items-center gap-2 pt-4 ${embedded ? "" : "px-5 sm:px-8"}`}>
         {STEP_LABELS.map((label, i) => {
           const n = i + 1;
           const active = n === step;
@@ -549,7 +460,16 @@ export default function BorrowerKycForm({
       </div>
 
       <form onSubmit={handleFinalSubmit} className="flex min-h-0 flex-1 flex-col" noValidate>
-        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+        <div
+          className={`flex-1 space-y-5 py-5 ${
+            embedded ? "overflow-y-auto" : "px-5 sm:px-8 md:space-y-6"
+          }`}
+        >
+          {Object.keys(errors).length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              Please fix the highlighted fields to continue.
+            </div>
+          )}
           {step === 1 && (
             <>
               <Field label="Full name" required error={errors.full_name}>
@@ -557,6 +477,7 @@ export default function BorrowerKycForm({
                   className={fieldCls("full_name")}
                   value={form.full_name}
                   onChange={(e) => setField("full_name", e.target.value)}
+                  autoComplete="name"
                 />
               </Field>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -654,7 +575,16 @@ export default function BorrowerKycForm({
 
           {step === 2 && (
             <>
-              <AddressBlock prefix="" title="Permanent address" />
+              <AddressFields
+                prefix=""
+                title="Permanent address"
+                form={form}
+                errors={errors}
+                fieldCls={fieldCls}
+                enabled={enabled}
+                required={required}
+                onChange={setField}
+              />
               {enabled("temporary_address_block") && (
                 <>
                   <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
@@ -666,7 +596,16 @@ export default function BorrowerKycForm({
                     Current address same as permanent
                   </label>
                   {!form.same_as_permanent && (
-                    <AddressBlock prefix="temp_" title="Current / temporary address" />
+                    <AddressFields
+                      prefix="temp_"
+                      title="Current / temporary address"
+                      form={form}
+                      errors={errors}
+                      fieldCls={fieldCls}
+                      enabled={enabled}
+                      required={required}
+                      onChange={setField}
+                    />
                   )}
                 </>
               )}
@@ -879,7 +818,11 @@ export default function BorrowerKycForm({
           )}
         </div>
 
-        <div className="sticky bottom-0 flex shrink-0 gap-3 border-t border-slate-200 bg-white px-6 py-4 dark:border-slate-700 dark:bg-slate-800">
+        <div
+          className={`sticky bottom-0 flex shrink-0 gap-3 border-t border-slate-200 bg-white py-4 dark:border-slate-700 dark:bg-slate-800 ${
+            embedded ? "px-0" : "px-5 sm:px-8"
+          }`}
+        >
           <button
             type="button"
             onClick={step === 1 ? onCancel : goBack}
@@ -889,7 +832,11 @@ export default function BorrowerKycForm({
             {step === 1 ? "Cancel" : "Back"}
           </button>
           {step < 3 ? (
-            <button type="button" onClick={goNext} className="btn-primary min-h-11 flex-1">
+            <button
+              type="button"
+              onClick={goNext}
+              className="btn-primary min-h-11 flex-1"
+            >
               Continue
             </button>
           ) : (
@@ -921,13 +868,120 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className="label-field">
         {label}
         {required && <span className="text-red-500"> *</span>}
       </label>
       {children}
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+function AddressFields({
+  prefix,
+  title,
+  form,
+  errors,
+  fieldCls,
+  enabled,
+  required,
+  onChange,
+}: {
+  prefix: "" | "temp_";
+  title: string;
+  form: FormState;
+  errors: Record<string, string>;
+  fieldCls: (key: string) => string;
+  enabled: (key: string) => boolean;
+  required: (key: string) => boolean;
+  onChange: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
+}) {
+  const line1 = prefix ? "temp_addr_line1" : "addr_line1";
+  const line2 = prefix ? "temp_addr_line2" : "addr_line2";
+  const city = prefix ? "temp_city" : "city";
+  const state = prefix ? "temp_state" : "state";
+  const postal = prefix ? "temp_postal_code" : "postal_code";
+  const comment = prefix ? "temp_address_comment" : "address_comment";
+
+  return (
+    <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-600 dark:bg-slate-800/40 sm:p-5">
+      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</p>
+      {enabled("addr_line1") && (
+        <Field
+          label="Address / street"
+          required={!prefix && required("addr_line1")}
+          error={errors[line1]}
+        >
+          <input
+            className={fieldCls(line1)}
+            value={form[line1]}
+            onChange={(e) => onChange(line1, e.target.value)}
+            autoComplete="street-address"
+          />
+        </Field>
+      )}
+      {enabled("addr_line2") && (
+        <Field label="Street address line 2" error={errors[line2]}>
+          <input
+            className={fieldCls(line2)}
+            value={form[line2]}
+            onChange={(e) => onChange(line2, e.target.value)}
+          />
+        </Field>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {enabled("city") && (
+          <Field label="City" required={!prefix && required("city")} error={errors[city]}>
+            <input
+              className={fieldCls(city)}
+              value={form[city]}
+              onChange={(e) => onChange(city, e.target.value)}
+              autoComplete="address-level2"
+            />
+          </Field>
+        )}
+        {enabled("state") && (
+          <Field
+            label="State / Province"
+            required={!prefix && required("state")}
+            error={errors[state]}
+          >
+            <input
+              className={fieldCls(state)}
+              value={form[state]}
+              onChange={(e) => onChange(state, e.target.value)}
+              autoComplete="address-level1"
+            />
+          </Field>
+        )}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {enabled("postal_code") && (
+          <Field
+            label="Postal / Zip Code"
+            required={!prefix && required("postal_code")}
+            error={errors[postal]}
+          >
+            <input
+              className={fieldCls(postal)}
+              value={form[postal]}
+              onChange={(e) => onChange(postal, e.target.value)}
+              autoComplete="postal-code"
+            />
+          </Field>
+        )}
+        {enabled("address_comment") && (
+          <Field label="Comment" error={errors[comment]}>
+            <input
+              className={fieldCls(comment)}
+              value={form[comment]}
+              onChange={(e) => onChange(comment, e.target.value)}
+            />
+          </Field>
+        )}
+      </div>
     </div>
   );
 }

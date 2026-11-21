@@ -218,6 +218,120 @@ def main() -> int:
     st, customers = request("GET", "/customers/", token=token)
     check("List customers", st == 200 and isinstance(customers, list), customers)
 
+    SETTINGS_KEYS = (
+        "business_name",
+        "owner_name",
+        "phone",
+        "email",
+        "address",
+        "default_interest_method",
+        "default_interest_rate",
+        "default_loan_duration",
+        "default_grace_period",
+        "currency",
+        "date_format",
+        "timezone",
+        "maturity_alert_days",
+        "daily_grace_installments",
+        "daily_penalty_per_installment",
+        "weekly_grace_installments",
+        "weekly_penalty_per_installment",
+        "bi_weekly_grace_installments",
+        "bi_weekly_penalty_per_installment",
+        "monthly_grace_installments",
+        "monthly_penalty_per_installment",
+        "score_enabled",
+        "score_band_poor_max",
+        "score_band_fair_max",
+        "score_band_good_max",
+        "customer_code_prefix",
+        "loan_code_prefix",
+        "code_number_padding",
+        "require_loan_approval",
+        "kyc_field_rules",
+        "occupation_options",
+    )
+
+    def settings_payload(base: dict, **overrides):
+        body = {k: base.get(k) for k in SETTINGS_KEYS}
+        body.update(overrides)
+        return body
+
+    # Borrower form settings round-trip
+    st, settings = request("GET", "/settings/", token=token)
+    orig_rules = (settings or {}).get("kyc_field_rules") or {}
+    orig_occ = (settings or {}).get("occupation_options") or []
+    patched_rules = dict(orig_rules) if isinstance(orig_rules, dict) else {}
+    patched_rules["address_comment"] = {"enabled": True, "required": False}
+    default_occ = [
+        {"value": "SALARY", "label": "Salary"},
+        {"value": "SHOP", "label": "Shop"},
+        {"value": "DAILY_WAGE", "label": "Daily wage"},
+        {"value": "OTHER", "label": "Other"},
+    ]
+    st, saved = request(
+        "PUT",
+        "/settings/",
+        settings_payload(
+            settings or {},
+            kyc_field_rules=patched_rules,
+            occupation_options=orig_occ or default_occ,
+        ),
+        token=token,
+    )
+    check("Save borrower form settings", st == 200, saved)
+    st, settings2 = request("GET", "/settings/", token=token)
+    check(
+        "Borrower settings persist",
+        isinstance((settings2 or {}).get("kyc_field_rules"), dict)
+        and "address_comment" in ((settings2 or {}).get("kyc_field_rules") or {}),
+        settings2,
+    )
+
+    # Score band settings → refresh changes band label for gauge
+    if cid:
+        st, before = request(
+            "POST", f"/credit-score/customers/{cid}/refresh", {}, token=token
+        )
+        band_before = (before or {}).get("band")
+        check("Score refresh before band tweak", st == 200, before)
+        st, _ = request(
+            "PUT",
+            "/settings/",
+            settings_payload(
+                settings2 or {},
+                score_band_poor_max=900,
+                score_band_fair_max=940,
+                score_band_good_max=970,
+            ),
+            token=token,
+        )
+        check("Tighten score bands", st == 200, _)
+        st, after = request(
+            "POST", f"/credit-score/customers/{cid}/refresh", {}, token=token
+        )
+        band_after = (after or {}).get("band")
+        score_val = (after or {}).get("score")
+        # Thick-file scores under 900 become POOR; thin-file stays THIN_FILE
+        expected_ok = band_after in ("POOR", "THIN_FILE") or (
+            isinstance(score_val, int) and score_val > 900 and band_after == band_before
+        )
+        check(
+            "Band reflects settings after refresh",
+            st == 200 and expected_ok,
+            {"before": band_before, "after": band_after, "score": score_val},
+        )
+        request(
+            "PUT",
+            "/settings/",
+            settings_payload(
+                settings or {},
+                kyc_field_rules=orig_rules or patched_rules,
+                occupation_options=orig_occ or default_occ,
+            ),
+            token=token,
+        )
+
     print(f"\n=== Results: {len(PASSES)} passed, {len(FAILURES)} failed ===")
     if FAILURES:
         print("Failed:", ", ".join(FAILURES))

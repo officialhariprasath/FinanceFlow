@@ -423,7 +423,9 @@ export default function SettingsPage() {
 
   const showSave =
     canEditBusiness &&
-    ["business", "loans", "penalties", "score", "ids", "regional"].includes(section);
+    ["business", "loans", "penalties", "score", "ids", "regional", "borrower"].includes(
+      section
+    );
 
   return (
     <MainLayout>

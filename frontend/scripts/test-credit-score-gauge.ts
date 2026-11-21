@@ -81,4 +81,8 @@ const innerArcTop = cy - innerR;
 assert.ok(scoreY > innerArcTop, "score baseline must be below inner arc top");
 assert.ok(scoreY < cy, "score baseline must be above hub");
 
+// Ends already label 0 and 1000 — UI must not require a "/ 1000" subtitle
+assert.equal(SCORE_MIN, 0);
+assert.equal(SCORE_MAX, 1000);
+
 console.log("PASS: credit score gauge geometry (", GAUGE_SEGMENTS.length, "segments)");
