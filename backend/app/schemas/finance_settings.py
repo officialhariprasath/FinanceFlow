@@ -52,6 +52,9 @@ class FinanceSettingsBase(BaseModel):
 
     require_loan_approval: Optional[bool] = None
 
+    kyc_field_rules: Optional[dict] = None
+    occupation_options: Optional[list] = None
+
     @field_validator("customer_code_prefix", "loan_code_prefix", mode="before")
     @classmethod
     def normalize_code_prefix(cls, value):

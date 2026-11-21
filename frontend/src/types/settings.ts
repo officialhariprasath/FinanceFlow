@@ -40,6 +40,8 @@ export interface FinanceSettings {
   customer_code_next?: number | null;
   loan_code_next?: number | null;
   require_loan_approval?: boolean | null;
+  kyc_field_rules?: Record<string, { enabled: boolean; required: boolean }> | null;
+  occupation_options?: { value: string; label: string }[] | null;
   /** Set on save when installment loans are backfilled from these settings. */
   penalty_loans_updated?: number | null;
 }

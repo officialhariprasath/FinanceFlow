@@ -101,15 +101,33 @@ export default function CustomerKycDetails({ customer, compact = false }: Props)
         <Row label="ID number" value={labelOrDash(customer.id_number)} />
       </Section>
 
-      <Section title="Address & work">
+      <Section title="Permanent address">
         <Row
-          label="Permanent address"
-          value={labelOrDash(customer.permanent_address)}
+          label="Address"
+          value={labelOrDash(customer.addr_line1 || customer.permanent_address)}
         />
+        <Row label="Line 2" value={labelOrDash(customer.addr_line2)} />
+        <Row label="City" value={labelOrDash(customer.city)} />
+        <Row label="State" value={labelOrDash(customer.state)} />
+        <Row label="Postal" value={labelOrDash(customer.postal_code)} />
+        <Row label="Comment" value={labelOrDash(customer.address_comment)} />
+      </Section>
+
+      <Section title="Current address">
         <Row
-          label="Current address"
-          value={labelOrDash(customer.temporary_address)}
+          label="Address"
+          value={labelOrDash(
+            customer.temp_addr_line1 || customer.temporary_address
+          )}
         />
+        <Row label="Line 2" value={labelOrDash(customer.temp_addr_line2)} />
+        <Row label="City" value={labelOrDash(customer.temp_city)} />
+        <Row label="State" value={labelOrDash(customer.temp_state)} />
+        <Row label="Postal" value={labelOrDash(customer.temp_postal_code)} />
+        <Row label="Comment" value={labelOrDash(customer.temp_address_comment)} />
+      </Section>
+
+      <Section title="Work">
         <Row label="Area / landmark" value={labelOrDash(customer.area_landmark)} />
         <Row
           label="House"
@@ -118,6 +136,10 @@ export default function CustomerKycDetails({ customer, compact = false }: Props)
         <Row
           label="Occupation"
           value={labelOrDash(customer.occupation, OCCUPATION_LABELS)}
+        />
+        <Row
+          label="Occupation detail"
+          value={labelOrDash(customer.occupation_detail)}
         />
         <Row label="Business name" value={labelOrDash(customer.business_name)} />
         <Row

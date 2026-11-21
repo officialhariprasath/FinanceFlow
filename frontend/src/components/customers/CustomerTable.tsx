@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Customer } from "../../types/customer";
 import ScrollableTable from "../common/ScrollableTable";
@@ -10,19 +11,16 @@ import {
 type CustomerTableProps = {
   customers: Customer[];
   onEdit: (customer: Customer) => void;
-  onDelete: (customer: Customer) => void;
   canEdit?: boolean;
-  canDelete?: boolean;
 };
 
 function CustomerTable({
   customers,
   onEdit,
-  onDelete,
   canEdit = true,
-  canDelete = true,
 }: CustomerTableProps) {
   const navigate = useNavigate();
+  const [menuId, setMenuId] = useState<number | null>(null);
 
   if (customers.length === 0) {
     return (
@@ -32,73 +30,97 @@ function CustomerTable({
     );
   }
 
-  return (
-    <div className="surface-card">
-      {/* Phone: card layout */}
-      <div className="space-y-3 p-4 sm:hidden">
-        {customers.map((customer) => (
-          <div
-            key={customer.id}
-            className="rounded-lg border border-slate-200 p-4 dark:border-slate-600"
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="font-semibold text-slate-800 dark:text-slate-100">
-                {customer.full_name}
-              </p>
-              {(() => {
-                const chip = kycStatusLabel(customer);
-                return (
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      chip.tone === "ok"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {chip.label}
-                  </span>
-                );
-              })()}
-            </div>
-            <p className="text-sm text-muted">{customer.phone}</p>
-            {customer.occupation && (
-              <p className="text-xs text-muted">
-                {labelOrDash(customer.occupation, OCCUPATION_LABELS)}
-                {customer.area_landmark ? ` · ${customer.area_landmark}` : ""}
-              </p>
-            )}
-            <p className="mt-1 text-xs text-muted line-clamp-2">
-              {customer.permanent_address || "—"}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
+  function Actions({ customer }: { customer: Customer }) {
+    const open = menuId === customer.id;
+    return (
+      <div
+        className="relative inline-block text-left"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
+          onClick={() => setMenuId(open ? null : customer.id)}
+        >
+          Actions
+        </button>
+        {open && (
+          <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
+            <button
+              type="button"
+              className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
+              onClick={() => {
+                setMenuId(null);
+                navigate(`/customers/${customer.id}/ledger`);
+              }}
+            >
+              View
+            </button>
+            {canEdit && (
               <button
-                onClick={() => navigate(`/customers/${customer.id}/ledger`)}
-                className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white"
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
+                onClick={() => {
+                  setMenuId(null);
+                  onEdit(customer);
+                }}
               >
-                View
+                Edit
               </button>
-              {canEdit && (
-                <button
-                  onClick={() => onEdit(customer)}
-                  className="rounded bg-amber-500 px-3 py-1.5 text-xs font-medium text-white"
-                >
-                  Edit
-                </button>
-              )}
-              {canDelete && (
-                <button
-                  onClick={() => onDelete(customer)}
-                  className="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white"
-                >
-                  Delete
-                </button>
-              )}
-            </div>
+            )}
           </div>
-        ))}
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="surface-card" onClick={() => setMenuId(null)}>
+      <div className="space-y-3 p-4 sm:hidden">
+        {customers.map((customer) => {
+          const chip = kycStatusLabel(customer);
+          return (
+            <div
+              key={customer.id}
+              className="cursor-pointer rounded-lg border border-slate-200 p-4 dark:border-slate-600"
+              onClick={() => navigate(`/customers/${customer.id}/ledger`)}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-slate-800 dark:text-slate-100">
+                      {customer.full_name}
+                    </p>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        chip.tone === "ok"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {chip.label}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted">{customer.phone}</p>
+                  {customer.occupation && (
+                    <p className="text-xs text-muted">
+                      {labelOrDash(customer.occupation, OCCUPATION_LABELS)}
+                      {customer.area_landmark
+                        ? ` · ${customer.area_landmark}`
+                        : ""}
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-muted line-clamp-2">
+                    {customer.permanent_address || "—"}
+                  </p>
+                </div>
+                <Actions customer={customer} />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* sm+: scrollable table */}
       <div className="hidden sm:block">
         <p className="table-scroll-hint">Swipe sideways to see all columns</p>
         <ScrollableTable>
@@ -111,81 +133,60 @@ function CustomerTable({
                 <th>Work / Area</th>
                 <th>KYC</th>
                 <th>Permanent Address</th>
-                <th>Temporary Address</th>
-                <th className="text-center">Actions</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {customers.map((customer) => (
-                <tr
-                  key={customer.id}
-                  className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50"
-                >
-                  <td className="text-muted">{customer.display_code || `#${customer.id}`}</td>
-                  <td className="font-medium text-slate-800 dark:text-slate-100">
-                    {customer.full_name}
-                  </td>
-                  <td className="text-muted">{customer.phone}</td>
-                  <td className="text-muted">
-                    {customer.occupation || customer.area_landmark
-                      ? [
-                          customer.occupation
-                            ? labelOrDash(customer.occupation, OCCUPATION_LABELS)
-                            : null,
-                          customer.area_landmark || null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")
-                      : "—"}
-                  </td>
-                  <td>
-                    {(() => {
-                      const chip = kycStatusLabel(customer);
-                      return (
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            chip.tone === "ok"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-slate-100 text-slate-500"
-                          }`}
-                        >
-                          {chip.label}
-                        </span>
-                      );
-                    })()}
-                  </td>
-                  <td className="text-muted">{customer.permanent_address || "—"}</td>
-                  <td className="text-muted">{customer.temporary_address || "—"}</td>
-                  <td>
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() =>
-                          navigate(`/customers/${customer.id}/ledger`)
-                        }
-                        className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+              {customers.map((customer) => {
+                const chip = kycStatusLabel(customer);
+                return (
+                  <tr
+                    key={customer.id}
+                    onClick={() => navigate(`/customers/${customer.id}/ledger`)}
+                    className="cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                  >
+                    <td className="text-muted">
+                      {customer.display_code || `#${customer.id}`}
+                    </td>
+                    <td className="font-medium text-slate-800 dark:text-slate-100">
+                      {customer.full_name}
+                    </td>
+                    <td className="text-muted">{customer.phone}</td>
+                    <td className="text-muted">
+                      {customer.occupation || customer.area_landmark
+                        ? [
+                            customer.occupation
+                              ? labelOrDash(
+                                  customer.occupation,
+                                  OCCUPATION_LABELS
+                                )
+                              : null,
+                            customer.area_landmark || null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")
+                        : "—"}
+                    </td>
+                    <td>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          chip.tone === "ok"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
                       >
-                        View
-                      </button>
-                      {canEdit && (
-                        <button
-                          onClick={() => onEdit(customer)}
-                          className="rounded bg-amber-500 px-3 py-1 text-sm font-medium text-white hover:bg-amber-600"
-                        >
-                          Edit
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          onClick={() => onDelete(customer)}
-                          className="rounded bg-red-600 px-3 py-1 text-sm font-medium text-white hover:bg-red-700"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {chip.label}
+                      </span>
+                    </td>
+                    <td className="text-muted">
+                      {customer.permanent_address || "—"}
+                    </td>
+                    <td className="text-right">
+                      <Actions customer={customer} />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </ScrollableTable>

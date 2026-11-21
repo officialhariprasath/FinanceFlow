@@ -1,12 +1,11 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from typing import Optional, List
+from typing import Optional, List, Any
 from decimal import Decimal
-from datetime import date, datetime
+from datetime import date
 
 
 ID_TYPES = {"AADHAAR", "VOTER", "PAN", "DL"}
 GENDERS = {"MALE", "FEMALE", "OTHER"}
-OCCUPATIONS = {"SALARY", "SHOP", "DAILY_WAGE", "OTHER"}
 HOUSE_OWNERSHIPS = {"OWN", "RENT"}
 
 
@@ -17,6 +16,7 @@ class CustomerKycFields(BaseModel):
     date_of_birth: Optional[date] = None
     gender: Optional[str] = None
     occupation: Optional[str] = None
+    occupation_detail: Optional[str] = None
     business_name: Optional[str] = None
     monthly_income: Optional[Decimal] = None
     area_landmark: Optional[str] = None
@@ -29,6 +29,19 @@ class CustomerKycFields(BaseModel):
     reference2_phone: Optional[str] = None
     has_other_loans: Optional[bool] = None
     other_loans_emi: Optional[Decimal] = None
+
+    addr_line1: Optional[str] = None
+    addr_line2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postal_code: Optional[str] = None
+    address_comment: Optional[str] = None
+    temp_addr_line1: Optional[str] = None
+    temp_addr_line2: Optional[str] = None
+    temp_city: Optional[str] = None
+    temp_state: Optional[str] = None
+    temp_postal_code: Optional[str] = None
+    temp_address_comment: Optional[str] = None
 
     @field_validator("id_type")
     @classmethod
@@ -55,10 +68,7 @@ class CustomerKycFields(BaseModel):
     def normalize_occupation(cls, v):
         if v is None or v == "":
             return None
-        value = str(v).strip().upper()
-        if value not in OCCUPATIONS:
-            raise ValueError("Occupation must be SALARY, SHOP, DAILY_WAGE, or OTHER.")
-        return value
+        return str(v).strip().upper().replace(" ", "_")
 
     @field_validator("house_ownership")
     @classmethod
@@ -90,11 +100,11 @@ class CustomerKycFields(BaseModel):
 class CustomerCreate(CustomerKycFields):
     full_name: str
     phone: str
-    permanent_address: str
+    permanent_address: Optional[str] = None
     temporary_address: Optional[str] = None
-    # FE wizard sends true. Default false so legacy/minimal API creates still work
-    # and existing customers can stay with empty KYC until edited.
     require_full_kyc: bool = False
+    # Optional FE echo of rules (ignored for security; server loads settings)
+    kyc_field_rules: Optional[dict[str, Any]] = None
 
     @field_validator("phone", mode="before")
     @classmethod
@@ -105,52 +115,9 @@ class CustomerCreate(CustomerKycFields):
         return digits
 
     @model_validator(mode="after")
-    def validate_full_kyc(self):
-        if not self.require_full_kyc:
-            return self
-        missing: list[str] = []
+    def baseline_name(self):
         if not (self.full_name or "").strip() or len(self.full_name.strip()) < 2:
-            missing.append("full_name")
-        if not self.phone:
-            missing.append("phone")
-        if not (self.permanent_address or "").strip():
-            missing.append("permanent_address")
-        if not self.id_type:
-            missing.append("id_type")
-        if not (self.id_number or "").strip():
-            missing.append("id_number")
-        if not (self.guarantor_name or "").strip():
-            missing.append("guarantor_name")
-        if not self.guarantor_phone:
-            missing.append("guarantor_phone")
-        if not self.alternate_phone:
-            missing.append("alternate_phone")
-        if not (self.temporary_address or "").strip():
-            missing.append("temporary_address")
-        if not self.occupation:
-            missing.append("occupation")
-        if self.occupation == "SHOP" and not (self.business_name or "").strip():
-            missing.append("business_name")
-        if self.monthly_income is None or self.monthly_income < 0:
-            missing.append("monthly_income")
-        if not (self.area_landmark or "").strip():
-            missing.append("area_landmark")
-        if not self.date_of_birth:
-            missing.append("date_of_birth")
-        if not self.gender:
-            missing.append("gender")
-        if not self.house_ownership:
-            missing.append("house_ownership")
-        if not (self.reference1_name or "").strip() or not self.reference1_phone:
-            missing.append("reference1")
-        if self.has_other_loans is None:
-            missing.append("has_other_loans")
-        if self.has_other_loans and (self.other_loans_emi is None or self.other_loans_emi < 0):
-            missing.append("other_loans_emi")
-        if missing:
-            raise ValueError(
-                "Complete borrower KYC is required: " + ", ".join(missing)
-            )
+            raise ValueError("Full name is required.")
         return self
 
 

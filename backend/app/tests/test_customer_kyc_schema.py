@@ -7,14 +7,17 @@ import pytest
 from pydantic import ValidationError
 
 from backend.app.schemas.customer import CustomerCreate
+from backend.app.services.kyc_defaults import (
+    missing_required_kyc,
+    normalize_kyc_field_rules,
+    compose_address,
+)
 
 
 def _full_kyc(**overrides):
     base = {
         "full_name": "Test Borrower",
         "phone": "9876543210",
-        "permanent_address": "12 Main St",
-        "temporary_address": "12 Main St",
         "require_full_kyc": True,
         "id_type": "AADHAAR",
         "id_number": "1234-5678-9012",
@@ -30,6 +33,14 @@ def _full_kyc(**overrides):
         "reference1_name": "Ref One",
         "reference1_phone": "9876543213",
         "has_other_loans": False,
+        "addr_line1": "12 Main St",
+        "city": "Hyderabad",
+        "state": "Telangana",
+        "postal_code": "500001",
+        "temp_addr_line1": "12 Main St",
+        "temp_city": "Hyderabad",
+        "temp_state": "Telangana",
+        "temp_postal_code": "500001",
     }
     base.update(overrides)
     return CustomerCreate(**base)
@@ -39,17 +50,18 @@ def test_full_kyc_accepted():
     c = _full_kyc()
     assert c.id_type == "AADHAAR"
     assert c.phone == "9876543210"
+    assert missing_required_kyc(c, normalize_kyc_field_rules(None)) == []
 
 
-def test_incomplete_kyc_rejected():
-    with pytest.raises(ValidationError) as exc:
-        CustomerCreate(
-            full_name="A",
-            phone="9876543210",
-            permanent_address="x",
-            require_full_kyc=True,
-        )
-    assert "Complete borrower KYC" in str(exc.value)
+def test_incomplete_kyc_detected_by_rules():
+    c = CustomerCreate(
+        full_name="A Name",
+        phone="9876543210",
+        require_full_kyc=True,
+    )
+    missing = missing_required_kyc(c, normalize_kyc_field_rules(None))
+    assert "id_type" in missing
+    assert "guarantor_name" in missing
 
 
 def test_minimal_create_allowed_without_full_kyc_flag():
@@ -63,16 +75,6 @@ def test_minimal_create_allowed_without_full_kyc_flag():
     assert c.guarantor_name is None
 
 
-def test_shop_requires_business_name():
-    with pytest.raises(ValidationError):
-        _full_kyc(occupation="SHOP", business_name=None)
-
-
-def test_other_loans_requires_emi():
-    with pytest.raises(ValidationError):
-        _full_kyc(has_other_loans=True, other_loans_emi=None)
-
-
 def test_invalid_id_type():
     with pytest.raises(ValidationError):
         _full_kyc(id_type="PASSPORT")
@@ -82,3 +84,15 @@ def test_phone_normalized_digits():
     c = _full_kyc(phone="98765-43210", alternate_phone="98765 43211")
     assert c.phone == "9876543210"
     assert c.alternate_phone == "9876543211"
+
+
+def test_compose_address():
+    assert (
+        compose_address(
+            line1="12 Street",
+            city="Hyd",
+            state="TS",
+            postal_code="500001",
+        )
+        == "12 Street, Hyd, TS, 500001"
+    )

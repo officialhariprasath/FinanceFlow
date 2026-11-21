@@ -17,6 +17,13 @@ import {
 import { isNativeApp, platformLabel } from "../../utils/platform";
 import { useAppUpdateContext } from "../../components/common/AppUpdateProvider";
 import type { FinanceSettings } from "../../types/settings";
+import type { KycFieldRule, OccupationOption } from "../../types/customer";
+import {
+  DEFAULT_KYC_FIELD_RULES,
+  DEFAULT_OCCUPATIONS,
+  KYC_RULE_LABELS,
+  mergeKycRules,
+} from "../../utils/kycFormDefaults";
 
 const SCORE_SCALE_MAX = 1000;
 
@@ -27,6 +34,7 @@ type SectionId =
   | "loans"
   | "penalties"
   | "score"
+  | "borrower"
   | "ids"
   | "regional";
 
@@ -110,6 +118,10 @@ export default function SettingsPage() {
     loan_code_next: 1,
     require_loan_approval: false,
   });
+  const [kycRules, setKycRules] =
+    useState<Record<string, KycFieldRule>>(DEFAULT_KYC_FIELD_RULES);
+  const [occupations, setOccupations] =
+    useState<OccupationOption[]>(DEFAULT_OCCUPATIONS);
 
   const sections = useMemo(() => {
     const base: { id: SectionId; label: string; ownerOnly?: boolean }[] = [
@@ -122,6 +134,7 @@ export default function SettingsPage() {
         { id: "loans", label: "Loan defaults", ownerOnly: true },
         { id: "penalties", label: "Grace & penalty", ownerOnly: true },
         { id: "score", label: "Credit score", ownerOnly: true },
+        { id: "borrower", label: "Borrower form", ownerOnly: true },
         { id: "ids", label: "ID prefixes", ownerOnly: true },
         { id: "regional", label: "Regional", ownerOnly: true }
       );
@@ -214,6 +227,12 @@ export default function SettingsPage() {
             loan_code_next: data.loan_code_next ?? 1,
             require_loan_approval: data.require_loan_approval === true,
           });
+          setKycRules(mergeKycRules(data.kyc_field_rules));
+          setOccupations(
+            data.occupation_options?.length
+              ? data.occupation_options
+              : DEFAULT_OCCUPATIONS
+          );
         }
         setBackupMeta(await getBackupMeta());
       } catch {
@@ -348,6 +367,8 @@ export default function SettingsPage() {
         loan_code_prefix: loanPrefix.toUpperCase(),
         code_number_padding: padding,
         require_loan_approval: form.require_loan_approval,
+        kyc_field_rules: kycRules,
+        occupation_options: occupations.filter((o) => o.value.trim() && o.label.trim()),
       });
       setForm((prev) => ({
         ...prev,
@@ -848,6 +869,142 @@ export default function SettingsPage() {
                         >
                           {recalibrating ? "Recalibrating…" : "Recalibrate scorecard"}
                         </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {section === "borrower" && (
+                    <div className="space-y-6">
+                      <div className="surface-card p-6">
+                        <h2 className="mb-1 font-semibold text-slate-800">
+                          Borrower form fields
+                        </h2>
+                        <p className="mb-4 text-sm text-slate-500">
+                          Choose what to collect and what is mandatory. Full name and primary
+                          mobile stay required. Existing customers with empty KYC are unchanged.
+                        </p>
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full text-sm">
+                            <thead>
+                              <tr className="border-b text-left text-slate-500">
+                                <th className="py-2 pr-3">Field</th>
+                                <th className="px-3 py-2">Collect</th>
+                                <th className="px-3 py-2">Required</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {Object.keys(KYC_RULE_LABELS).map((key) => {
+                                const rule = kycRules[key] || {
+                                  enabled: true,
+                                  required: false,
+                                };
+                                return (
+                                  <tr key={key} className="border-b border-slate-100">
+                                    <td className="py-2 pr-3 text-slate-800">
+                                      {KYC_RULE_LABELS[key]}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={rule.enabled}
+                                        onChange={(e) =>
+                                          setKycRules((prev) => ({
+                                            ...prev,
+                                            [key]: {
+                                              enabled: e.target.checked,
+                                              required: e.target.checked
+                                                ? prev[key]?.required ?? false
+                                                : false,
+                                            },
+                                          }))
+                                        }
+                                      />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <input
+                                        type="checkbox"
+                                        disabled={!rule.enabled}
+                                        checked={rule.enabled && rule.required}
+                                        onChange={(e) =>
+                                          setKycRules((prev) => ({
+                                            ...prev,
+                                            [key]: {
+                                              enabled: true,
+                                              required: e.target.checked,
+                                            },
+                                          }))
+                                        }
+                                      />
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <div className="surface-card p-6">
+                        <h2 className="mb-1 font-semibold text-slate-800">Occupations</h2>
+                        <p className="mb-4 text-sm text-slate-500">
+                          Options shown on the borrower form. Value{" "}
+                          <span className="font-medium">OTHER</span> always shows an extra
+                          text box. Keep at least one option.
+                        </p>
+                        <div className="space-y-3">
+                          {occupations.map((occ, idx) => (
+                            <div key={idx} className="flex flex-wrap items-center gap-2">
+                              <input
+                                className="input-field min-w-[8rem] flex-1 px-3 py-2"
+                                placeholder="VALUE"
+                                value={occ.value}
+                                onChange={(e) => {
+                                  const next = [...occupations];
+                                  next[idx] = {
+                                    ...next[idx],
+                                    value: e.target.value.toUpperCase().replace(/\s+/g, "_"),
+                                  };
+                                  setOccupations(next);
+                                }}
+                              />
+                              <input
+                                className="input-field min-w-[8rem] flex-1 px-3 py-2"
+                                placeholder="Label"
+                                value={occ.label}
+                                onChange={(e) => {
+                                  const next = [...occupations];
+                                  next[idx] = { ...next[idx], label: e.target.value };
+                                  setOccupations(next);
+                                }}
+                              />
+                              <button
+                                type="button"
+                                className="rounded border px-3 py-2 text-sm text-red-600"
+                                onClick={() =>
+                                  setOccupations((prev) =>
+                                    prev.length <= 1
+                                      ? prev
+                                      : prev.filter((_, i) => i !== idx)
+                                  )
+                                }
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="rounded-lg border border-slate-300 px-4 py-2 text-sm"
+                            onClick={() =>
+                              setOccupations((prev) => [
+                                ...prev,
+                                { value: "NEW", label: "New occupation" },
+                              ])
+                            }
+                          >
+                            + Add occupation
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}

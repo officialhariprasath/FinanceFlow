@@ -27,6 +27,7 @@ _KYC_ATTRS = (
     "date_of_birth",
     "gender",
     "occupation",
+    "occupation_detail",
     "business_name",
     "monthly_income",
     "area_landmark",
@@ -39,16 +40,71 @@ _KYC_ATTRS = (
     "reference2_phone",
     "has_other_loans",
     "other_loans_emi",
+    "addr_line1",
+    "addr_line2",
+    "city",
+    "state",
+    "postal_code",
+    "address_comment",
+    "temp_addr_line1",
+    "temp_addr_line2",
+    "temp_city",
+    "temp_state",
+    "temp_postal_code",
+    "temp_address_comment",
 )
 
 
 def _apply_customer_fields(db_customer: Customer, data: CustomerCreate) -> None:
+    from backend.app.services.kyc_defaults import compose_address
+
     db_customer.full_name = data.full_name
     db_customer.phone = data.phone
-    db_customer.permanent_address = data.permanent_address
-    db_customer.temporary_address = data.temporary_address
     for attr in _KYC_ATTRS:
         setattr(db_customer, attr, getattr(data, attr, None))
+
+    composed_perm = compose_address(
+        line1=data.addr_line1,
+        line2=data.addr_line2,
+        city=data.city,
+        state=data.state,
+        postal_code=data.postal_code,
+        comment=data.address_comment,
+        landmark=data.area_landmark,
+    )
+    db_customer.permanent_address = composed_perm or data.permanent_address
+
+    composed_temp = compose_address(
+        line1=data.temp_addr_line1,
+        line2=data.temp_addr_line2,
+        city=data.temp_city,
+        state=data.temp_state,
+        postal_code=data.temp_postal_code,
+        comment=data.temp_address_comment,
+    )
+    # Same-as-permanent: FE copies temp_* from permanent when checked
+    db_customer.temporary_address = (
+        composed_temp or data.temporary_address or db_customer.permanent_address
+    )
+
+
+def _enforce_kyc_rules(db: Session, finance_owner_id: int, customer: CustomerCreate) -> None:
+    if not customer.require_full_kyc:
+        return
+    from backend.app.services.finance_settings_service import get_finance_settings
+    from backend.app.services.kyc_defaults import (
+        missing_required_kyc,
+        normalize_kyc_field_rules,
+    )
+
+    settings = get_finance_settings(db, finance_owner_id)
+    rules = normalize_kyc_field_rules(getattr(settings, "kyc_field_rules", None))
+    missing = missing_required_kyc(customer, rules)
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Complete borrower KYC is required: " + ", ".join(missing),
+        )
 
 
 def create_customer(
@@ -60,6 +116,8 @@ def create_customer(
     Create a new customer for the authenticated finance owner.
     """
     from backend.app.utils.display_codes import allocate_display_code
+
+    _enforce_kyc_rules(db, finance_owner_id, customer)
 
     display_code = allocate_display_code(db, finance_owner_id, "customer")
 
@@ -172,6 +230,7 @@ def update_customer(
         finance_owner_id=finance_owner_id,
     )
 
+    _enforce_kyc_rules(db, finance_owner_id, data)
     _apply_customer_fields(customer, data)
 
     db.commit()

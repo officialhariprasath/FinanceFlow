@@ -13,6 +13,11 @@ def get_finance_settings(
     db: Session,
     finance_owner_id: int,
 ) -> FinanceSettings:
+    from backend.app.services.kyc_defaults import (
+        normalize_kyc_field_rules,
+        normalize_occupation_options,
+    )
+
     settings = (
         db.query(FinanceSettings)
         .filter(
@@ -28,6 +33,13 @@ def get_finance_settings(
         db.commit()
         db.refresh(settings)
 
+    # Expose normalized borrower-form config (not persisted unless owner saves).
+    settings.kyc_field_rules = normalize_kyc_field_rules(
+        getattr(settings, "kyc_field_rules", None)
+    )
+    settings.occupation_options = normalize_occupation_options(
+        getattr(settings, "occupation_options", None)
+    )
     return settings
 
 
@@ -98,6 +110,20 @@ def update_finance_settings(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(exc),
             ) from exc
+
+    from backend.app.services.kyc_defaults import (
+        normalize_kyc_field_rules,
+        normalize_occupation_options,
+    )
+
+    if "kyc_field_rules" in update_data:
+        update_data["kyc_field_rules"] = normalize_kyc_field_rules(
+            update_data["kyc_field_rules"]
+        )
+    if "occupation_options" in update_data:
+        update_data["occupation_options"] = normalize_occupation_options(
+            update_data["occupation_options"]
+        )
 
     for field, value in update_data.items():
         setattr(settings, field, value)

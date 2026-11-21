@@ -8,6 +8,8 @@ import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import CustomersPage from "../pages/customers/CustomersPage";
 import CustomerLedgerPage from "../pages/customers/CustomerLedgerPage";
+import CustomerFormPage from "../pages/customers/CustomerFormPage";
+import CustomerScorePage from "../pages/customers/CustomerScorePage";
 import LoansPage from "../pages/loans/LoansPage";
 import LoanDetailPage from "../pages/loans/LoanDetailPage";
 import PaymentsPage from "../pages/payments/PaymentsPage";
@@ -146,8 +148,20 @@ export default function AppRouter() {
           element={<ProtectedRoute><CustomersPage /></ProtectedRoute>}
         />
         <Route
+          path="/customers/new"
+          element={<ProtectedRoute><CustomerFormPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/customers/:customerId/edit"
+          element={<ProtectedRoute><CustomerFormPage /></ProtectedRoute>}
+        />
+        <Route
           path="/customers/:customerId/ledger"
           element={<ProtectedRoute><CustomerLedgerPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/customers/:customerId/score"
+          element={<ProtectedRoute><CustomerScorePage /></ProtectedRoute>}
         />
         <Route
           path="/loans"

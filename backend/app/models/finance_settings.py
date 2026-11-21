@@ -7,6 +7,7 @@ from sqlalchemy import (
     ForeignKey,
     DateTime,
 )
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -113,6 +114,10 @@ class FinanceSettings(Base):
 
     # When true, non-owner creates must go through loan approval requests.
     require_loan_approval = Column(Boolean, nullable=False, default=False)
+
+    # Borrower form config (null → app defaults on read)
+    kyc_field_rules = Column(JSON, nullable=True)
+    occupation_options = Column(JSON, nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),

@@ -98,6 +98,7 @@ export const PAGE_TITLES: Record<string, string> = {
   "/owner-account": "Owner Account",
   "/settlements": "My Settlement",
   "/customers": "Customers",
+  "/customers/new": "Add Customer",
   "/loans": "Loans",
   "/approvals": "Loan Approvals",
   "/payments": "Payments",

@@ -68,6 +68,21 @@ class Customer(Base):
     has_other_loans = Column(Boolean, nullable=True)
     other_loans_emi = Column(Numeric(12, 2), nullable=True)
 
+    # Split address (nullable; permanent_address / temporary_address stay composed)
+    addr_line1 = Column(String(200), nullable=True)
+    addr_line2 = Column(String(200), nullable=True)
+    city = Column(String(100), nullable=True)
+    state = Column(String(100), nullable=True)
+    postal_code = Column(String(20), nullable=True)
+    address_comment = Column(String(500), nullable=True)
+    temp_addr_line1 = Column(String(200), nullable=True)
+    temp_addr_line2 = Column(String(200), nullable=True)
+    temp_city = Column(String(100), nullable=True)
+    temp_state = Column(String(100), nullable=True)
+    temp_postal_code = Column(String(20), nullable=True)
+    temp_address_comment = Column(String(500), nullable=True)
+    occupation_detail = Column(String(150), nullable=True)
+
     finance_owner = relationship(
         "FinanceOwner",
         back_populates="customers"
