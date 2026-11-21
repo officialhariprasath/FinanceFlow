@@ -377,14 +377,16 @@ def get_customer_ledger(
             db, finance_owner_id, customer_id, commit=True
         )
         payload = score_to_response_dict(score_row)
+        computed_at = payload.get("computed_at")
         credit_score = CustomerCreditScoreSummary(
             score=payload["score"],
             band=payload["band"],
             file_type=payload["file_type"],
             suggested_max_amount=payload["suggested_max_amount"],
             reasons=payload.get("reasons") or [],
+            features=payload.get("features") or {},
             scorecard_version=payload.get("scorecard_version"),
-            computed_at=str(payload.get("computed_at") or ""),
+            computed_at=str(computed_at) if computed_at else None,
             advisory_only=True,
             score_max=1000,
         )
@@ -402,8 +404,9 @@ def get_customer_ledger(
                     "points": 0,
                 }
             ],
+            features={},
             scorecard_version="fallback",
-            computed_at="",
+            computed_at=None,
             advisory_only=True,
             score_max=1000,
         )

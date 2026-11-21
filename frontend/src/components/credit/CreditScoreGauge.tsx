@@ -35,18 +35,24 @@ export default function CreditScoreGauge({
     return () => window.clearTimeout(t);
   }, [value]);
 
-  // Room above for tick labels; pivot sits near bottom of viewBox
+  // Extra top pad so tick labels don't clip; pivot near bottom
+  const padTop = size * 0.08;
   const width = size;
-  const height = Math.round(size * 0.68);
+  const height = Math.round(size * 0.62 + padTop);
   const cx = width / 2;
-  const cy = height - size * 0.06;
-  const outerR = size * 0.4;
-  const thickness = size * 0.11;
+  const cy = height - size * 0.04;
+  const outerR = size * 0.38;
+  const thickness = size * 0.1;
   const innerR = outerR - thickness;
-  const needleLen = outerR - thickness * 0.35;
+  // Needle stops short of the arc so it never fights the number
+  const needleLen = innerR * 0.72;
   const needleAngle = scoreToAngle(animated);
   const tip = polar(cx, cy, needleLen, needleAngle);
   const updated = formatScoreUpdatedAt(score?.computed_at);
+
+  // Score sits in the open hollow — below the inner arc, above the hub
+  const scoreY = cy - innerR * 0.42;
+  const scoreFont = Math.min(innerR * 0.48, size * 0.13);
 
   if (!score) {
     return (
@@ -70,100 +76,100 @@ export default function CreditScoreGauge({
         </div>
       )}
 
-      <div className="relative w-full" style={{ maxWidth: size }}>
-        <svg
-          width="100%"
-          viewBox={`0 0 ${width} ${height}`}
-          role="img"
-          aria-label={`Credit score ${score.score} out of ${SCORE_MAX}`}
-          className="overflow-visible"
+      <svg
+        width="100%"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={`Credit score ${score.score} out of ${SCORE_MAX}`}
+        className="max-w-full overflow-visible"
+        style={{ maxWidth: size }}
+      >
+        <defs>
+          <filter id={`${uid}-soft`} x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="0" dy="1" stdDeviation="1" floodOpacity="0.15" />
+          </filter>
+        </defs>
+
+        <path
+          d={annularSectorPath(cx, cy, innerR, outerR, 0, 180)}
+          fill="#eef2f7"
+        />
+
+        {GAUGE_SEGMENTS.map((s) => {
+          const angles = segmentArcAngles(s.from, s.to);
+          if (!angles) return null;
+          return (
+            <path
+              key={s.from}
+              d={annularSectorPath(
+                cx,
+                cy,
+                innerR,
+                outerR,
+                angles.start,
+                angles.end
+              )}
+              fill={s.color}
+              filter={`url(#${uid}-soft)`}
+            />
+          );
+        })}
+
+        {[0, 250, 500, 750, 1000].map((tick) => {
+          const p = polar(cx, cy, outerR + size * 0.06, scoreToAngle(tick));
+          return (
+            <text
+              key={tick}
+              x={p.x}
+              y={p.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#94a3b8"
+              style={{ fontSize: Math.max(11, size * 0.038), fontWeight: 500 }}
+            >
+              {tick}
+            </text>
+          );
+        })}
+
+        {/* Score in hollow (drawn under needle so arc stays visible) */}
+        <text
+          x={cx}
+          y={scoreY}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="#0f172a"
+          style={{ fontSize: scoreFont, fontWeight: 700 }}
         >
-          <defs>
-            <filter id={`${uid}-soft`} x="-40%" y="-40%" width="180%" height="180%">
-              <feDropShadow dx="0" dy="1" stdDeviation="1" floodOpacity="0.15" />
-            </filter>
-          </defs>
-
-          {/* Light track behind blocks */}
-          <path
-            d={annularSectorPath(cx, cy, innerR, outerR, 0, 180)}
-            fill="#eef2f7"
-          />
-
-          {GAUGE_SEGMENTS.map((s) => {
-            const angles = segmentArcAngles(s.from, s.to);
-            if (!angles) return null;
-            return (
-              <path
-                key={s.from}
-                d={annularSectorPath(
-                  cx,
-                  cy,
-                  innerR,
-                  outerR,
-                  angles.start,
-                  angles.end
-                )}
-                fill={s.color}
-                filter={`url(#${uid}-soft)`}
-              />
-            );
-          })}
-
-          {[0, 250, 500, 750, 1000].map((tick) => {
-            const p = polar(cx, cy, outerR + size * 0.055, scoreToAngle(tick));
-            return (
-              <text
-                key={tick}
-                x={p.x}
-                y={p.y}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="#94a3b8"
-                style={{ fontSize: Math.max(11, size * 0.04), fontWeight: 500 }}
-              >
-                {tick}
-              </text>
-            );
-          })}
-
-          {/* Needle */}
-          <line
-            x1={cx}
-            y1={cy}
-            x2={tip.x}
-            y2={tip.y}
-            stroke="#1e293b"
-            strokeWidth={Math.max(2.5, size * 0.011)}
-            strokeLinecap="round"
-            style={{
-              transition:
-                "x2 0.9s cubic-bezier(0.22,1,0.36,1), y2 0.9s cubic-bezier(0.22,1,0.36,1)",
-            }}
-          />
-          <circle cx={cx} cy={cy} r={size * 0.042} fill="#0f172a" />
-          <circle cx={cx} cy={cy} r={size * 0.018} fill="#f8fafc" />
-        </svg>
-
-        {/* Score sits in the hollow of the arc (HTML for crisp type) */}
-        <div
-          className="pointer-events-none absolute inset-x-0 flex flex-col items-center"
-          style={{ top: "38%" }}
+          {score.score}
+        </text>
+        <text
+          x={cx}
+          y={scoreY + scoreFont * 0.55}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="#94a3b8"
+          style={{ fontSize: Math.max(11, size * 0.042), fontWeight: 500 }}
         >
-          <span
-            className="font-bold leading-none text-slate-900 dark:text-slate-50"
-            style={{ fontSize: Math.max(36, size * 0.18) }}
-          >
-            {score.score}
-          </span>
-          <span
-            className="mt-1 font-medium text-slate-400"
-            style={{ fontSize: Math.max(12, size * 0.045) }}
-          >
-            / {SCORE_MAX}
-          </span>
-        </div>
-      </div>
+          / {SCORE_MAX}
+        </text>
+
+        <line
+          x1={cx}
+          y1={cy}
+          x2={tip.x}
+          y2={tip.y}
+          stroke="#1e293b"
+          strokeWidth={Math.max(2.5, size * 0.011)}
+          strokeLinecap="round"
+          style={{
+            transition:
+              "x2 0.9s cubic-bezier(0.22,1,0.36,1), y2 0.9s cubic-bezier(0.22,1,0.36,1)",
+          }}
+        />
+        <circle cx={cx} cy={cy} r={size * 0.038} fill="#0f172a" />
+        <circle cx={cx} cy={cy} r={size * 0.016} fill="#f8fafc" />
+      </svg>
 
       <p className={`mt-1 text-sm font-semibold sm:text-base ${bandMessageClass(score.band)}`}>
         {bandMessage(score.band)}

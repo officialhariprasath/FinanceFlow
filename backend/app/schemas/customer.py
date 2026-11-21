@@ -184,11 +184,24 @@ class CustomerLedgerSummaryResponse(BaseModel):
     total_outstanding: Decimal
 
 
+class CustomerCreditScoreReason(BaseModel):
+    code: str
+    label: str
+    points: int = 0
+    feature: Optional[str] = None
+
+
 class CustomerCreditScoreSummary(BaseModel):
     score: int
     band: str
     file_type: str
     suggested_max_amount: Decimal
+    reasons: List[CustomerCreditScoreReason] = Field(default_factory=list)
+    features: dict[str, Any] = Field(default_factory=dict)
+    scorecard_version: Optional[str] = None
+    computed_at: Optional[str] = None
+    advisory_only: bool = True
+    score_max: int = 1000
 
 
 class CustomerLedgerResponse(BaseModel):

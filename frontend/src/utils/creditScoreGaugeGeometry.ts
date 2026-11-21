@@ -153,33 +153,38 @@ export function buildScoreFactors(score: {
   const f = score.features || {};
   const pillars = (f.pillars as Record<string, number> | undefined) || {};
 
-  const onTime = f.on_time_rate;
-  const onTimePct =
-    typeof onTime === "number" && Number.isFinite(onTime)
-      ? `${Math.round(onTime * 100)}%`
-      : "—";
+  const asNum = (v: unknown): number | null =>
+    typeof v === "number" && Number.isFinite(v)
+      ? v
+      : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))
+        ? Number(v)
+        : null;
 
-  const months = Number(f.months_as_customer) || 0;
+  const onTime = asNum(f.on_time_rate);
+  const onTimePct =
+    onTime != null ? `${Math.round(onTime * 100)}%` : "—";
+
+  const months = asNum(f.months_as_customer) ?? 0;
   const yrs = Math.floor(months / 12);
   const mos = months % 12;
   const ageLabel =
-    months > 0 ? (yrs > 0 ? `${yrs}yrs ${mos}mos` : `${mos}mos`) : "—";
+    months > 0 ? (yrs > 0 ? `${yrs}yrs ${mos}mos` : `${mos}mos`) : "New";
 
-  const outstanding = f.outstanding_ratio;
+  const outstanding = asNum(f.outstanding_ratio);
   const util =
-    typeof outstanding === "number" && Number.isFinite(outstanding)
-      ? `${Math.round(outstanding * 100)}%`
-      : "—";
+    outstanding != null ? `${Math.round(outstanding * 100)}%` : "—";
 
-  const overdue = Number(f.current_overdue_count) || 0;
-  const active = Number(f.active_loan_count) || 0;
-  const closed = Number(f.closed_loan_count) || 0;
-  const streak = Number(f.on_time_streak) || 0;
+  const overdue = asNum(f.current_overdue_count) ?? 0;
+  const active = asNum(f.active_loan_count) ?? 0;
+  const closed = asNum(f.closed_loan_count) ?? 0;
+  const streak = asNum(f.on_time_streak) ?? 0;
+  const totalLoans = active + closed;
 
-  const ph = pillars.payment_history;
+  const ph = asNum(pillars.payment_history);
   const phTone: ScoreFactor["tone"] =
-    typeof ph === "number" ? (ph >= 70 ? "good" : ph >= 40 ? "warn" : "warn") : "neutral";
+    ph != null ? (ph >= 70 ? "good" : "warn") : "neutral";
 
+  // Always return 6 cards so the Score tab never looks empty.
   return [
     {
       id: "payment",
@@ -192,11 +197,7 @@ export function buildScoreFactors(score: {
       value: util,
       label: "Outstanding ratio",
       tone:
-        typeof outstanding === "number"
-          ? outstanding <= 0.4
-            ? "good"
-            : "warn"
-          : "neutral",
+        outstanding != null ? (outstanding <= 0.4 ? "good" : "warn") : "neutral",
     },
     {
       id: "overdue",
@@ -212,13 +213,18 @@ export function buildScoreFactors(score: {
     },
     {
       id: "loans",
-      value: String(active + closed),
+      value: String(totalLoans),
       label: "Total loans",
-      tone: "good",
+      tone: totalLoans > 0 ? "good" : "neutral",
     },
     {
       id: "streak",
-      value: streak > 0 ? String(streak) : score.file_type === "THIN" ? "Thin" : "—",
+      value:
+        streak > 0
+          ? String(streak)
+          : score.file_type === "THIN"
+            ? "Thin"
+            : "Established",
       label: streak > 0 ? "On-time streak" : "File type",
       tone: streak >= 5 ? "good" : "neutral",
     },

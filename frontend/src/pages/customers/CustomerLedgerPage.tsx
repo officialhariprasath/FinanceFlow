@@ -15,7 +15,10 @@ import {
   getCustomerLedger,
   updateCustomer,
 } from "../../services/customerService";
-import { refreshCustomerCreditScore } from "../../services/creditScoreService";
+import {
+  getCustomerCreditScore,
+  refreshCustomerCreditScore,
+} from "../../services/creditScoreService";
 import type { CustomerLedger } from "../../types/ledger";
 import type { Customer, CustomerCreate } from "../../types/customer";
 import type { CreditScore } from "../../types/creditScore";
@@ -66,6 +69,7 @@ function CustomerLedgerPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [scoreRefreshing, setScoreRefreshing] = useState(false);
+  const [fullScore, setFullScore] = useState<CreditScore | null>(null);
   const [openPaymentLoanIds, setOpenPaymentLoanIds] = useState<Set<number>>(
     () => new Set()
   );
@@ -85,7 +89,24 @@ function CustomerLedgerPage() {
 
   useEffect(() => {
     loadLedger();
+    setFullScore(null);
   }, [customerId]);
+
+  useEffect(() => {
+    if (!customerId) return;
+    if (activeTab !== "score" && activeTab !== "overview") return;
+    let cancelled = false;
+    getCustomerCreditScore(Number(customerId))
+      .then((s) => {
+        if (!cancelled) setFullScore(s);
+      })
+      .catch(() => {
+        /* ledger summary is enough for gauge */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [customerId, activeTab]);
 
   function setTab(id: TabId) {
     setSearchParams({ tab: id }, { replace: true });
@@ -139,7 +160,8 @@ function CustomerLedgerPage() {
     if (!customerId) return;
     try {
       setScoreRefreshing(true);
-      await refreshCustomerCreditScore(Number(customerId));
+      const refreshed = await refreshCustomerCreditScore(Number(customerId));
+      setFullScore(refreshed);
       await loadLedger();
       toast.success("Credit score refreshed.");
     } catch (err: unknown) {
@@ -195,9 +217,21 @@ function CustomerLedgerPage() {
   const { customer, summary, loans } = ledger;
   const customerProfile = customer as Customer;
   const kycChip = kycStatusLabel(customerProfile);
-  const score = ledger.credit_score
-    ? ({ ...ledger.credit_score, reasons: ledger.credit_score.reasons || [] } as CreditScore)
+  const ledgerScore = ledger.credit_score
+    ? ({
+        ...ledger.credit_score,
+        reasons: ledger.credit_score.reasons || [],
+        features: ledger.credit_score.features || {},
+      } as CreditScore)
     : null;
+  // Prefer dedicated credit-score payload (always has reasons/features).
+  const score: CreditScore | null = fullScore
+    ? {
+        ...fullScore,
+        reasons: fullScore.reasons || [],
+        features: fullScore.features || {},
+      }
+    : ledgerScore;
 
   return (
     <MainLayout>

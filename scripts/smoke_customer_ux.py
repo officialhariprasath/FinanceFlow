@@ -161,11 +161,58 @@ def main() -> int:
                 score,
             )
             check("Score has band", bool(score.get("band")), score)
+            check(
+                "Ledger score includes reasons list",
+                isinstance(score.get("reasons"), list),
+                score,
+            )
+            check(
+                "Ledger score includes features dict",
+                isinstance(score.get("features"), dict),
+                score,
+            )
+            # Thin-file new customers may have empty reasons; refresh endpoint should still work
+            st_r, refreshed = request(
+                "POST", f"/credit-score/customers/{cid}/refresh", {}, token=token
+            )
+            check("Refresh credit score", st_r == 200, refreshed)
+            if st_r == 200:
+                check(
+                    "Refresh returns reasons list",
+                    isinstance((refreshed or {}).get("reasons"), list),
+                    refreshed,
+                )
+                check(
+                    "Refresh returns features",
+                    isinstance((refreshed or {}).get("features"), dict),
+                    refreshed,
+                )
+                st2, ledger2 = request("GET", f"/customers/{cid}/ledger", token=token)
+                score2 = (ledger2 or {}).get("credit_score") or {}
+                check(
+                    "Ledger after refresh still has reasons+features keys",
+                    isinstance(score2.get("reasons"), list)
+                    and isinstance(score2.get("features"), dict),
+                    score2,
+                )
         else:
-            check("Score may be null for new thin file", True)
+            check("Score may be null for new thin file", False, "credit_score missing")
 
         st, one = request("GET", f"/customers/{cid}", token=token)
         check("GET customer returns city", (one or {}).get("city") == "Hyderabad", one)
+
+        # Edge: incomplete KYC rejected when require_full_kyc
+        st_bad, bad = request(
+            "POST",
+            "/customers/",
+            {
+                "full_name": f"Bad UX {SUFFIX}",
+                "phone": phone(7),
+                "require_full_kyc": True,
+            },
+            token=token,
+        )
+        check("Incomplete KYC rejected", st_bad == 400 or st_bad == 422, bad)
 
     # Legacy empty customer still listable
     st, customers = request("GET", "/customers/", token=token)

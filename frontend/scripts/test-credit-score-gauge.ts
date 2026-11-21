@@ -66,4 +66,19 @@ assert.equal(factors.length, 6);
 assert.equal(factors[0].value, "99%");
 assert.equal(factors[2].value, "1");
 
+const emptyFactors = buildScoreFactors({ features: {}, file_type: "THIN" });
+assert.equal(emptyFactors.length, 6, "empty features still yield 6 factor cards");
+assert.equal(emptyFactors[0].value, "—");
+
+// Score text must sit below the inner arc (overlap guard used by component math)
+const size = 300;
+const height = Math.round(size * 0.62 + size * 0.08);
+const cy = height - size * 0.04;
+const outerR = size * 0.38;
+const innerR = outerR - size * 0.1;
+const scoreY = cy - innerR * 0.42;
+const innerArcTop = cy - innerR;
+assert.ok(scoreY > innerArcTop, "score baseline must be below inner arc top");
+assert.ok(scoreY < cy, "score baseline must be above hub");
+
 console.log("PASS: credit score gauge geometry (", GAUGE_SEGMENTS.length, "segments)");

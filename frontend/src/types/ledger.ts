@@ -49,10 +49,12 @@ export interface LedgerCreditScore {
   band: string;
   file_type: string;
   suggested_max_amount: string;
-  reasons?: { code: string; label: string; points: number; feature?: string }[];
+  reasons?: { code: string; label: string; points: number; feature?: string | null }[];
+  features?: Record<string, unknown> | null;
   scorecard_version?: string | null;
   computed_at?: string | null;
   advisory_only?: boolean;
+  score_max?: number;
 }
 
 export interface CustomerLedger {
