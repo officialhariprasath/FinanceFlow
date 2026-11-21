@@ -24,7 +24,8 @@ function CustomerLedgerPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const { hasPermission } = useAuth();
-  const canCreateLoan = hasPermission("loans.create");
+  const canCreateLoan =
+    hasPermission("loans.create") || hasPermission("loans.request");
   const canEditCustomer = hasPermission("customers.edit");
 
   const [ledger, setLedger] = useState<CustomerLedger | null>(null);

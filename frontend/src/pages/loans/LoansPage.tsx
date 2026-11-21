@@ -27,7 +27,8 @@ const PAGE_SIZE = 25;
 export default function LoansPage() {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
-  const canCreateLoan = hasPermission("loans.create");
+  const canCreateLoan =
+    hasPermission("loans.create") || hasPermission("loans.request");
   const canEditLoan = hasPermission("loans.edit");
   const canRecordPayment = hasPermission("payments") || hasPermission("payments.create") || canEditLoan;
 

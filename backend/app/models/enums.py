@@ -72,6 +72,7 @@ class Permission(str, Enum):
     CUSTOMERS_EDIT = "customers.edit"
     CUSTOMERS_DELETE = "customers.delete"
     LOANS_CREATE = "loans.create"
+    LOANS_REQUEST = "loans.request"
     LOANS_EDIT = "loans.edit"
     LOANS_APPROVE = "loans.approve"
 

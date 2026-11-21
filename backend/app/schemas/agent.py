@@ -102,13 +102,23 @@ PERMISSION_OPTIONS = [
         group="actions",
     ),
     PermissionOption(
+        key=Permission.LOANS_REQUEST.value,
+        label="Submit loans for approval",
+        group="actions",
+    ),
+    PermissionOption(
         key=Permission.LOANS_CREATE.value,
-        label="Create loans",
+        label="Create loans without approval",
         group="actions",
     ),
     PermissionOption(
         key=Permission.LOANS_EDIT.value,
         label="Edit loans",
+        group="actions",
+    ),
+    PermissionOption(
+        key=Permission.LOANS_APPROVE.value,
+        label="Approve loans",
         group="actions",
     ),
 ]

@@ -192,7 +192,7 @@ def main():
                 "customers",
                 "customers.create",
                 "loans",
-                "loans.create",
+                "loans.request",
                 "payments",
                 "settlements",
             ],

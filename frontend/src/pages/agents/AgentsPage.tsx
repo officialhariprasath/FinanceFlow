@@ -167,7 +167,9 @@ export default function AgentsPage() {
       // Drop related action flags when a module is turned off
       if (key === "loans") {
         set.delete("loans.create");
+        set.delete("loans.request");
         set.delete("loans.edit");
+        set.delete("loans.approve");
       }
       if (key === "customers") {
         set.delete("customers.create");
@@ -408,8 +410,12 @@ export default function AgentsPage() {
                   Actions
                 </p>
                 <p className="mb-2 text-xs text-slate-500">
-                  Optional write permissions. Turn these on to let the agent create
-                  customers/loans or open Edit Loan / Edit Customer screens.
+                  Loan flags: <span className="font-medium">Submit for approval</span> opens
+                  New Loan as a pending request;{" "}
+                  <span className="font-medium">Create without approval</span> disburses
+                  live; <span className="font-medium">Approve loans</span> reviews pending
+                  requests. Settings → “All new loans need approval” still forces submit for
+                  everyone except the owner.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {permissions

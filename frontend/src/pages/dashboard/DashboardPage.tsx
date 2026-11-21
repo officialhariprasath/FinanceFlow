@@ -23,7 +23,8 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { session, hasPermission } = useAuth();
   const isOwner = session?.is_owner ?? false;
-  const canCreateLoan = hasPermission("loans.create");
+  const canCreateLoan =
+    hasPermission("loans.create") || hasPermission("loans.request");
   const canAddCapital = isOwner && hasPermission("capital");
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);

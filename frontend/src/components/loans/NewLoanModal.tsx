@@ -139,11 +139,12 @@ export default function NewLoanModal({
     getLoanApprovalFlags()
       .then((f) => {
         setCanCreateLive(f.can_create_live);
-        setRequireApproval(f.require_approval);
+        setRequireApproval(f.require_approval || !f.can_create_live);
       })
       .catch(() => {
-        setCanCreateLive(hasPermission("loans.create"));
-        setRequireApproval(!hasPermission("loans.create"));
+        const live = hasPermission("loans.create");
+        setCanCreateLive(live);
+        setRequireApproval(!live);
       });
   }, [hasPermission]);
 

@@ -51,4 +51,5 @@ export interface LoanApprovalFlags {
   require_approval: boolean;
   can_approve: boolean;
   can_create_live: boolean;
+  can_submit: boolean;
 }

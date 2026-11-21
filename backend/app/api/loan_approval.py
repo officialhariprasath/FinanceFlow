@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from backend.app.core.auth import require_permissions
@@ -35,6 +35,15 @@ def submit_approval(
     db: Session = Depends(get_db),
     ctx: AuthContext = Depends(require_permissions(["loans"])),
 ):
+    # Prefer loans.request; allow loans.create so Settings force-approval
+    # does not brick agents who already had create-only.
+    if not ctx.is_owner:
+        perms = ctx.permissions or []
+        if "loans.request" not in perms and "loans.create" not in perms:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Missing permissions: loans.request",
+            )
     submitted_by = None if ctx.is_owner else ctx.actor_id
     return svc.submit_loan_approval(
         db,
@@ -83,16 +92,23 @@ def require_flag(
     ctx: AuthContext = Depends(require_permissions(["loans"])),
 ):
     has_create = ctx.is_owner or "loans.create" in ctx.permissions
+    can_submit = (
+        ctx.is_owner
+        or "loans.request" in ctx.permissions
+        or "loans.create" in ctx.permissions
+    )
     require_approval = svc.should_require_approval(
         db,
         ctx.finance_owner_id,
         is_owner=ctx.is_owner,
         has_loans_create=has_create,
     )
+    can_create_live = has_create and not require_approval
     return {
-        "require_approval": require_approval,
+        "require_approval": require_approval or (can_submit and not can_create_live),
         "can_approve": ctx.is_owner or "loans.approve" in ctx.permissions,
-        "can_create_live": has_create and not require_approval,
+        "can_create_live": can_create_live,
+        "can_submit": can_submit,
     }
 
 
