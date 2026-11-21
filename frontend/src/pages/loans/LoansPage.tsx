@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import ScrollableTable from "../../components/common/ScrollableTable";
 import MainLayout from "../../components/layout/MainLayout";
 import { PageLoading, PageError, EmptyState } from "../../components/common/PageStates";
@@ -26,6 +26,7 @@ const PAGE_SIZE = 25;
 
 export default function LoansPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { hasPermission } = useAuth();
   const canCreateLoan =
     hasPermission("loans.create") || hasPermission("loans.request");
@@ -38,6 +39,9 @@ export default function LoansPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showNewLoan, setShowNewLoan] = useState(false);
+  const [newLoanCustomerId, setNewLoanCustomerId] = useState<number | undefined>(
+    undefined
+  );
   const [editingLoan, setEditingLoan] = useState<LoanResponse | null>(null);
   const [paymentLoan, setPaymentLoan] = useState<LoanResponse | null>(null);
   const [menuLoanId, setMenuLoanId] = useState<number | null>(null);
@@ -63,6 +67,18 @@ export default function LoansPage() {
     const t = window.setTimeout(() => setDebouncedMobile(mobile.trim()), 300);
     return () => window.clearTimeout(t);
   }, [mobile]);
+
+  useEffect(() => {
+    const raw = searchParams.get("newLoanCustomerId");
+    if (!raw) return;
+    const id = Number(raw);
+    if (!Number.isFinite(id) || id <= 0) return;
+    setNewLoanCustomerId(id);
+    setShowNewLoan(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("newLoanCustomerId");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   async function loadCustomerMap() {
     try {
@@ -543,9 +559,14 @@ export default function LoansPage() {
 
       {showNewLoan && (
         <NewLoanModal
-          onClose={() => setShowNewLoan(false)}
+          preselectedCustomerId={newLoanCustomerId}
+          onClose={() => {
+            setShowNewLoan(false);
+            setNewLoanCustomerId(undefined);
+          }}
           onSuccess={() => {
             setShowNewLoan(false);
+            setNewLoanCustomerId(undefined);
             refreshAll();
           }}
         />

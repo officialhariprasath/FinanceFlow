@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import MainLayout from "../../components/layout/MainLayout";
 import CustomerForm from "../../components/customers/CustomerForm";
@@ -7,12 +7,14 @@ import CustomerKycDetails from "../../components/customers/CustomerKycDetails";
 import DeleteCustomerModal from "../../components/customers/DeleteCustomerModal";
 import NewLoanModal from "../../components/loans/NewLoanModal";
 import CreditScoreGauge from "../../components/credit/CreditScoreGauge";
+import CreditScoreCard from "../../components/credit/CreditScoreCard";
 
 import {
   deleteCustomer,
   getCustomerLedger,
   updateCustomer,
 } from "../../services/customerService";
+import { refreshCustomerCreditScore } from "../../services/creditScoreService";
 import type { CustomerLedger } from "../../types/ledger";
 import type { Customer, CustomerCreate } from "../../types/customer";
 import type { CreditScore } from "../../types/creditScore";
@@ -21,7 +23,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { kycStatusLabel } from "../../utils/customerKycDisplay";
 
-type TabId = "overview" | "details" | "loans";
+type TabId = "overview" | "details" | "loans" | "score";
 
 function useIsDesktop() {
   const [desktop, setDesktop] = useState(
@@ -49,7 +51,7 @@ function CustomerLedgerPage() {
   const canDeleteCustomer = hasPermission("customers.delete");
 
   const tab = (searchParams.get("tab") as TabId) || "overview";
-  const activeTab: TabId = ["overview", "details", "loans"].includes(tab)
+  const activeTab: TabId = ["overview", "details", "loans", "score"].includes(tab)
     ? tab
     : "overview";
 
@@ -62,6 +64,10 @@ function CustomerLedgerPage() {
   const [showNewLoan, setShowNewLoan] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [scoreRefreshing, setScoreRefreshing] = useState(false);
+  const [openPaymentLoanIds, setOpenPaymentLoanIds] = useState<Set<number>>(
+    () => new Set()
+  );
 
   async function loadLedger() {
     if (!customerId) return;
@@ -82,6 +88,15 @@ function CustomerLedgerPage() {
 
   function setTab(id: TabId) {
     setSearchParams({ tab: id }, { replace: true });
+  }
+
+  function togglePayments(loanId: number) {
+    setOpenPaymentLoanIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(loanId)) next.delete(loanId);
+      else next.add(loanId);
+      return next;
+    });
   }
 
   async function handleEditSubmit(data: CustomerCreate) {
@@ -116,6 +131,22 @@ function CustomerLedgerPage() {
     } finally {
       setDeleting(false);
       setDeleteOpen(false);
+    }
+  }
+
+  async function handleScoreRefresh() {
+    if (!customerId) return;
+    try {
+      setScoreRefreshing(true);
+      await refreshCustomerCreditScore(Number(customerId));
+      await loadLedger();
+      toast.success("Credit score refreshed.");
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : "Failed to refresh score.");
+    } finally {
+      setScoreRefreshing(false);
     }
   }
 
@@ -228,19 +259,20 @@ function CustomerLedgerPage() {
             </div>
           </div>
 
-          <div className="mt-4 flex gap-2 border-b border-slate-200 dark:border-slate-700">
+          <div className="mt-4 flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-700 sm:gap-2">
             {(
               [
                 ["overview", "Overview"],
                 ["details", "Details"],
                 ["loans", "Loans"],
+                ["score", "Score"],
               ] as const
             ).map(([id, label]) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setTab(id)}
-                className={`border-b-2 px-4 py-2 text-sm font-medium ${
+                className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium sm:px-4 ${
                   activeTab === id
                     ? "border-blue-600 text-blue-700 dark:text-blue-400"
                     : "border-transparent text-slate-500 hover:text-slate-800"
@@ -249,25 +281,20 @@ function CustomerLedgerPage() {
                 {label}
               </button>
             ))}
-            <Link
-              to={`/customers/${customerId}/score`}
-              className="border-b-2 border-transparent px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-800"
-            >
-              Score
-            </Link>
           </div>
         </div>
 
         {activeTab === "overview" && (
           <div className="grid gap-6 lg:grid-cols-2">
-            <div className="space-y-4">
+            <div className="space-y-3">
               <CreditScoreGauge score={score} />
-              <Link
-                to={`/customers/${customerId}/score`}
-                className="inline-block text-sm font-medium text-blue-600 hover:underline"
+              <button
+                type="button"
+                onClick={() => setTab("score")}
+                className="text-sm font-medium text-blue-600 hover:underline"
               >
                 Score details →
-              </Link>
+              </button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {[
@@ -295,6 +322,17 @@ function CustomerLedgerPage() {
           <CustomerKycDetails customer={customerProfile} />
         )}
 
+        {activeTab === "score" && (
+          <div className="mx-auto max-w-3xl space-y-6">
+            <CreditScoreGauge score={score} size={300} />
+            <CreditScoreCard
+              score={score}
+              onRefresh={canEditCustomer ? handleScoreRefresh : undefined}
+              refreshing={scoreRefreshing}
+            />
+          </div>
+        )}
+
         {activeTab === "loans" && (
           <div className="space-y-5">
             {loans.length === 0 ? (
@@ -302,90 +340,126 @@ function CustomerLedgerPage() {
                 No loans found for this customer.
               </div>
             ) : (
-              loans.map((loan) => (
-                <div key={loan.loan_id} className="surface-card">
-                  <div className="flex flex-col gap-4 border-b bg-slate-50 p-5 md:flex-row md:items-center md:justify-between dark:bg-slate-800/50">
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-2 md:grid-cols-5">
-                      <div>
-                        <p className="text-xs text-slate-500">Loan ID</p>
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/loans/${loan.loan_id}`)}
-                          className="font-semibold text-blue-600 hover:underline"
-                        >
-                          {loan.display_code || `#${loan.loan_id}`}
-                        </button>
+              loans.map((loan) => {
+                const paymentsOpen = openPaymentLoanIds.has(loan.loan_id);
+                return (
+                  <div key={loan.loan_id} className="surface-card overflow-hidden">
+                    <div className="flex flex-col gap-4 border-b bg-slate-50 p-5 md:flex-row md:items-center md:justify-between dark:bg-slate-800/50">
+                      <div className="grid grid-cols-2 gap-x-8 gap-y-2 md:grid-cols-5">
+                        <div>
+                          <p className="text-xs text-slate-500">Loan ID</p>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/loans/${loan.loan_id}`)}
+                            className="font-semibold text-blue-600 hover:underline"
+                          >
+                            {loan.display_code || `#${loan.loan_id}`}
+                          </button>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Principal</p>
+                          <p className="font-semibold">{fmt(loan.principal_amount)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Outstanding</p>
+                          <p className="font-semibold text-red-600">
+                            {fmt(loan.total_outstanding)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Issue</p>
+                          <p>{loan.issue_date}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Due</p>
+                          <p>{loan.due_date}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Principal</p>
-                        <p className="font-semibold">{fmt(loan.principal_amount)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Outstanding</p>
-                        <p className="font-semibold text-red-600">
-                          {fmt(loan.total_outstanding)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Issue</p>
-                        <p>{loan.issue_date}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Due</p>
-                        <p>{loan.due_date}</p>
-                      </div>
+                      <span
+                        className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${
+                          loan.status === "ACTIVE"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-slate-200 text-slate-600"
+                        }`}
+                      >
+                        {loan.status}
+                      </span>
                     </div>
-                    <span
-                      className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${
-                        loan.status === "ACTIVE"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-slate-200 text-slate-600"
-                      }`}
-                    >
-                      {loan.status}
-                    </span>
+
+                    <div className="p-3 sm:p-4">
+                      <button
+                        type="button"
+                        onClick={() => togglePayments(loan.loan_id)}
+                        className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-700/40"
+                        aria-expanded={paymentsOpen}
+                      >
+                        <span className="font-semibold text-slate-800 dark:text-slate-100">
+                          Payment History
+                          <span className="ml-2 text-sm font-normal text-slate-500">
+                            ({loan.payments.length})
+                          </span>
+                        </span>
+                        <span
+                          className={`text-slate-500 transition-transform ${
+                            paymentsOpen ? "rotate-180" : ""
+                          }`}
+                          aria-hidden
+                        >
+                          ▾
+                        </span>
+                      </button>
+
+                      {paymentsOpen && (
+                        <div className="mt-2 px-1 pb-2">
+                          {loan.payments.length === 0 ? (
+                            <p className="text-sm text-slate-500">
+                              No payments recorded yet.
+                            </p>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full text-sm">
+                                <thead>
+                                  <tr className="border-b bg-slate-50 dark:bg-slate-800/60">
+                                    <th className="px-3 py-2 text-left">Date</th>
+                                    <th className="px-3 py-2 text-right">Amount</th>
+                                    <th className="px-3 py-2 text-right">Principal</th>
+                                    <th className="px-3 py-2 text-right">Interest</th>
+                                    <th className="px-3 py-2 text-left">Mode</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {loan.payments.map((payment, index) => (
+                                    <tr
+                                      key={index}
+                                      className="border-b last:border-0"
+                                    >
+                                      <td className="px-3 py-2">
+                                        {payment.payment_date}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-medium">
+                                        {fmt(payment.amount_paid)}
+                                      </td>
+                                      <td className="px-3 py-2 text-right">
+                                        {fmt(payment.principal_paid)}
+                                      </td>
+                                      <td className="px-3 py-2 text-right">
+                                        {fmt(payment.interest_paid)}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        {payment.payment_mode}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="p-5">
-                    <h3 className="mb-3 font-semibold text-slate-800 dark:text-slate-100">
-                      Payment History
-                    </h3>
-                    {loan.payments.length === 0 ? (
-                      <p className="text-sm text-slate-500">No payments recorded yet.</p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full text-sm">
-                          <thead>
-                            <tr className="border-b bg-slate-50">
-                              <th className="px-3 py-2 text-left">Date</th>
-                              <th className="px-3 py-2 text-right">Amount</th>
-                              <th className="px-3 py-2 text-right">Principal</th>
-                              <th className="px-3 py-2 text-right">Interest</th>
-                              <th className="px-3 py-2 text-left">Mode</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {loan.payments.map((payment, index) => (
-                              <tr key={index} className="border-b last:border-0">
-                                <td className="px-3 py-2">{payment.payment_date}</td>
-                                <td className="px-3 py-2 text-right font-medium">
-                                  {fmt(payment.amount_paid)}
-                                </td>
-                                <td className="px-3 py-2 text-right">
-                                  {fmt(payment.principal_paid)}
-                                </td>
-                                <td className="px-3 py-2 text-right">
-                                  {fmt(payment.interest_paid)}
-                                </td>
-                                <td className="px-3 py-2">{payment.payment_mode}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}

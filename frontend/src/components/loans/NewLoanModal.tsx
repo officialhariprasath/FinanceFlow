@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 import { createLoan } from "../../services/loanService";
@@ -14,7 +15,7 @@ import {
   getLoanApprovalFlags,
   submitLoanApproval,
 } from "../../services/loanApprovalService";
-import CreditScoreCard from "../credit/CreditScoreCard";
+import CreditScoreGauge from "../credit/CreditScoreGauge";
 import BorrowerKycForm from "../customers/BorrowerKycForm";
 import api from "../../api/axios";
 import type { LoanCreate } from "../../types/loan";
@@ -29,6 +30,21 @@ import {
   installmentAmountLabel,
   type CollectionFrequency,
 } from "../../utils/loanCalc";
+
+function useIsDesktop() {
+  const [desktop, setDesktop] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(min-width: 768px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const onChange = () => setDesktop(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return desktop;
+}
 
 interface CustomerOption {
   id: number;
@@ -59,6 +75,8 @@ export default function NewLoanModal({
   onSuccess,
   preselectedCustomerId,
 }: Props) {
+  const navigate = useNavigate();
+  const isDesktop = useIsDesktop();
   const { hasPermission } = useAuth();
   const canCreateCustomer = hasPermission("customers.create");
 
@@ -327,7 +345,14 @@ export default function NewLoanModal({
                 {canCreateCustomer && (
                   <button
                     type="button"
-                    onClick={() => setMode("new")}
+                    onClick={() => {
+                      if (isDesktop) {
+                        onClose();
+                        navigate("/customers/new?after=new-loan");
+                        return;
+                      }
+                      setMode("new");
+                    }}
                     className={`flex-1 py-2 text-sm ${
                       mode === "new" ? "bg-blue-600 text-white" : ""
                     }`}
@@ -365,31 +390,53 @@ export default function NewLoanModal({
                     {scoreLoading ? (
                       <p className="text-sm text-slate-500">Loading credit score…</p>
                     ) : (
-                      <CreditScoreCard
-                        score={creditScore}
-                        compact
-                        refreshing={scoreRefreshing}
-                        onRefresh={async () => {
-                          const cid =
-                            selectedCustomerId || preselectedCustomerId || 0;
-                          if (!cid) return;
-                          try {
-                            setScoreRefreshing(true);
-                            setCreditScore(await refreshCustomerCreditScore(cid));
-                          } catch {
-                            /* keep prior */
-                          } finally {
-                            setScoreRefreshing(false);
-                          }
-                        }}
-                      />
+                      <div className="space-y-2">
+                        <CreditScoreGauge score={creditScore} size={200} />
+                        {creditScore && (
+                          <p className="text-center text-xs text-slate-500">
+                            Suggested next loan (advisory):{" "}
+                            <span className="font-semibold text-slate-700">
+                              {fmt(creditScore.suggested_max_amount)}
+                            </span>
+                            {hasPermission("customers.edit") && (
+                              <>
+                                {" · "}
+                                <button
+                                  type="button"
+                                  className="text-blue-600 hover:underline disabled:opacity-50"
+                                  disabled={scoreRefreshing}
+                                  onClick={async () => {
+                                    const cid =
+                                      selectedCustomerId ||
+                                      preselectedCustomerId ||
+                                      0;
+                                    if (!cid) return;
+                                    try {
+                                      setScoreRefreshing(true);
+                                      setCreditScore(
+                                        await refreshCustomerCreditScore(cid)
+                                      );
+                                    } catch {
+                                      /* keep prior */
+                                    } finally {
+                                      setScoreRefreshing(false);
+                                    }
+                                  }}
+                                >
+                                  {scoreRefreshing ? "Refreshing…" : "Refresh"}
+                                </button>
+                              </>
+                            )}
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
               </div>
             )}
 
-            {mode === "new" && (
+            {mode === "new" && !isDesktop && (
               <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 dark:border-slate-600 dark:bg-slate-700/40">
                 {pendingNewCustomer ? (
                   <div className="flex items-start justify-between gap-3">

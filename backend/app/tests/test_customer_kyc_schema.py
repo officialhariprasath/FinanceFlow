@@ -96,3 +96,15 @@ def test_compose_address():
         )
         == "12 Street, Hyd, TS, 500001"
     )
+
+
+def test_full_kyc_with_split_address_and_other_occupation():
+    c = _full_kyc(
+        occupation="OTHER",
+        occupation_detail="Auto rickshaw",
+        addr_line2="Block B",
+        address_comment="Near park",
+    )
+    assert c.occupation_detail == "Auto rickshaw"
+    assert c.addr_line2 == "Block B"
+    assert missing_required_kyc(c, normalize_kyc_field_rules(None)) == []
