@@ -8,6 +8,7 @@ import DeleteCustomerModal from "../../components/customers/DeleteCustomerModal"
 import NewLoanModal from "../../components/loans/NewLoanModal";
 import CreditScoreGauge from "../../components/credit/CreditScoreGauge";
 import CreditScoreCard from "../../components/credit/CreditScoreCard";
+import CreditFactorsGrid from "../../components/credit/CreditFactorsGrid";
 
 import {
   deleteCustomer,
@@ -324,7 +325,8 @@ function CustomerLedgerPage() {
 
         {activeTab === "score" && (
           <div className="mx-auto max-w-3xl space-y-6">
-            <CreditScoreGauge score={score} size={300} />
+            <CreditScoreGauge score={score} size={320} showHeader showUpdated />
+            <CreditFactorsGrid score={score} />
             <CreditScoreCard
               score={score}
               onRefresh={canEditCustomer ? handleScoreRefresh : undefined}

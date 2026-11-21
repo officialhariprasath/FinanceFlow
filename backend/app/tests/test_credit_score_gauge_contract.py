@@ -44,10 +44,10 @@ def band_label(band: str) -> str:
 
 def band_message(band: str) -> str:
     return {
-        "EXCELLENT": "Excellent score!",
-        "GOOD": "Great score!",
+        "EXCELLENT": "Excellent score",
+        "GOOD": "Good score",
         "FAIR": "Fair score",
-        "POOR": "Needs attention",
+        "POOR": "Poor score",
         "THIN_FILE": "Thin file",
     }.get(band, band_label(band))
 
@@ -76,5 +76,6 @@ def test_eight_gapped_segments():
 
 def test_band_copy():
     assert band_label("POOR") == "Poor"
-    assert band_message("GOOD") == "Great score!"
-    assert band_message("POOR") == "Needs attention"
+    assert band_message("GOOD") == "Good score"
+    assert band_message("POOR") == "Poor score"
+    assert band_message("FAIR") == "Fair score"
