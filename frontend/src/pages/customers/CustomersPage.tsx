@@ -136,11 +136,22 @@ function CustomersPage() {
   const filtered = useMemo(() => {
     const value = search.trim().toLowerCase();
     if (!value) return customers;
-    return customers.filter(
-      (c) =>
-        c.full_name.toLowerCase().includes(value) ||
-        c.phone.toLowerCase().includes(value)
-    );
+    return customers.filter((c) => {
+      const hay = [
+        c.full_name,
+        c.phone,
+        c.display_code,
+        c.alternate_phone,
+        c.id_number,
+        c.area_landmark,
+        c.guarantor_name,
+        c.guarantor_phone,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(value);
+    });
   }, [customers, search]);
 
   const withActiveLoans = useMemo(
@@ -179,7 +190,7 @@ function CustomersPage() {
         <div className="surface-card p-4">
           <input
             type="text"
-            placeholder="Search by name or phone number..."
+            placeholder="Search by name, phone, ID, area, or guarantor..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -252,9 +263,9 @@ function CustomersPage() {
       {/* Add / Edit modal */}
       {showForm && (
         <div className="modal-backdrop">
-          <div className="w-full max-w-lg rounded-xl bg-white p-1 shadow-xl dark:bg-slate-800">
+          <div className="w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-xl dark:bg-slate-800">
             {formError && (
-              <div className="mb-3 rounded-lg alert-error border p-3 text-sm text-red-700">
+              <div className="mx-4 mt-4 rounded-lg alert-error border p-3 text-sm text-red-700">
                 {formError}
               </div>
             )}

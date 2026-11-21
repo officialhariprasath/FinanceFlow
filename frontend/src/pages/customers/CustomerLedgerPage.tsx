@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import MainLayout from "../../components/layout/MainLayout";
 import CustomerForm from "../../components/customers/CustomerForm";
+import CustomerKycDetails from "../../components/customers/CustomerKycDetails";
 import NewLoanModal from "../../components/loans/NewLoanModal";
 import CreditScoreCard from "../../components/credit/CreditScoreCard";
 
@@ -13,11 +14,17 @@ import {
 import { refreshCustomerCreditScore } from "../../services/creditScoreService";
 
 import type { CustomerLedger } from "../../types/ledger";
-import type { CustomerCreate } from "../../types/customer";
+import type { Customer, CustomerCreate } from "../../types/customer";
 import type { CreditScore } from "../../types/creditScore";
 import { fmt } from "../../utils/fmt";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
+import {
+  ID_TYPE_LABELS,
+  OCCUPATION_LABELS,
+  kycStatusLabel,
+  labelOrDash,
+} from "../../utils/customerKycDisplay";
 
 function CustomerLedgerPage() {
   const { customerId } = useParams();
@@ -120,6 +127,8 @@ function CustomerLedgerPage() {
   }
 
   const { customer, summary, loans } = ledger;
+  const customerProfile = customer as Customer;
+  const kycChip = kycStatusLabel(customerProfile);
 
   return (
     <MainLayout>
@@ -135,14 +144,52 @@ function CustomerLedgerPage() {
         <div className="surface-card p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h1 className="page-title">{customer.full_name}</h1>
-              <p className="mt-2 text-slate-600">📞 {customer.phone}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="page-title">{customer.full_name}</h1>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    kycChip.tone === "ok"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {kycChip.label}
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                {customer.display_code || `#${customer.id}`}
+              </p>
+              <p className="mt-2 text-slate-600">{customer.phone}</p>
+              {customer.alternate_phone && (
+                <p className="text-sm text-slate-500">
+                  Alt: {customer.alternate_phone}
+                </p>
+              )}
               {customer.permanent_address && (
-                <p className="text-slate-600">📍 {customer.permanent_address}</p>
+                <p className="text-slate-600">{customer.permanent_address}</p>
               )}
-              {customer.temporary_address && (
-                <p className="text-sm text-slate-500">Temp: {customer.temporary_address}</p>
-              )}
+              {customer.temporary_address &&
+                customer.temporary_address !== customer.permanent_address && (
+                  <p className="text-sm text-slate-500">
+                    Current: {customer.temporary_address}
+                  </p>
+                )}
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
+                {customer.id_type && (
+                  <span>
+                    ID: {labelOrDash(customer.id_type, ID_TYPE_LABELS)}
+                    {customer.id_number ? ` · ${customer.id_number}` : ""}
+                  </span>
+                )}
+                {customer.occupation && (
+                  <span>
+                    Work: {labelOrDash(customer.occupation, OCCUPATION_LABELS)}
+                  </span>
+                )}
+                {customer.area_landmark && (
+                  <span>Area: {customer.area_landmark}</span>
+                )}
+              </div>
             </div>
             <div className="flex flex-wrap gap-3">
               {canCreateLoan && (
@@ -164,6 +211,8 @@ function CustomerLedgerPage() {
             </div>
           </div>
         </div>
+
+        <CustomerKycDetails customer={customerProfile} />
 
         <CreditScoreCard
           score={
@@ -311,20 +360,14 @@ function CustomerLedgerPage() {
       {/* Edit customer modal */}
       {showEditForm && (
         <div className="modal-backdrop">
-          <div className="w-full max-w-lg rounded-xl bg-white p-1 shadow-xl dark:bg-slate-800">
+          <div className="w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-xl dark:bg-slate-800">
             {editError && (
-              <div className="mb-3 rounded-lg alert-error border p-3 text-sm text-red-700">
+              <div className="mx-4 mt-4 rounded-lg alert-error border p-3 text-sm text-red-700">
                 {editError}
               </div>
             )}
             <CustomerForm
-              initialData={{
-                id: customer.id,
-                full_name: customer.full_name,
-                phone: customer.phone,
-                permanent_address: customer.permanent_address ?? "",
-                temporary_address: customer.temporary_address ?? "",
-              }}
+              initialData={customerProfile}
               loading={saving}
               onSubmit={handleEditSubmit}
               onCancel={() => { setShowEditForm(false); setEditError(""); }}

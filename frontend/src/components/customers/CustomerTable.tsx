@@ -1,6 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import type { Customer } from "../../types/customer";
 import ScrollableTable from "../common/ScrollableTable";
+import {
+  OCCUPATION_LABELS,
+  kycStatusLabel,
+  labelOrDash,
+} from "../../utils/customerKycDisplay";
 
 type CustomerTableProps = {
   customers: Customer[];
@@ -36,10 +41,32 @@ function CustomerTable({
             key={customer.id}
             className="rounded-lg border border-slate-200 p-4 dark:border-slate-600"
           >
-            <p className="font-semibold text-slate-800 dark:text-slate-100">
-              {customer.full_name}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold text-slate-800 dark:text-slate-100">
+                {customer.full_name}
+              </p>
+              {(() => {
+                const chip = kycStatusLabel(customer);
+                return (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      chip.tone === "ok"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {chip.label}
+                  </span>
+                );
+              })()}
+            </div>
             <p className="text-sm text-muted">{customer.phone}</p>
+            {customer.occupation && (
+              <p className="text-xs text-muted">
+                {labelOrDash(customer.occupation, OCCUPATION_LABELS)}
+                {customer.area_landmark ? ` · ${customer.area_landmark}` : ""}
+              </p>
+            )}
             <p className="mt-1 text-xs text-muted line-clamp-2">
               {customer.permanent_address || "—"}
             </p>
@@ -81,6 +108,8 @@ function CustomerTable({
                 <th>ID</th>
                 <th>Full Name</th>
                 <th>Phone</th>
+                <th>Work / Area</th>
+                <th>KYC</th>
                 <th>Permanent Address</th>
                 <th>Temporary Address</th>
                 <th className="text-center">Actions</th>
@@ -97,6 +126,34 @@ function CustomerTable({
                     {customer.full_name}
                   </td>
                   <td className="text-muted">{customer.phone}</td>
+                  <td className="text-muted">
+                    {customer.occupation || customer.area_landmark
+                      ? [
+                          customer.occupation
+                            ? labelOrDash(customer.occupation, OCCUPATION_LABELS)
+                            : null,
+                          customer.area_landmark || null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")
+                      : "—"}
+                  </td>
+                  <td>
+                    {(() => {
+                      const chip = kycStatusLabel(customer);
+                      return (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                            chip.tone === "ok"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {chip.label}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="text-muted">{customer.permanent_address || "—"}</td>
                   <td className="text-muted">{customer.temporary_address || "—"}</td>
                   <td>

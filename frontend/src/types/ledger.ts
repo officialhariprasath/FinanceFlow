@@ -1,3 +1,5 @@
+import type { CustomerKycFields } from "./customer";
+
 export interface LedgerPayment {
   payment_date: string;
   amount_paid: string;
@@ -22,7 +24,7 @@ export interface LedgerLoan {
   payments: LedgerPayment[];
 }
 
-export interface LedgerCustomer {
+export interface LedgerCustomer extends CustomerKycFields {
   id: number;
   display_code?: string;
   full_name: string;
